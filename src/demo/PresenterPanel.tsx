@@ -1,4 +1,4 @@
-// Presenter mode (/?stage): the 9 demo beats from CLAUDE.md "Demo story", who to be at each,
+// Presenter mode (/?stage): the demo beats from CLAUDE.md "Demo story", who to be at each,
 // and one click to become that person. Not shown to judges.
 import { useQuery } from "convex/react";
 import { useState } from "react";

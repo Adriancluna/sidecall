@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 24, 00:50 by Marco's Claude
+Last updated: Oct 24, 01:30 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -39,17 +39,19 @@ Last updated: Oct 24, 00:50 by Marco's Claude
 - ✓ `docs/` + presenter: after the $38K request the PE headline is **$650K** (not $612K); script/shot list/presenter updated; optional beat 2c "It reached their Slack" (outbox).
 - ✓ **Design review (gstack /design-review) on dev, desktop + 375px**, five small fixes: controls log keeps the Reason column readable (rule ids wrap at underscores); bill status chips say "Held until verified" like payment cards; phone header is no longer sticky and hides the "Signed in as" label; user switcher wide enough for "Jordan Ames (Northpass Capital) · PE firm". No layout or copy changes otherwise.
 
+- ✓ **AP import card** (`src/panels/ApImportPanel.tsx`, PE view, also shown with no incident; thanks Role 1 for #66): two CSV pickers + **Use sample files** (Lakeside via `?raw`), company fields prefilled (Lakeside Orthopedics / 450 / Morgan Ellis / Daniel Okoro), live `previewApImport` (vendors, ••last4, "already tracked: …" / "new vendor", **warnings in red**, problems), **Import** → "6 bills booked · 2 held on import ($66,400) · exposed to Brightline Payroll Inc." + both logins with the demo password; `ConvexError`s inline. Verified on dev mid-Brightline: preview shows the ••7731 warning, import moves the headline to **4 companies · 4,650 people · $678,400 held** (no $38K request), a second import says "lakesideortho.example is already in the portfolio.", Daniel shows in the switcher, no overflow at 375px. Presenter beat "A new acquisition (optional)" + script 4b + shot 5b.
+- ✓ **MCP Task 6:** the payment card's audit uses `getPaymentAudit`'s `actorName` (was resolving ids against `listUsers`, so an agent would have shown "Unknown user"). **Task 7:** script 2d + shot 3b (≤ 15 s recorded clip, never live). Task 8 (record the clip) is next, with Marco's own dev token.
+- ✓ Outbox keeps the line break between header and message (`whitespace-pre-line`); Role 1 was right, the stored text already has `\n`.
+- ✓ `docs/`: Role 4's AI texts are in, so the `[after 11pm]` AI lines are final (Devpost names Claude Opus 5.5 and MCP); only Role 3's map lines remain marked.
+
 ## In progress
-1. **AP import card in the PE view** (Role 1's ask from #66): next.
-2. MCP Tasks 6–8 after Role 1's Task 1 lands (agent label, copy, clip).
-3. `docs/` `[after 11pm]` lines once Role 3's map and Role 4's AI cache land; new asks from Role 1.
+1. MCP Task 8: record the agent clip on Marco's dev deployment, then Reset.
+2. UI audit fixes (`docs/specs/ui-audit-2026-10-24.md`) with Role 1's corrections: held card first and bigger, card trimmed, Release confirm naming the account, role-aware call copy (controller ≠ requester; keep Jamie's Release form for beat 3).
+3. `docs/` map lines once Role 3 lands.
 
 ## Needs from others
-- → **Role 1 (Adrian's agent): second opinion only, please don't act on it.** UI audit of the held payment card, company, PE and sign-in screens: `docs/specs/ui-audit-2026-10-24.md`. Do you agree with the issues and severities? Check the backend claims (Release/Reject rules, `canDecide`, escalation) and issue 5 against `blastRadius.ts`. No code, commits or deploys because of it. Reply in your handoff file; Marco decides the fixes.
-- → **Role 4:** notifications UI is live against Role 1's API; `convex/notify.ts` real sending (per the spec) is the remaining piece. Outbox shows `sent` / `failed` automatically once it lands.
-- → **Role 4:** `data/ai_cache.json` on `main` still has 0 entries (`generatedAt: null`), so the demo shows placeholder alert text. Please run `prompts/generate.mjs` and commit the cache; the Proof panel moves "AI writing" to Real automatically.
-- → **Role 4:** outbox text runs the header into the body with no separator ("Sidecall alert Urgent: …", "Sidecall: payment held until verified Your $480,000 …"). A colon or line break after the header in `convex/notify.ts` would fix it.
-- → **Role 1: MCP agent access is a GO (Marco + Adrian agreed), as a timeboxed stretch.** Plan: `docs/specs/mcp-implementation-plan.md` (#63). Start at **Gate 0** once the must-haves and the convex-reviewer pass are done; hard stops at T+45 / T+100 / T+120 min as written there; Task 5 only if T+100 is hit early. Never live on stage: recorded clip only. Post Task 1 (`getPaymentAudit` `actorName`) here when it lands; Role 2 then does Tasks 6–8 (agent label in the payment audit, copy, recorded clip with your token).
+- → **Role 4:** `convex/notify.ts` real sending (per the spec) is the remaining notifications piece; the outbox shows `sent` / `failed` once it lands.
+- → **Role 3:** the UI audit (#5, with Role 1's note) suggests the map tile show the deciding reason ("urgent: held payment to a changed account") and drop the raw score.
 
 ## Decisions & gotchas
 - Sign-in is invite-only (backend). The demo password `sidecall-demo` is shown on the sign-in screen on purpose: every person is simulated and judges need to switch roles. The form path sets the password on a person's first sign-in, so typing any other password the first time locks that person to it until a Reset; the quick-pick always uses the demo password.
