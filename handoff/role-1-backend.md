@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 24, 01:20 by Adrian's Claude
+Last updated: Oct 24, 02:40 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -53,6 +53,10 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 ## Status update (02:20)
 - **`convex/notify.ts` real sending done** (now Role 1's): Slack/Discord/generic webhook, 5 s timeout, one retry on 5xx/429/network, never throws, `sent`/`failed` with a URL-free error. Off by default (`simulated`). 45 tests (2 new with a stubbed `fetch`); rehearsal 25/25. ✓ closes Role 2's and Role 4's notify asks. Video recipe in CONTRACT.md → "Notifications".
 
+## In progress (Role 1, from the Armadin spec)
+1. Part C Convex fixes (C1–C7) + B3 rename  seed refs →  (~1.5 h).
+2. Part A backend: finding intake on  (our schema), storage, , labels, query fields, , tests, CONTRACT (~4–5 h). Omar's UI follows.
+
 ## Needs from others
 - → **Role 2 (Marco): optimize first, then pitch.** (1) Run `/simplify` on your `src/` files (not `src/map/`, that's Omar's now) and `PRODUCT.md`-level duplication; behavior unchanged, `npm run build` + `npm run rehearse` green; one PR. (2) Then the **video and Devpost** (they decide judging; numbers are in `docs/devpost.md` and `data/scorecard.json`). (3) MCP clip, then remaining audit polish. Hand the map placeholder to Omar: don't edit `src/map/` from here on.
 - → **Role 2 (Marco): second opinion on `docs/specs/ui-audit-2026-10-24-rerun.md`** (review only; you decide):
@@ -62,6 +66,11 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
   - **#4–#6 agree** (labels not raw values; smaller amounts in the firm view; `max-w-prose`). #7 agree, and it strengthens the money moment: grey ••2208 (trusted) → coral ••7731.
   - **#8:** "Decision needed" to IT: hide it for IT in the UI (the stored alert stays company-wide by design). "about 1 hours" is in `PaymentCard.tsx:138` (pluralize, and say "within the hour" under 1). **The backend half is fixed**: my escalation text could say "about 0 hours"; it now says "is due within the hour".
   - Nothing missing that I'd add; the list is accurate against `main` as far as I can verify from source.
+- → **Role 3+4 (Omar): new spec for you, approved by Adrian: .** Sidecall accepts a validated finding from an autonomous red team *like* Armadin (**our own schema**; Armadin's real format/API isn't available to us, so never write "Armadin integration" or "Armadin's format") and carries it to sister companies as **"reachable here · not tested"**; only the reporter's proven hops are "validated at source", firm view only. Your parts, in order:
+  1. **Inside the map build you're already doing (no wait on me):** B1 remove  from map tiles; B2 replace the bare "Confidence 90%" in  with words + bar ("High · self-reported link" / "Low · candidate link from public DNS").
+  2. **After Role 1 lands Part A** (I'll post here when shapes are live; until then build against spec §A5): map edge labels from : "validated at source" (reporter edge) / "reachable here · not tested" (exposed edges);  keeps "candidate · DNS".  shows a path block from  (technique + shared hop + "validated at another portfolio company · reachable here, not tested"). AI writers: use  + , and **never "validated" for a sister** (add to ); generate cache entries for .
+  3. **After Role 1 renames the  seed refs (B3):** rerun  and commit .
+  Ask here if any shape doesn't fit the map; I'll adjust the backend, not you.
 - → **Role 3+4 (Omar): optimize first, then build the map.** Details and order in `handoff/role-3-map.md`. `notify.ts` is no longer yours.
 - → **Role 2 (Marco): second opinion on `docs/specs/ui-audit-2026-10-24.md`** (review only; no code changed on my side; you decide):
   - **Agree, severities right:** #1 P0 ($480K must read from the back of the room; one-column when one card), #2 P0 (the card says the phone number 3×; keep amount + bank-change block + one action line, fold the rest into `<details>`), #3 P1 (confirming Reject but not Release is backwards; Release to ••7731 is the risky action; naming the destination in the confirm is a good touch). Backend agrees with your rules: release needs status `held`, actor ≠ requester, a **controller at that company**, and a note ≥ 15 chars that reads like a sentence; reject has the same checks minus the note. Both refuse inline (`{ ok: false, reason }`) and log the refusal.
