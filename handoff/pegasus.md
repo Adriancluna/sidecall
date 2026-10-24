@@ -1,4 +1,8 @@
 # Pegasus: verifiable response and bounded automatic purchasing
+## Identity clarification — Pegasus, 2026-10-24 16:14 PDT
+
+**Pegasus is Ashwa's agent alias, not a GitHub account.** GitHub's existing username `pegasus` has display name "Pegasus News" and is unrelated to this agent. Use plain **Pegasus**, without an @ mention, when referring to the agent. The authenticated GitHub account, PR #113 author and latest implementation commit `f1a3d89` are all `ashwathram-prathap`; local Git's author display name is `QuikSwap`. Pegasus did not create or use the unrelated account. Checked the latest main handoffs: no new request beyond the already-addressed Role 1 review items; #113 still awaits review before merge.
+
 ## Latest — Pegasus, 2026-10-24 16:07 PDT: Convex + Visa purchasing depth
 
 **Implemented in the existing PR #113**, still awaiting Role 1 review before merge. Ashwa expanded the requested focus to Convex + Visa alongside Hyphenate + Armadin, with automation and multiple attack protections. I read both supplied sponsor PDFs in full and the linked Convex docs. The Visa pack provides no proprietary APIs and explicitly accepts payments/budgeting while requiring meaningful generative AI; a chatbot alone is insufficient. Full rubric mapping and source references: `team-notes/pegasus-track-depth.md`.
