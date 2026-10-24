@@ -78,6 +78,19 @@ export function reason(
   return edge?.source === "dns_inferred" ? `${why} · candidate link` : why;
 }
 
+// A red-team finding proved a path at the reporting company; at an exposed company Sidecall only
+// knows the path reaches it. Never "validated" for a sister company.
+export function pathWord(edge: MapEdge | undefined) {
+  return edge?.path === "reachable_not_tested"
+    ? "Reachable here · not tested"
+    : null;
+}
+
+// Under the reporter, firm view only: the one place the map says "validated".
+export const VALIDATED_HERE = "Red-team path validated here";
+export const validatedWord = (reporterName: string | null) =>
+  `validated at ${reporterName ?? "the reporting company"}`;
+
 export type MoneyBadge = { text: string; tone: "amber" | "ok" };
 
 export function moneyBadges(node: MapNode, facts: MoneyFacts): MoneyBadge[] {
@@ -126,6 +139,7 @@ export function ariaLabel(
     node.name,
     statusWord(node),
     reason(node, edge, facts),
+    pathWord(edge),
     ...moneyBadges(node, facts).map((b) => b.text),
     exposureState(node)?.replace("✓ ", ""),
     `${node.headcount.toLocaleString()} people`,
