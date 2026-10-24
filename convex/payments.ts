@@ -291,6 +291,16 @@ export const getHeldPayments = query({
         const change = payment.flaggedBankChangeId
           ? await ctx.db.get("bankDetailChanges", payment.flaggedBankChangeId)
           : null;
+        // Earlier bank details for the same vendor, newest first, for the "old vs new" flag.
+        const earlier = change
+          ? await ctx.db
+              .query("bankDetailChanges")
+              .withIndex("by_assetId_and_changedAt", (q) =>
+                q.eq("assetId", change.assetId).lt("changedAt", change.changedAt),
+              )
+              .order("desc")
+              .take(20)
+          : [];
         return {
           payment,
           companyName: company?.name ?? "",
@@ -301,6 +311,9 @@ export const getHeldPayments = query({
               ? {
                   changedAt: change.changedAt,
                   accountLast4: change.accountLast4,
+                  previousAccountLast4: earlier[0]?.accountLast4 ?? null,
+                  lastVerifiedAccountLast4:
+                    earlier.find((c) => c.requestChannel === "verified_call")?.accountLast4 ?? null,
                   requestChannel: change.requestChannel,
                   daysBeforeIncident: Math.round(
                     (incident.createdAt - change.changedAt) / DAY_MS,

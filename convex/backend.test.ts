@@ -90,6 +90,15 @@ describe("incident intake", () => {
     });
     const byRef = Object.fromEntries(outcomes!.payments.map((p) => [p.seedRef, p]));
     expect(byRef.pay_C_brightline_480k).toMatchObject({ held: true, bankChangeFlag: true });
+    const clerk = await t.run(async (ctx) =>
+      (await ctx.db.query("users").take(200)).find((u) => u.name === "Jamie Chen")!._id,
+    );
+    const [summit] = await t.query(api.payments.getHeldPayments, { actingUserId: clerk });
+    expect(summit.bankChange).toMatchObject({
+      accountLast4: "7731",
+      previousAccountLast4: "4419", // also an email change: suspect
+      lastVerifiedAccountLast4: "2208", // the account confirmed by phone
+    });
     expect(byRef.pay_B_brightline_92k).toMatchObject({ held: true, bankChangeFlag: false });
     expect(byRef.pay_H_brightline_35k).toMatchObject({ held: false, status: "pending" }); // opted out
     expect(byRef.pay_B_brightline_paid).toMatchObject({ held: false, status: "paid" });
