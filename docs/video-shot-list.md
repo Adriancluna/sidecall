@@ -5,7 +5,7 @@ Owner: Role 2. Record after the feature freeze, following `docs/demo-script.md`.
 ## Setup
 
 - Browser at 1440×900 or 1920×1080, zoom 110–125% so text reads on a projector. Hide bookmarks and extensions.
-- Prod: **https://sidecall.vercel.app/?stage**. Press **Reset** right before recording (fresh "2 days before the breach" date).
+- Prod: **https://sidecall.vercel.app/?stage**. Press **Reset** right before recording (fresh "2 days before the incident" date).
 - Two tabs: A (presenter flow) and B (Kwame Mensah, for the race). Collapse the Presenter panel ("Hide") before each take so it isn't in frame, or crop it out.
 - Record with QuickTime / OBS. Voice-over can be recorded separately and laid over.
 

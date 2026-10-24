@@ -36,6 +36,7 @@ function SignedIn() {
         <CompanyView
           key={me._id}
           companyId={me.companyId}
+          meId={me._id}
           isController={me.role === "controller"}
         />
       )}

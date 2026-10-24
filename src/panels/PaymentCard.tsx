@@ -1,10 +1,11 @@
-// One held payment. Company controllers can release/reject; the PE firm only reads (canDecide=false).
+// One held payment. Company users see the Release form (the backend refuses the requester and
+// non-controllers, which is demo beat 3); the PE firm only reads (canDecide=false).
 // Refusals are expected outcomes (segregation of duties), shown inline, not as errors.
 import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { friendlyError } from "../layout/errors";
-import type { Doc } from "../../convex/_generated/dataModel";
+import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { dateTime, money } from "./format";
 import type { HeldPaymentRow } from "./types";
 import { Chip } from "./ui";
@@ -25,13 +26,19 @@ const STATUS_LABEL = {
   released: "Released",
 } as const;
 
+// Who is looking, so the instructions address the right person (the backend enforces the rules).
+export type Viewer = { id: Id<"users">; isController: boolean };
+
 type Props = {
   row: HeldPaymentRow;
   canDecide: boolean;
   escalation?: string;
+  viewer?: Viewer;
 };
 
-export function PaymentCard({ row, canDecide, escalation }: Props) {
+const HOUR = 3_600_000;
+
+export function PaymentCard({ row, canDecide, escalation, viewer }: Props) {
   const { payment } = row;
   const release = useMutation(api.payments.releasePayment);
   const reject = useMutation(api.payments.rejectPayment);
@@ -44,20 +51,22 @@ export function PaymentCard({ row, canDecide, escalation }: Props) {
     const incident = incidents?.find((i) => i._id === id);
     return incident ? `${incident.assetName} incident` : undefined;
   };
+  // Captured once: "due in about N hours" doesn't need to tick.
+  const [now] = useState(() => Date.now());
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string>();
 
   const decide = async (action: "release" | "reject") => {
-    // Rejecting is final and writes to the audit log: confirm first. Release already needs a note.
-    if (
-      action === "reject" &&
-      !window.confirm(
-        `Reject the ${money(payment.amountCents)} payment to ${row.vendorName}? This is final.`,
-      )
-    ) {
-      return;
-    }
+    // Both decisions are final and go on the record: confirm, naming where the money would go.
+    const changed = row.bankChange
+      ? `, an account changed by ${row.bankChange.requestChannel.replace("_", " ")} ${row.bankChange.daysBeforeIncident} days before the incident`
+      : "";
+    const question =
+      action === "release"
+        ? `Release ${money(payment.amountCents)} to ${row.vendorName} account ••${payment.accountLast4}${changed}?`
+        : `Reject the ${money(payment.amountCents)} payment to ${row.vendorName}? This is final.`;
+    if (!window.confirm(question)) return;
     setBusy(true);
     setRefusal(undefined);
     try {
@@ -76,11 +85,41 @@ export function PaymentCard({ row, canDecide, escalation }: Props) {
   };
 
   const isHeld = payment.status === "held";
+  const phone = (
+    <span className="font-mono whitespace-nowrap text-amber">
+      {row.phoneOnFile}
+    </span>
+  );
+  const callLine = !canDecide ? (
+    <>
+      Waiting on {row.companyName}'s controller to verify by calling {phone},
+      the number on file.
+    </>
+  ) : viewer?.id === payment.requestedBy ? (
+    <>
+      You requested this payment, so a controller must release it after calling{" "}
+      {phone}, the number on file.
+    </>
+  ) : viewer?.isController ? (
+    <>
+      Call {row.vendorName} at {phone}, the number on file, never one from a
+      recent email. Then release or reject.
+    </>
+  ) : (
+    <>
+      A controller verifies by calling {phone}, the number on file, then
+      releases or rejects.
+    </>
+  );
+  const hoursLeft =
+    payment.dueDate === undefined
+      ? undefined
+      : Math.max(0, Math.round((payment.dueDate - now) / HOUR));
   return (
     <article className="rounded-lg border border-line bg-graphite p-4">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <p className="text-2xl font-semibold tabular-nums">
+          <p className="text-4xl font-semibold tracking-tight tabular-nums md:text-5xl">
             {money(payment.amountCents)}
           </p>
           <p className="text-sm text-ash">
@@ -93,12 +132,10 @@ export function PaymentCard({ row, canDecide, escalation }: Props) {
         </Chip>
       </header>
 
-      {escalation && payment.status === "held" && (
-        <p
-          role="status"
-          className="mt-3 rounded-md border border-amber/50 bg-amber/10 px-3 py-2 text-sm text-amber"
-        >
-          {escalation}
+      {escalation && isHeld && (
+        <p role="status" className="mt-3 text-sm font-semibold text-amber">
+          Decision needed
+          {hoursLeft !== undefined && ` · due in about ${hoursLeft} hours`}
         </p>
       )}
 
@@ -129,7 +166,7 @@ export function PaymentCard({ row, canDecide, escalation }: Props) {
           </p>
           <p className="mt-1">
             Vendor bank details changed {row.bankChange.daysBeforeIncident} days
-            before the breach, requested by{" "}
+            before the incident, requested by{" "}
             {row.bankChange.requestChannel.replace("_", " ")}.
             {row.bankChange.lastVerifiedAccountLast4 &&
               ` ••${row.bankChange.lastVerifiedAccountLast4} is the last account confirmed by phone.`}{" "}
@@ -138,29 +175,27 @@ export function PaymentCard({ row, canDecide, escalation }: Props) {
         </div>
       )}
 
-      {row.holdReasons.length > 0 && (
-        <p className="mt-3 text-xs font-semibold text-ash">
-          {isHeld ? "Why it's held" : "Why it was held"}
-        </p>
-      )}
-      {row.holdReasons.length > 0 && (
-        <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-ash">
-          {row.holdReasons.map((r) => (
-            <li key={r}>{r}</li>
-          ))}
-        </ul>
-      )}
+      {isHeld && <p className="mt-3 text-sm">{callLine}</p>}
 
-      {row.notice && (
-        <p className="mt-3 text-sm leading-relaxed">{row.notice}</p>
-      )}
-
-      {isHeld && (
-        <p className="mt-3 text-sm">
-          Verify by calling{" "}
-          <span className="font-mono text-amber">{row.phoneOnFile}</span>, the
-          number on file. Never use a number from a recent email.
-        </p>
+      {(row.holdReasons.length > 0 || row.notice || escalation) && (
+        <details className="mt-3 text-sm">
+          <summary className="cursor-pointer text-ash">
+            {isHeld ? "Why it's held" : "Why it was held"}
+          </summary>
+          {row.holdReasons.length > 0 && (
+            <ul className="mt-2 list-disc space-y-0.5 pl-5 text-ash">
+              {row.holdReasons.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          )}
+          {row.notice && (
+            <p className="mt-2 max-w-prose leading-relaxed">{row.notice}</p>
+          )}
+          {escalation && isHeld && (
+            <p className="mt-2 max-w-prose leading-relaxed">{escalation}</p>
+          )}
+        </details>
       )}
 
       {canDecide && isHeld && (
@@ -225,8 +260,7 @@ export function PaymentCard({ row, canDecide, escalation }: Props) {
                   {a.action}
                 </span>
                 <span>
-                  <span className="font-medium">{a.actorName}</span>:{" "}
-                  {a.reason}{" "}
+                  <span className="font-medium">{a.actorName}</span>: {a.reason}{" "}
                   <span className="text-xs text-ash">
                     (
                     {[a.rule, incidentName(a.incidentId)]

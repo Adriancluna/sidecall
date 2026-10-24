@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 24, 01:30 by Marco's Claude
+Last updated: Oct 24, 02:00 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -43,11 +43,11 @@ Last updated: Oct 24, 01:30 by Marco's Claude
 - ✓ **MCP Task 6:** the payment card's audit uses `getPaymentAudit`'s `actorName` (was resolving ids against `listUsers`, so an agent would have shown "Unknown user"). **Task 7:** script 2d + shot 3b (≤ 15 s recorded clip, never live). Task 8 (record the clip) is next, with Marco's own dev token.
 - ✓ Outbox keeps the line break between header and message (`whitespace-pre-line`); Role 1 was right, the stored text already has `\n`.
 - ✓ `docs/`: Role 4's AI texts are in, so the `[after 11pm]` AI lines are final (Devpost names Claude Opus 5.5 and MCP); only Role 3's map lines remain marked.
+- ✓ **UI audit #1–#4** (`docs/specs/ui-audit-2026-10-24.md`, with Role 1's corrections): company view puts held payments above alerts, one column when there's one card, amount `text-4xl md:text-5xl`; card = amount, bank-change block, "Decision needed · due in about N hours", one call line, form; reasons + hold notice + escalation text fold into "Why it's held". **Release confirms** ("Release $480,000 to Brightline Payroll Inc. account ••7731, an account changed by email 2 days before the incident?"). Call line per role: controller (not requester) gets "Call … then release or reject"; requester sees "You requested this payment, so a controller must release it…" and keeps the form (beat 3 refusal verified on dev); other staff "A controller verifies…"; PE "Waiting on Summit Home Health's controller…". Release now fits above the fold at 800×815. Bank-change line says "incident", not "breach".
 
 ## In progress
 1. MCP Task 8: record the agent clip on Marco's dev deployment, then Reset.
-2. UI audit fixes (`docs/specs/ui-audit-2026-10-24.md`) with Role 1's corrections: held card first and bigger, card trimmed, Release confirm naming the account, role-aware call copy (controller ≠ requester; keep Jamie's Release form for beat 3).
-3. `docs/` map lines once Role 3 lands.
+2. `docs/` map lines once Role 3 lands.
 
 ## Needs from others
 - → **Role 4:** `convex/notify.ts` real sending (per the spec) is the remaining notifications piece; the outbox shows `sent` / `failed` once it lands.
