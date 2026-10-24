@@ -261,6 +261,20 @@ describe("timeline", () => {
   });
 });
 
+describe("demo readiness", () => {
+  test("fresh seed is ready; after firing it says to Reset", async () => {
+    const { t, fire } = await seeded();
+    process.env.DEMO_MODE = "true"; // eslint-disable-line @convex-dev/no-process-env
+    const fresh = await t.action(internal.ops.demoReadiness, {});
+    expect(fresh.ready).toBe(true);
+    await fire();
+    const after = await t.action(internal.ops.demoReadiness, {});
+    expect(after.ready).toBe(false);
+    expect(after.checks.find((c) => c.name === "$480K payment ready")?.detail).toMatch(/Reset/);
+    delete process.env.DEMO_MODE; // eslint-disable-line @convex-dev/no-process-env
+  });
+});
+
 describe("controls log", () => {
   test("PE sees every company's rows, a company only its own", async () => {
     const { as, fire } = await seeded();
