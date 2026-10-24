@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 24, 05:00 by Marco's Claude
+Last updated: Oct 24, night (council review handover) by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -56,6 +56,19 @@ Last updated: Oct 24, 05:00 by Marco's Claude
 3. Live-site run-through after this merges.
 
 ## Needs from others
+- **Council review (Oct 24, night): second opinion + GO / NO-GO from each human, please.** Report: `docs/brainstorm/council-2026-10-24.md` (12 reviewers; every bug re-checked against the code by a separate verifier). Nothing in it is decided yet. **Agents:** read the report, check the items for your role against the code, and write your second opinion under each item (agree / disagree + why). Do not start any work yet. **Humans:** mark each item **GO** or **NO-GO** on PR "docs: council review" (or here). Nothing here may block Omar's UI remake: if an item collides with it, the remake wins.
+  - → **Role 1 (Adrian):**
+    - A1. Presenter allowlist on `resetDemo` (+ ideally `containIncident`, `importPortfolioCompany`, `addChannel`, unsigned demo `/incident`). Anyone with the public password can reset prod today and sign everyone out (`convex/seed.ts:456-476`, `convex/http.ts:121-125`). ~15–60 min. GO / NO-GO
+    - A2. Readiness check: `ageDays < 2.5` (the card says "3 days" after 12h, `payments.ts:112` vs `ops.ts:56-57`); $480K due window 18–20h. ~20 min. Plus the rule: Reset prod at most 1h before stage. GO / NO-GO
+    - A3. Lakeside sample CSV has a fixed due date `2026-10-26` → escalates on import after Oct 25 17:00 UTC, "past due" after Oct 26. Make it relative (or Omar shifts it in `ApImportPanel`). GO / NO-GO
+    - A4. Finance gap (freeze-gated, your call): after the call the controller can only pay ••7731 or reject; after containment a new request pays ••7731 unheld (`payments.ts:236-258`). Option: "Pay last verified ••2208 instead" (1.5–3 h). Fallback: we only say "correcting the payee is next". GO / NO-GO / words only
+    - A5. Optional: `returns:` on the 6 public queries the UI uses (42 of 58 functions lack them); drop the duplicate `.agents/skills` (identical to `.claude/skills`). GO / NO-GO
+  - → **Role 3+4 (Omar):** none of this should slow the remake; fold in only what fits.
+    - O1. Pin the selected incident in the PE view (`?incident=` or sessionStorage). Today it follows the newest and resets on every person switch, so after the Ironclad beat Jordan marks the **wrong incident contained** (`PortfolioView.tsx:25-26`). Not in the remake prompt. GO / NO-GO
+    - O2. Rerun the scorecard: `data/scorecard.json` still has `bc_*_fraud` refs, shown on the Proof panel. Fix `scripts/scorecard/score.mjs:6` so a missing ref fails (`not_found`) instead of passing. ~1 h. GO / NO-GO
+    - O3. Scope of the remake: the council (4 of 12) suggests a thin "stage pass" first (incident pin, PE order, presenter dock, Acknowledge primary for Jamie too, $480K card full width, map copy only, keep the SVG map, no ECharts), merged only if `npm run rehearse` and a full script dry run pass. Your call entirely. GO thin / GO full / other
+    - O4. Small: Replay should re-post the last fired id (`DemoControls.tsx:145`); presenter beats follow Marco's new script order (O5 below); Fire button label "Pinecrest reports incident". GO / NO-GO
+  - → **Role 2 (Marco, me), docs only, waiting on your NO-GO if you object:** new script order (Jamie fires + refused → Jordan $612K → Rosa releases + race vs Kwame → close; optional beats off stage), 10-second hook, Devpost fixes (55 tests not 45, `[map]` is live, ":19 every sister exposed", "eight escalations", Bain wording), "Hard questions" section, backup video from current main before the remake lands.
 - Oct 24: Marco hands `src/` (all of it, incl. `index.css`, `index.html`) to Omar for the UI remake on `feat/ui-remake`.
 - → **Role 3+4 (Omar's agent): START HERE. The UI remake is your task now.** Marco hands you the whole frontend UI and the map. Do this in order, stopping to ask your human if any step fails or looks risky:
   1. Run `git status`. Never discard local work. If there are uncommitted changes, commit them by path to a new branch `wip/omar-<short-desc>`, then return to `main`. Never use `git add -A`, `git add .`, `git commit -a`, `git reset --hard`, `git clean` or force-push.
