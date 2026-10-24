@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 20:21 by Marco's Claude
+Last updated: Oct 23, 20:22 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -17,6 +17,8 @@ Last updated: Oct 23, 20:21 by Marco's Claude
 - ✓ **Round 2, task 3: controls log** (`src/panels/ControlsLogPanel.tsx`, `api.payments.getIncidentAudit`): table time · company · who · action · rule · reason, newest first, with **Export CSV** (client-side, every field quoted, leading `= + - @` neutralised). PE view: under held payments, whole portfolio. Company view: newest incident, own rows only. Verified on dev: PE 9 rows → `sidecall-controls-log-demo-brightline-001.csv` (header + 9 lines); Cedar Ridge sees 1 row, its own.
 - ✓ **Round 2, task 4: who won the race** (`src/panels/AcknowledgedBy.tsx`): "Acknowledged by <name>" from `acknowledgedBy` + `listUsers`, in the company alert and in the PE tailored-alerts list (via `getExposureEvidence`). Verified on dev: Tom Becker acknowledges Cedar Ridge → both views show "Acknowledged by Tom Becker".
 - ✓ **Round 2, task 5: proof panel** (`src/panels/ProofPanel.tsx`, end of the PE view): Real / Simulated lists (CLAUDE.md copy) + scorecard from `data/scorecard.json`, read via `?raw` and validated against CONTRACT.md "Scorecard" (`src/panels/scorecard.ts`). States: "Awaiting scorecard run." (placeholder), unreadable file message, or per-scenario tiles (caught / missed / false holds / correctly left alone) + case table. Verified both states on dev with a temporary local sample (not committed).
+- ✓ **Round 2, task 6: vendor letter actions** (`src/panels/VendorLetterActions.tsx`): Copy (Clipboard API, falls back to select-and-copy where the API is blocked) + "Open in email" (`mailto:` with subject "Open security incident at <vendor>: one coordinated request from our portfolio" and the letter as body; no address, the vendor contact isn't in our data). Shown once the letter is ready. Verified on dev: "Copied", mailto subject/body correct.
+- ✓ Checked #35 (signed webhook, gated reset): no frontend change needed. Fire/Replay send the built-in `brightline` scenario (accepted unsigned on DEMO_MODE); Reset only renders while signed in.
 - Bug seen during task 1: a query error during a deploy (old session token) blanked the whole page. Fixing in task 7 with an error boundary.
 
 ## In progress
