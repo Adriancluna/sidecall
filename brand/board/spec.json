@@ -1,0 +1,37 @@
+{
+  "brand": "Sidecall",
+  "tagline": "Warn the sister companies before the attacker moves sideways",
+  "brief": "A cross-company security alert system for private equity portfolios. When one portfolio company is breached, Sidecall finds which sister companies share the same attack surface (a shared login, MSP, payroll provider or identity system) and warns them before the attacker moves sideways, without ever revealing which company was hit.",
+  "adjectives": ["calm", "precise", "fast", "trustworthy"],
+  "criteria": "Success: reads as a warning system, not a weapon or a wall; avoids padlocks, shields, graphs, radar and the navy/electric-blue palette; holds at 16 px; reads on a dark projector slide.",
+  "industry": "software",
+  "mockups": ["readme", "website", "favicon-tab", "social", "sticker", "badge"],
+  "nav": ["How it works", "Portfolio", "Alerts"],
+  "brand_color": "#F5A524",
+  "tile_color": "#15171C",
+  "greyscale": false,
+  "final": true,
+  "designer": "Cal Hacks 13.0 team",
+  "concepts": [
+    {
+      "name": "Stopped Ripple",
+      "symbol": "../logo/sidecall-symbol.svg",
+      "lockup": "../logo/sidecall-horizontal-light.svg",
+      "stacked": "../logo/sidecall-stacked-light.svg",
+      "avatar": "../logo/sidecall-symbol-small.svg",
+      "symbol_on_tile": "../logo/sidecall-symbol-reversed.svg",
+      "symbol_on_dark": "../logo/sidecall-symbol-reversed.svg",
+      "lockup_on_dark": "../logo/sidecall-horizontal-dark.svg",
+      "stacked_on_dark": "../logo/sidecall-stacked-dark.svg",
+      "idea": "Four sibling tiles share one circular edge; the centre, the company that was hit, is never drawn.",
+      "rationale": [
+        "One shared exposure reaches every sibling at once, shown as the same cut in each tile",
+        "The breached company is negative space, matching the promise to never reveal it",
+        "No shield, wall or crosshair: the ripple is an absence, not a blast",
+        "Amber on graphite: a calm heads-up, clear of the category's red and navy"
+      ]
+    }
+  ],
+  "recommendation": "Use the amber symbol with the paper wordmark on graphite for slides, Devpost and the dark dashboard; the graphite version on light backgrounds.",
+  "next_steps": ["Drop web/ icons into the dashboard", "Use social/ images for Devpost and the title slide", "Run a trademark search before going public"]
+}
