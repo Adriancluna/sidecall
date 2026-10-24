@@ -9,6 +9,7 @@ import { holdPaymentsForIncident } from "./payments";
 import { scoreExposure } from "./scoring";
 import { getViewer } from "./access";
 import { enqueue, scheduleDispatchIfQueued } from "./notifications";
+import { formatUsd, MAX_FANOUT } from "./shared";
 
 export type RecordIncidentResult =
   | { ok: true; incidentId: Id<"incidents">; duplicate: boolean }
@@ -67,7 +68,7 @@ export async function recordIncidentImpl(
   const links = await ctx.db
     .query("links")
     .withIndex("by_assetId", (q) => q.eq("assetId", asset._id))
-    .take(500);
+    .take(MAX_FANOUT);
   const strongest = new Map<Id<"companies">, Doc<"links">>();
   for (const link of links) {
     if (link.companyId === reporter?._id) continue;
@@ -106,7 +107,7 @@ export async function recordIncidentImpl(
   const heldPayments = await ctx.db
     .query("payments")
     .withIndex("by_heldByIncidentId", (q) => q.eq("heldByIncidentId", incidentId))
-    .take(500);
+    .take(MAX_FANOUT);
   for (const payment of heldPayments) {
     await ctx.db.insert("alerts", {
       incidentId,
@@ -128,7 +129,7 @@ export async function recordIncidentImpl(
     text:
       `Sidecall incident: ${asset.vendorName} (${asset.name}). ` +
       `${strongest.size} compan${strongest.size === 1 ? "y" : "ies"} exposed · ${peopleExposed.toLocaleString("en-US")} people · ` +
-      `$${(heldCents / 100).toLocaleString("en-US")} in payments held until verified.` +
+      `${formatUsd(heldCents)} in payments held until verified.` +
       (reporter ? ` Reported by ${reporter.name}.` : ""),
   });
   await scheduleDispatchIfQueued(ctx);

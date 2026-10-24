@@ -6,6 +6,7 @@ import type { MutationCtx } from "./_generated/server";
 import { alertKind } from "./schema";
 import { getViewer } from "./access";
 import { enqueueAlert, scheduleDispatchIfQueued } from "./notifications";
+import { MAX_FANOUT } from "./shared";
 
 const alertInput = v.object({
   incidentId: v.id("incidents"),
@@ -86,7 +87,7 @@ export const getWritingContext = internalQuery({
     const exposures = await ctx.db
       .query("exposures")
       .withIndex("by_incidentId_and_companyId", (q) => q.eq("incidentId", args.incidentId))
-      .take(500);
+      .take(MAX_FANOUT);
     const companyAlerts = await Promise.all(
       exposures.map(async (e) => {
         const company = await ctx.db.get("companies", e.companyId);
@@ -104,7 +105,7 @@ export const getWritingContext = internalQuery({
     const payments = await ctx.db
       .query("payments")
       .withIndex("by_heldByIncidentId", (q) => q.eq("heldByIncidentId", args.incidentId))
-      .take(500);
+      .take(MAX_FANOUT);
     const heldPayments = await Promise.all(
       payments.map(async (p) => {
         const company = await ctx.db.get("companies", p.companyId);
@@ -164,7 +165,7 @@ export const getIncidentAlerts = query({
           .withIndex("by_incidentId_and_kind", (q) =>
             q.eq("incidentId", args.incidentId).eq("kind", kind),
           )
-          .take(500),
+          .take(MAX_FANOUT),
       ),
     );
     return groups.flat();

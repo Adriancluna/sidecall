@@ -4,6 +4,7 @@ import { internal } from "./_generated/api";
 import { auth } from "./auth";
 import { SCENARIOS } from "./seed";
 import { mcpHandler, mcpMethodNotAllowed } from "./mcp";
+import { toHex } from "./shared";
 
 const http = httpRouter();
 
@@ -32,7 +33,7 @@ async function hmacSha256Hex(secret: string, body: string): Promise<string> {
     ["sign"],
   );
   const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
-  return Array.from(new Uint8Array(signature), (b) => b.toString(16).padStart(2, "0")).join("");
+  return toHex(signature);
 }
 
 function constantTimeEqual(a: string, b: string): boolean {

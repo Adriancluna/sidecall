@@ -2,6 +2,7 @@
 import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
+import { formatUsd, MAX_FANOUT } from "./shared";
 
 const BASE_SCORE: Record<Doc<"links">["shareType"], number> = {
   shared_credential: 90,
@@ -75,7 +76,7 @@ export function scoreExposure(
   if (held.count > 0) {
     evidence.push({
       kind: "payments_held",
-      detail: `${held.count} pending payment(s) to ${asset.vendorName} held, $${(held.cents / 100).toLocaleString("en-US")}`,
+      detail: `${held.count} pending payment(s) to ${asset.vendorName} held, ${formatUsd(held.cents)}`,
     });
   }
   if (held.flagged > 0) {
@@ -113,13 +114,13 @@ export const exportOutcomes = internalQuery({
       .withIndex("by_assetId_and_status", (q) =>
         q.eq("assetId", incident.assetId),
       )
-      .take(500);
+      .take(MAX_FANOUT);
     const changes = await ctx.db
       .query("bankDetailChanges")
       .withIndex("by_assetId_and_changedAt", (q) =>
         q.eq("assetId", incident.assetId),
       )
-      .take(500);
+      .take(MAX_FANOUT);
     const flaggedChangeIds = new Set(
       payments.flatMap((p) =>
         p.heldByIncidentId === incident._id && p.flaggedBankChangeId

@@ -11,11 +11,10 @@ import { getViewer } from "./access";
 import { activeIncidentFor, holdPayment, recentBankChanges } from "./payments";
 import { scoreExposure } from "./scoring";
 import { enqueueAlert, scheduleDispatchIfQueued } from "./notifications";
+import { DAY_MS, demoEmail, formatUsd } from "./shared";
 
 const MAX_VENDORS = 200;
 const MAX_BILLS = 500;
-const DAY = 24 * 60 * 60 * 1000;
-const dollars = (cents: number) => `$${(cents / 100).toLocaleString("en-US")}`;
 
 // ---- CSV ----
 
@@ -198,7 +197,7 @@ async function matchVendors(ctx: QueryCtx, vendors: ParsedVendor[]) {
     let warning: string | null = null;
     if (asset && vendor.bankLast4 && verified && vendor.bankLast4 !== verified.accountLast4) {
       warning = fileChange
-        ? `Your AP system pays ${asset.vendorName} at ••${vendor.bankLast4}, set by ${fileChange.requestChannel.replace("_", " ")} ${Math.max(0, Math.round((Date.now() - fileChange.changedAt) / DAY))} days ago. The last account confirmed by phone is ••${verified.accountLast4}.`
+        ? `Your AP system pays ${asset.vendorName} at ••${vendor.bankLast4}, set by ${fileChange.requestChannel.replace("_", " ")} ${Math.max(0, Math.round((Date.now() - fileChange.changedAt) / DAY_MS))} days ago. The last account confirmed by phone is ••${verified.accountLast4}.`
         : `Your AP system pays ${asset.vendorName} at ••${vendor.bankLast4}; the last account confirmed by phone is ••${verified.accountLast4}.`;
     }
     return { vendor, asset, warning };
@@ -233,8 +232,6 @@ export const previewApImport = query({
 
 // ---- Import ----
 
-const demoEmail = (name: string, domain: string) =>
-  `${name.toLowerCase().replace(/[^a-z ]/g, "").trim().replace(/\s+/g, ".")}@${domain}`;
 
 export const importPortfolioCompany = mutation({
   args: {
@@ -377,7 +374,7 @@ export const importPortfolioCompany = mutation({
         "hold_payments_imported_during_incident",
         `Imported while ${asset.vendorName} is under an active security incident. Payment held until verified.`,
       );
-      const noticeBody = `Your ${dollars(b.amountCents)} payment to ${asset.vendorName} is held until verified.${result.flagged ? ` The account ending ${payment.accountLast4} was added recently.` : ""} Call ${asset.vendorName} at the number on file, ${asset.phoneOnFile}, not a number from a recent email. A controller other than the requester can then release or reject it.`;
+      const noticeBody = `Your ${formatUsd(b.amountCents)} payment to ${asset.vendorName} is held until verified.${result.flagged ? ` The account ending ${payment.accountLast4} was added recently.` : ""} Call ${asset.vendorName} at the number on file, ${asset.phoneOnFile}, not a number from a recent email. A controller other than the requester can then release or reject it.`;
       const noticeId = await ctx.db.insert("alerts", {
         incidentId: incident._id,
         companyId,

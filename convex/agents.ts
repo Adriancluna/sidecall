@@ -10,10 +10,11 @@ import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { viewerForUser } from "./access";
 import { billsFor, heldPaymentsFor, paymentAuditFor, requestPaymentFor, type HeldPaymentRow } from "./payments";
+import { formatUsd, toHex } from "./shared";
 
 export async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+  return toHex(digest);
 }
 
 // Randomness in an action: mutation randomness is seeded for determinism, so it isn't secret.
@@ -22,7 +23,7 @@ export const mint = internalAction({
   returns: v.object({ token: v.string() }),
   handler: async (ctx, args) => {
     const bytes = crypto.getRandomValues(new Uint8Array(32));
-    const token = `sc_agent_${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
+    const token = `sc_agent_${toHex(bytes)}`;
     await ctx.runMutation(internal.agents.insertAgent, { ...args, tokenHash: await sha256Hex(token) });
     return { token };
   },
@@ -130,7 +131,6 @@ export const logCall = internalMutation({
 // ---- Tool internals (read-only). Each builds the Viewer of the person the agent acts for, so
 // the agent sees exactly what that person would: their own company, never the reporter. ----
 
-const usd = (cents: number) => `$${(cents / 100).toLocaleString("en-US")}`;
 
 async function agentViewer(ctx: QueryCtx, agentId: Id<"agents">) {
   const agent = await ctx.db.get("agents", agentId);
@@ -160,7 +160,7 @@ export const listHeldPayments = internalQuery({
         paymentId: r.payment._id,
         vendorName: r.vendorName,
         amountCents: r.payment.amountCents,
-        amount: usd(r.payment.amountCents),
+        amount: formatUsd(r.payment.amountCents),
         status: r.payment.status,
         bankChangeFlag: r.payment.bankChangeFlag ?? false,
         holdReasons: r.holdReasons,
@@ -190,7 +190,7 @@ export const explainHold = internalQuery({
     return {
       paymentId,
       vendorName: row.vendorName,
-      amount: usd(row.payment.amountCents),
+      amount: formatUsd(row.payment.amountCents),
       status,
       holdReasons: row.holdReasons,
       bankChange: row.bankChange
@@ -218,7 +218,7 @@ export const listBills = internalQuery({
     return bills.map((b) => ({
       billId: b.bill._id,
       vendorName: b.vendorName,
-      amount: usd(b.bill.amountCents),
+      amount: formatUsd(b.bill.amountCents),
       dueDate: b.bill.dueDate,
       description: b.bill.description,
       payment: b.payment ? { paymentId: b.payment._id, status: b.payment.status } : null,
@@ -248,7 +248,7 @@ export const requestPayment = internalMutation({
       rule: "mcp_tool:request_payment",
       reason: `${agent.name} called request_payment: ${result.ok ? "ok" : "refused"}. ${
         result.ok
-          ? `Requested ${usd(payment!.amountCents)}${result.held ? `, held until verified${result.flagged ? " and flagged" : ""}` : ""}.`
+          ? `Requested ${formatUsd(payment!.amountCents)}${result.held ? `, held until verified${result.flagged ? " and flagged" : ""}` : ""}.`
           : result.reason
       }`,
     });

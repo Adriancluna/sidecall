@@ -4,10 +4,7 @@ import { v } from "convex/values";
 import { query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { canSeeCompany, getViewer } from "./access";
-
-// Fan-out reads are bounded: one incident reaches at most this many linked companies and
-// payments (incidents.ts and payments.ts read the same bound). Far above a PE portfolio.
-const MAX_FANOUT = 500;
+import { MAX_FANOUT } from "./shared";
 
 // Why a company appears on the map. Exported so the frontend can switch on it exhaustively.
 export type NodeRelation =
@@ -94,7 +91,7 @@ export const getBlastRadius = query({
             ctx.db
               .query("links")
               .withIndex("by_assetId", (q) => q.eq("assetId", a._id))
-              .take(500),
+              .take(MAX_FANOUT),
           ),
       )
     ).flat();
@@ -257,17 +254,17 @@ export const getIncidentTimeline = query({
         ? ctx.db
             .query("auditLog")
             .withIndex("by_incidentId", (q) => q.eq("incidentId", incident._id))
-            .take(500)
+            .take(MAX_FANOUT)
         : ctx.db
             .query("auditLog")
             .withIndex("by_companyId_and_incidentId", (q) =>
               q.eq("companyId", viewer.companyId).eq("incidentId", incident._id),
             )
-            .take(500),
+            .take(MAX_FANOUT),
       ctx.db
         .query("exposures")
         .withIndex("by_incidentId_and_companyId", (q) => q.eq("incidentId", incident._id))
-        .take(500),
+        .take(MAX_FANOUT),
       Promise.all(
         (["company_alert", "hold_notice", "vendor_letter"] as const).map((kind) =>
           ctx.db
@@ -275,7 +272,7 @@ export const getIncidentTimeline = query({
             .withIndex("by_incidentId_and_kind", (q) =>
               q.eq("incidentId", incident._id).eq("kind", kind),
             )
-            .take(500),
+            .take(MAX_FANOUT),
         ),
       ),
     ]);

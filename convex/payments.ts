@@ -6,13 +6,12 @@ import type { Doc, Id } from "./_generated/dataModel";
 import type { HeldSummary } from "./scoring";
 import { canSeeCompany, getViewer, type Viewer } from "./access";
 import { enqueueAlert, scheduleDispatchIfQueued } from "./notifications";
+import { DAY_MS, formatUsd, MAX_FANOUT } from "./shared";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 export const BANK_CHANGE_WINDOW_MS = 30 * DAY_MS;
 const MIN_NOTE_LENGTH = 15;
 const ESCALATE_WITHIN_MS = DAY_MS; // a held payment due within 24h gets escalated once
 
-const dollars = (cents: number) => `$${(cents / 100).toLocaleString("en-US")}`;
 
 // "Knows when to ask": a held payment nobody has decided, close to its due date, is pushed to
 // the company's controllers once, with an alert and an audit row. Never decides for them.
@@ -34,7 +33,7 @@ async function escalateIfDue(ctx: MutationCtx, payment: Doc<"payments">, now: nu
   const hours = Math.round(msLeft / (60 * 60 * 1000));
   const when = msLeft <= 0 ? "is past due" : `is due in about ${hours} hour${hours === 1 ? "" : "s"}`;
   const vendor = asset?.vendorName ?? "the vendor";
-  const body = `Decision needed: the ${dollars(payment.amountCents)} payment to ${vendor} ${when} and is still held. ${controllers.join(" or ") || "A controller"}: call ${vendor} at the number on file${asset ? ` (${asset.phoneOnFile})` : ""}, then release or reject it.`;
+  const body = `Decision needed: the ${formatUsd(payment.amountCents)} payment to ${vendor} ${when} and is still held. ${controllers.join(" or ") || "A controller"}: call ${vendor} at the number on file${asset ? ` (${asset.phoneOnFile})` : ""}, then release or reject it.`;
 
   await ctx.db.patch("payments", payment._id, { escalatedAt: now });
   const escalationId = await ctx.db.insert("alerts", {
@@ -147,7 +146,7 @@ export async function holdPaymentsForIncident(
   const pending = await ctx.db
     .query("payments")
     .withIndex("by_assetId_and_status", (q) => q.eq("assetId", asset._id).eq("status", "pending"))
-    .take(500);
+    .take(MAX_FANOUT);
 
   const companyCache = new Map<Id<"companies">, Doc<"companies"> | null>();
   for (const payment of pending) {
@@ -249,7 +248,7 @@ export async function requestPaymentFor(ctx: MutationCtx, viewer: Viewer, billId
     "hold_payments_requested_during_incident",
     `Requested while ${asset.vendorName} is under an active security incident. Payment held until verified.`,
   );
-  const noticeBody = `Your ${dollars(bill.amountCents)} payment to ${asset.vendorName} is held until verified. Call ${asset.vendorName} at the number on file, ${asset.phoneOnFile}, not a number from a recent email. A controller other than the requester can then release or reject it.`;
+  const noticeBody = `Your ${formatUsd(bill.amountCents)} payment to ${asset.vendorName} is held until verified. Call ${asset.vendorName} at the number on file, ${asset.phoneOnFile}, not a number from a recent email. A controller other than the requester can then release or reject it.`;
   const noticeId = await ctx.db.insert("alerts", {
     incidentId: incident._id,
     companyId: bill.companyId,
@@ -470,7 +469,7 @@ export async function heldPaymentsFor(
       .withIndex("by_heldByIncidentId", (q) =>
         q.eq("heldByIncidentId", args.incidentId),
       )
-      .take(500);
+      .take(MAX_FANOUT);
     if (args.companyId) {
       payments = payments.filter((p) => p.companyId === args.companyId);
     }
@@ -625,14 +624,14 @@ export const getIncidentAudit = query({
           .query("auditLog")
           .withIndex("by_incidentId", (q) => q.eq("incidentId", args.incidentId))
           .order("desc")
-          .take(500)
+          .take(MAX_FANOUT)
       : await ctx.db
           .query("auditLog")
           .withIndex("by_companyId_and_incidentId", (q) =>
             q.eq("companyId", viewer.companyId).eq("incidentId", args.incidentId),
           )
           .order("desc")
-          .take(500);
+          .take(MAX_FANOUT);
 
     const companyNames = new Map<Id<"companies">, string>();
     const companyName = async (id: Id<"companies">) => {

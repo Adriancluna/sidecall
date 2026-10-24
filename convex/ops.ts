@@ -1,13 +1,12 @@
 // Pre-stage checks: is this deployment ready to run the demo? Read-only.
 //   npx convex run ops:demoReadiness            (dev)
 //   npx convex run ops:demoReadiness --prod     (before going on stage)
-import { v } from "convex/values";
 import { env, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { ConvexError } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { SCENARIOS } from "./seed";
+import { DAY_MS, MAX_FANOUT } from "./shared";
 
-const DAY = 24 * 60 * 60 * 1000;
 
 type Check = { name: string; ok: boolean; detail: string };
 
@@ -43,7 +42,7 @@ export const readinessChecks = internalQuery({
     );
     add(
       "Escalation will show",
-      big?.dueDate !== undefined && big.dueDate - now > 0 && big.dueDate - now <= DAY,
+      big?.dueDate !== undefined && big.dueDate - now > 0 && big.dueDate - now <= DAY_MS,
       big?.dueDate
         ? `$480K due in ${((big.dueDate - now) / (60 * 60 * 1000)).toFixed(1)}h (needs 0–24h; Reset refreshes it)`
         : "no due date: Reset to reseed",
@@ -52,7 +51,7 @@ export const readinessChecks = internalQuery({
     // "Bank details changed 2 days before the breach" only reads right shortly after seeding.
     const changes = await ctx.db.query("bankDetailChanges").take(100);
     const fraud = changes.find((c) => c.seedRef === "bc_brightline_7731_fraud");
-    const ageDays = fraud ? (now - fraud.changedAt) / DAY : null;
+    const ageDays = fraud ? (now - fraud.changedAt) / DAY_MS : null;
     add(
       "Bank-change story fresh",
       ageDays !== null && ageDays < 3,
@@ -117,7 +116,8 @@ export const addScalePortfolio = internalMutation({
   args: { count: v.number() },
   handler: async (ctx, { count }) => {
     if (env.DEMO_MODE !== "true") throw new ConvexError("Scale benchmark only runs where DEMO_MODE=true.");
-    if (count < 1 || count > 450) throw new ConvexError("count must be 1–450 (fan-out reads up to 500 links).");
+    const max = MAX_FANOUT - 50; // leave room for the seed's own links to Brightline
+    if (count < 1 || count > max) throw new ConvexError(`count must be 1–${max} (fan-out reads up to ${MAX_FANOUT} links).`);
     const brightline = await ctx.db
       .query("assets")
       .withIndex("by_name", (q) => q.eq("name", "Brightline Payroll"))
