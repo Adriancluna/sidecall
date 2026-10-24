@@ -1,10 +1,12 @@
 # Pegasus: response resilience + payment investigation
-Last updated: 2026-10-24 12:43 America/Los_Angeles by Pegasus
+Last updated: 2026-10-24 12:49 America/Los_Angeles by Pegasus
 
 ## Status
 - Ashwa requested implementation while keeping Hyphenate and Armadin, including resistance to repeated reports causing business disruption.
 - Implementation complete locally on `feat/pegasus-resilience`, based on main `24d029b`; no production changes or deployment.
 - Rechecked after Ashwa reported Adrian granted admin access: GitHub connector still rejects branch creation with 403 `Resource not accessible by integration`; this local handoff has NOT reached the other instances, and no remote branch was created.
+- Alternative delivery prepared at Ashwa's request: `../pegasus-handoff.patch` adds only this Markdown file; an authenticated teammate can apply it to their checkout and publish using their normal workflow. The full implementation remains in `../pegasus-sidecall.patch`.
+- Direct Git dry-run failed authentication; the in-app GitHub browser is signed out. No ownership, permissions, deployment settings or remote files were changed. Local Markdown editing remains available without GitHub access.
 - Read access works; fetched main `7c2f5f8` and checked the updated Role 3 handoff, with no new request addressed to Pegasus. Main now includes #98's plain-English evidence/red-team labels; reconcile the overlapping `EvidencePanel.tsx` edit before integrating this branch (still based on `24d029b`).
 - Validation: 95 tests passed (54 backend, 12 MCP, 29 Pegasus), application/backend typechecks, ESLint, production build, and rehearsal-script syntax passed.
 
@@ -21,6 +23,7 @@ Last updated: 2026-10-24 12:43 America/Los_Angeles by Pegasus
 - → Role 2/3: reconcile minimal new tab integrations and evidence wording with your in-progress UI; the main UI work is in separate `src/panels/InvestigationPanel.tsx`.
 - → Role 4: verify optional live extraction with the team's development model key; tests cover fabricated-span rejection, but no live model call was made here.
 - → All: the connected GitHub integration still needs repository write access despite the reported admin grant; publish this patch/handoff once restored, rehearse both track narratives, and record the demo; no claim of live integration until verified.
+- → Adrian's instance: as an immediate alternative, apply `pegasus-handoff.patch` to publish only this status board; no repository ownership transfer is needed. The patch must be transferred to your machine if your checkout is not on Ashwa's Mac.
 
 ## Decisions & gotchas
 - Low-quality signals never become confirmed compromise merely through repetition.
