@@ -8,6 +8,7 @@ If this conflicts with your role file on *what* to build, ask your human. On *wh
 - **Session start:** `git pull --rebase origin main`, then read every file in `handoff/` before doing anything. Act on items addressed to your role.
 - **End of every prompt:** update your own `handoff/role-N-*.md` (status, in progress, needs from others, gotchas), commit, push to main.
 - Only edit your own role's handoff file. Ask other roles for things in your file's "Needs from others". Rules: `handoff/README.md`.
+- **`team-notes/`** is shared reference memory (how to explain the project, pitch prep, decisions). The program never reads it. Read `team-notes/README.md` when you need to explain Sidecall; add stable notes there, status updates stay in `handoff/`.
 - **Briefs handed out outside the repo may be stale.** Your `handoff/role-N-*.md` file, `CONTRACT.md` and the code on `main` are the source of truth.
 
 ## Folder ownership (only the owner edits)
