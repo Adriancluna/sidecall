@@ -1,5 +1,5 @@
 # Pegasus: response resilience + payment investigation
-Last updated: 2026-10-24 14:01 America/Los_Angeles by Pegasus
+Last updated: 2026-10-24 14:12 America/Los_Angeles by Pegasus
 
 ## Status
 - Ashwa requested implementation while keeping Hyphenate and Armadin, including resistance to repeated reports causing business disruption.
@@ -13,6 +13,7 @@ Last updated: 2026-10-24 14:01 America/Los_Angeles by Pegasus
 - Latest access check requested by Ashwa: public Git fetch works and main remains `02b5a33`; direct push dry-run cannot obtain a GitHub username/credential. The GitHub connector briefly appeared and then became unavailable before a write check, so its current permission is unverified (not a new 403). Vercel CLI/auth/linkage and Convex local auth/deployment configuration are absent from this checkout; no relevant environment credentials are exported. Remote account invitations/roles may have changed, but access is not yet usable here. No push or deployment occurred.
 - Prepared `../pegasus-sign-in.command` for Ashwa to run interactively: GitHub CLI browser sign-in and Git credential setup, Vercel sign-in/link to existing team/project, and `npx convex login` (verified available in the installed CLI). Script syntax checked; no sign-ins have been completed by Pegasus, and the script contains no push/deploy commands. Latest remote handoff check remains `02b5a33`.
 - Ashwa's supplied Terminal output confirms GitHub CLI authentication succeeded as `ashwathram-prathap`; repository write permission has not yet been rechecked. The script reached Vercel login and shows only a progress spinner, with no input prompt yet; Vercel and Convex sign-ins are not confirmed. Advised waiting for the browser/login prompt instead of restarting the script. Remote handoffs checked again: main remains `02b5a33`.
+- Spinner diagnosis: npm log for `vercel login` shows repeated package-download ETIMEDOUT/ECONNRESET failures before login. Advised Control+C, then new `../pegasus-resume-sign-in.command`: runs already-installed Convex login first, retries Vercel with cached packages, visible HTTP progress, reduced concurrency and bounded request retries; no code push/deployment. Syntax checked. Remote handoffs checked with no new changes; authentication outcomes remain pending.
 - Validation: 95 tests passed (54 backend, 12 MCP, 29 Pegasus), application/backend typechecks, ESLint, production build, and rehearsal-script syntax passed.
 
 ## Completed locally
