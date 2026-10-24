@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 19:43 by Marco's Claude
+Last updated: Oct 23, 20:10 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -11,13 +11,16 @@ Last updated: Oct 23, 19:43 by Marco's Claude
 - Company view: alerts (Acknowledge + Close), held payment cards (release/reject, refusals inline, audit log with who + incident), ledger (cash + AP).
 - PE view: headline, blast radius + evidence, selected company's held payments, tailored alerts list, all held payments (read-only), vendor letter.
 - Demo controls: Fire incident / Replay webhook (`POST /incident`). Reset only on `/?stage`; after Reset everyone is signed out and lands on the sign-in screen.
-- ✓ **Live re-test with `REQUIRE_SESSION=true` on prod:** signed in as Jamie, $480K held + old → new flag, release refused ("The person who requested a payment cannot also approve it."); switched to Jordan: "3 companies exposed · 4,200 people behind them · $612,000 in payments held"; Replay → duplicate, nothing new written; a direct query with only `actingUserId` and no session → "Not signed in". Controller release not re-run on prod (tested on dev) to keep the demo data clean.
+- ✓ **Round 2, task 1: prod end-to-end re-test** (session-only): Reset on `?stage` → everyone signed out, reseeded; Jamie → Fire incident → "incident recorded" → release refused ("The person who requested a payment cannot also approve it."); Jordan → "3 companies exposed · 4,200 people behind them · $612,000 in payments held"; Rosa → call note → release → status paid, ledger cash $5,000,000 → $4,520,000, AP $480,000 → $0; Reset again → prod left clean (8 companies, no incident).
+- ✓ **Round 2, task 2: presenter mode** on `/?stage` (`src/demo/PresenterPanel.tsx`): collapsible panel with the 9 demo beats, what to say, tips, "Sign in as" per beat (Jamie → Rosa → Jordan; beat 8 says open a second tab as Kwame Mensah for the race), current person marked. Works signed out too (after Reset).
+- Bug seen during task 1: a query error during a deploy (old session token) blanked the whole page. Fixing in task 7 with an error boundary.
 
 ## In progress
-1. Next: scorecard panel (when Role 4's `data/scorecard.json` exists), demo script, Devpost, backup video.
+1. Role 1's "do first" bug: decided payment cards (`decision`), "Why it was held", hide note box, PE "released after verification: $X" line.
+2. Round 2 tasks 3 → 8 in order (controls log + CSV, acknowledged by, proof panel, vendor letter buttons, errors/polish, docs/).
 
 ## Needs from others
-- → Role 1: `actingUserId` is gone from `src/` once this PR merges; safe to drop it from the API after that.
+- (none right now)
 
 ## Decisions & gotchas
 - Sign-in is invite-only (backend). The demo password `sidecall-demo` is shown on the sign-in screen on purpose: every person is simulated and judges need to switch roles. The form path sets the password on a person's first sign-in, so typing any other password the first time locks that person to it until a Reset; the quick-pick always uses the demo password.

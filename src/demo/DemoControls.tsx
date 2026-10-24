@@ -2,6 +2,7 @@
 import { useMutation } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
+import { IS_STAGE } from "./stage";
 
 // Mirrors SCENARIOS.brightline in convex/seed.ts (not imported: that file is server code).
 const DEMO_INCIDENT = {
@@ -19,10 +20,6 @@ const SITE_URL =
     /\.convex\.cloud$/,
     ".convex.site",
   );
-
-// Reset wipes the portfolio, so it only shows for the presenter (open the app with ?stage).
-// The real guard is DEMO_MODE on the deployment; this just keeps judges from hitting it.
-const IS_STAGE = new URLSearchParams(window.location.search).has("stage");
 
 const BUTTON =
   "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50";

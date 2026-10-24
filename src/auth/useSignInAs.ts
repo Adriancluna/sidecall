@@ -1,4 +1,5 @@
 import { useAuthActions } from "@convex-dev/auth/react";
+import { useConvexAuth } from "convex/react";
 
 // Shared password for the seeded demo users (CONTRACT.md "Sign-in"). Simulated people only.
 export const DEMO_PASSWORD = "sidecall-demo";
@@ -13,5 +14,16 @@ export function useSignInAs() {
     } catch {
       await signIn("password", { email, password, flow: "signUp" });
     }
+  };
+}
+
+// Switch to another seeded person: end the current session first, then sign in as them.
+export function useSwitchTo() {
+  const { signOut } = useAuthActions();
+  const { isAuthenticated } = useConvexAuth();
+  const signInAs = useSignInAs();
+  return async (email: string) => {
+    if (isAuthenticated) await signOut();
+    await signInAs(email);
   };
 }

@@ -3,20 +3,19 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useState } from "react";
 import { useCurrentUser } from "./currentUser";
 import { ROLE_LABEL, useDirectory } from "./directory";
-import { useSignInAs } from "./useSignInAs";
+import { useSwitchTo } from "./useSignInAs";
 
 export function UserMenu() {
   const me = useCurrentUser();
   const directory = useDirectory();
   const { signOut } = useAuthActions();
-  const signInAs = useSignInAs();
+  const switchToPerson = useSwitchTo();
   const [busy, setBusy] = useState(false);
 
   const switchTo = async (email: string) => {
     setBusy(true);
     try {
-      await signOut();
-      await signInAs(email);
+      await switchToPerson(email);
     } finally {
       setBusy(false);
     }
