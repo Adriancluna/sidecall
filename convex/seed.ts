@@ -32,6 +32,8 @@ const TABLES: TableNames[] = [
   "authVerifiers",
   "authRateLimits",
   "auditLog",
+  "responseSteps",
+  "responsePolicies",
   "ledgerEntries",
   "alerts",
   "exposures",
@@ -167,6 +169,14 @@ const PINECREST_FINDING: Finding = {
   evidence: [{ kind: "session", summary: "Interactive logon as ironclad-svc on pinecrest-jump01 08:09 UTC" }],
   confidence: 0.92,
 };
+
+const PLAYBOOKS: { company: CompanyKey; action: "pause_shared_login" | "revoke_vendor_tokens"; mode: "notify" | "prepare" | "act" }[] = [
+  { company: "B", action: "pause_shared_login", mode: "act" },
+  { company: "B", action: "revoke_vendor_tokens", mode: "prepare" },
+  { company: "E", action: "pause_shared_login", mode: "prepare" },
+  { company: "F", action: "pause_shared_login", mode: "notify" },
+  { company: "F", action: "revoke_vendor_tokens", mode: "notify" },
+];
 
 export const SCENARIOS = {
   brightline: {
@@ -308,6 +318,7 @@ async function seedAll(ctx: MutationCtx) {
 
   const clerkIds = {} as Record<CompanyKey, Id<"users">>;
   const controllerIds = {} as Record<CompanyKey, Id<"users">>;
+  const itIds = {} as Partial<Record<CompanyKey, Id<"users">>>;
   for (const [key, people] of Object.entries(USERS) as [CompanyKey, (typeof USERS)[CompanyKey]][]) {
     const domain = COMPANIES[key].domain;
     clerkIds[key] = await ctx.db.insert("users", {
@@ -323,7 +334,7 @@ async function seedAll(ctx: MutationCtx) {
       email: demoEmail(people.controller, domain),
     });
     if (people.it) {
-      await ctx.db.insert("users", {
+      itIds[key] = await ctx.db.insert("users", {
         companyId: companyIds[key],
         name: people.it,
         role: "it",
@@ -331,6 +342,21 @@ async function seedAll(ctx: MutationCtx) {
       });
     }
   }
+  // Response playbooks (docs/specs/response-playbook.md), set by each company's own people.
+  // Cedar Ridge pre-approved pausing its shared logins (proposed by IT, confirmed by the controller);
+  // Granite Peak wants one click; Harborline only wants to be told. Everyone else: notify (no row).
+  for (const p of PLAYBOOKS) {
+    await ctx.db.insert("responsePolicies", {
+      companyId: companyIds[p.company],
+      action: p.action,
+      mode: p.mode,
+      version: 1,
+      setBy: itIds[p.company] ?? controllerIds[p.company],
+      confirmedBy: p.mode === "act" ? controllerIds[p.company] : undefined,
+      setAt: now - 30 * DAY_MS,
+    });
+  }
+
   const peId = await ctx.db.insert("users", {
     name: "Jordan Ames (Northpass Capital)",
     role: "pe_partner",

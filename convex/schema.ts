@@ -80,6 +80,28 @@ const auditAction = v.union(
   v.literal("contain"),
   v.literal("import"),
   v.literal("agent_call"), // an AI assistant used a tool over MCP (convex/mcp.ts)
+  // Response playbook (convex/responses.ts): a pre-approved step ran, someone approved or undid
+  // one, a waiting step expired, or a company changed its playbook.
+  v.literal("respond"),
+  v.literal("approve"),
+  v.literal("undo"),
+  v.literal("expire"),
+  v.literal("policy"),
+);
+
+// Response playbook (docs/specs/response-playbook.md). Steps a company lets Sidecall take for it,
+// set in advance: "notify" = tell us, "prepare" = one click by our IT lead, "act" = run it on report.
+// hold_payments isn't stored here: it mirrors companies.holdRuleEnabled.
+export const responseAction = v.union(v.literal("pause_shared_login"), v.literal("revoke_vendor_tokens"));
+export const playbookAction = v.union(v.literal("hold_payments"), responseAction);
+export const responseMode = v.union(v.literal("notify"), v.literal("prepare"), v.literal("act"));
+export const stepStatus = v.union(
+  v.literal("awaiting_approval"), // "prepare": one click away
+  v.literal("queued"), // "act", or approved: the executor runs it
+  v.literal("done"),
+  v.literal("undone"),
+  v.literal("expired"), // still waiting when the incident was contained
+  v.literal("failed"),
 );
 
 export const notifyEvent = v.union(
@@ -331,6 +353,43 @@ export default defineSchema({
   })
     .index("by_tokenHash", ["tokenHash"])
     .index("by_name", ["name"]),
+
+  // One row per (company, step): the mode in force. Upgrading to "act" takes two different people:
+  // the first call stores proposedMode, a second person confirms it.
+  responsePolicies: defineTable({
+    companyId: v.id("companies"),
+    action: responseAction,
+    mode: responseMode,
+    version: v.number(), // +1 on every change; history is in auditLog ("policy")
+    setBy: v.union(v.id("users"), v.literal("seed")),
+    confirmedBy: v.optional(v.id("users")),
+    setAt: v.number(),
+    proposedMode: v.optional(responseMode),
+    proposedBy: v.optional(v.id("users")),
+    proposedAt: v.optional(v.number()),
+  }).index("by_companyId_and_action", ["companyId", "action"]),
+
+  // A step planned for one exposed company in one incident (only "prepare" and "act" are stored;
+  // "notify" steps are worked out when read). External effects are simulated: no live connector.
+  responseSteps: defineTable({
+    incidentId: v.id("incidents"),
+    companyId: v.id("companies"),
+    exposureId: v.id("exposures"),
+    action: responseAction,
+    mode: v.union(v.literal("prepare"), v.literal("act")), // effective, after caps
+    status: stepStatus,
+    target: v.string(), // our own asset name: never the reporter or a finding label
+    policyRule: v.string(), // "playbook:pause_shared_login:act:v2"
+    capNote: v.optional(v.string()), // why the company's mode was lowered for this step
+    plannedAt: v.number(),
+    approvedBy: v.optional(v.id("users")),
+    approvedAt: v.optional(v.number()),
+    executedAt: v.optional(v.number()),
+    undoneBy: v.optional(v.id("users")),
+    undoneAt: v.optional(v.number()),
+  })
+    .index("by_incidentId_and_companyId_and_action", ["incidentId", "companyId", "action"])
+    .index("by_incidentId_and_status", ["incidentId", "status"]),
 
   auditLog: defineTable({
     at: v.number(),
