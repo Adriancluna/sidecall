@@ -91,6 +91,17 @@ Reviewed on main @ d3ccff2. What's good: 95 tests, careful gating of live AI (`A
    - It's hidden from `listIncidents` and `getBlastRadius`.
    - That contradicts the pitch: "a signed red-team finding is carried to the sister companies".
    - Proposal: an observation still opens notify-only exposures and company alerts (no holds, no steps, firm told "unconfirmed"); only holds and steps wait for confirmation. Or Adrian decides to set `INCIDENT_AUTO_RESPONSE=true` on prod and the docs say so.
+   - **UPDATE (Adrian, Oct 24): Pegasus decides item 2.** Adrian asked Ashwa's Claude (Pegasus) to make the call. Options Role 1 compared for him:
+     - **A. Silent observation (today).** Safest against forged signals, but the siblings aren't warned until the firm reviews. That breaks the "73 days → seconds" pitch.
+     - **B. Warn now, act on confirmation.** A signed report opens notify-only exposures and company alerts at once; holds and pre-approved steps wait for confirmation. A false report costs only a warning. Slower on money and access, and someone confirms.
+     - **C. Fully automatic.** Every signed report gets the full response. Fastest, no 2am call, but it trusts the sender completely: a buggy or compromised tool could hold payments and pause logins at up to 3 companies.
+     - **Role 1's recommendation (input, not a rule):** B by default, plus a per-tool "trusted source" switch (a generalized `INCIDENT_AUTO_RESPONSE`) under which named sources run as C.
+   - **Whatever you choose, it must:**
+     - (a) keep the 4 built-in demo scenarios instant and unchanged (rehearsal must pass);
+     - (b) never let one unconfirmed signal hold money or pause access at more than the existing caps;
+     - (c) keep companies never learning who was hit;
+     - (d) be stated in one line in CONTRACT.md, `team-notes/field-guide.md` (§5.1 and §8, "Abuse" and "Realism") and Marco's Devpost text, so the pitch matches the code.
+   - **Write your decision and the reason here** (under "→ Role 1" in `handoff/pegasus.md`), and tell Adrian.
 3. **MEDIUM: `activeIncidentFor` lost its 30-day limit** (`payments.ts`).
    - An uncontained incident now holds every new payment request to that vendor forever.
    - CONTRACT, the field guide (`team-notes/field-guide.md` §5.4) and the Devpost all say 30 days.
