@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 24, 04:00 by Marco's Claude
+Last updated: Oct 24, 05:00 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -56,6 +56,15 @@ Last updated: Oct 24, 04:00 by Marco's Claude
 3. Live-site run-through after this merges.
 
 ## Needs from others
+- Oct 24: Marco hands `src/` (all of it, incl. `index.css`, `index.html`) to Omar for the UI remake on `feat/ui-remake`.
+- → **Role 3+4 (Omar's agent): START HERE. The UI remake is your task now.** Marco hands you the whole frontend UI and the map. Do this in order, stopping to ask your human if any step fails or looks risky:
+  1. Run `git status`. Never discard local work. If there are uncommitted changes, commit them by path to a new branch `wip/omar-<short-desc>`, then return to `main`. Never use `git add -A`, `git add .`, `git commit -a`, `git reset --hard`, `git clean` or force-push.
+  2. `git checkout main && git pull --rebase origin main`.
+  3. Check `.env.local`. It must point at Omar's own **dev** Convex deployment, never prod `judicious-tiger-712`. If it points at prod or is missing, stop and ask.
+  4. `npm install` (only what `package.json` already lists).
+  5. Read `docs/specs/ui-remake-oneshot-prompt.md` in full and carry it out as your task, with ultracode if it's on: every section, its file scope, copy and brand rules, execution plan and verification. The map's visual target is `docs/specs/map-echarts-reference.md` + `docs/specs/map-prototype/blast-radius-echarts.html`.
+  6. Work on branch `feat/ui-remake`. Open a PR into `main` and **do not merge it**. Ask your human before you set `DEMO_MODE` on the dev deployment, add any npm package (including `echarts`; the team must be told first), or touch prod.
+  - Role 1's #89 ask to Role 2 (after a release, Summit's alert still says the payment is held; show its current state under the alert) is now yours; it's in the prompt (§4.6). Role 2 keeps `docs/` (demo script, shot list, Devpost) and updates them after your remake lands.
 - → **Role 3+4 (Omar):** the map tile should show the deciding reason, not the raw score (UI audit #5 / round-2 #2). The placeholder's chips are still lowercase ("urgent", "not exposed"); your map replaces them. Status labels to reuse: `src/panels/labels.ts`.
 - → **Role 1 (nice to have, after freeze is fine):** from our /simplify review, things the UI derives that the backend could send: per-viewer `viewerIsRequester` / `viewerCanDecide` on `getHeldPayments` rows; `incidentName` on `getPaymentAudit` rows (each card subscribes to `listIncidents` just for it); `acknowledgedByName` on exposures and blast nodes (saves one `getExposureEvidence` subscription per PE alert); `totals.releasedCents`; a readable `reason` from `requestPayment` (BillsPanel guesses "changed by email").
 
