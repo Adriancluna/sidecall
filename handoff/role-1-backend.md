@@ -1,17 +1,17 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 23, 19:30 by Adrian's Claude
+Last updated: Oct 23, 19:35 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Presenter URL: https://sidecall.vercel.app/?stage
   - ✓ Prod is **seeded** (8 companies, 21 users with demo emails), `DEMO_MODE=true` (Reset works on `?stage`), login keys set (JWKS serving). Login code deployed via Vercel.
 - **Login backend is live on dev (and ships to prod with the next Vercel build):** Convex Auth, Password provider, invite-only (sign-in links to a seeded user by email; unknown emails refused). Session always wins over `actingUserId`; `actingUserId` is optional and only used when nobody is signed in. Verified on dev: sign-up/sign-in, wrong password refused, stranger refused, `access.me` returns the user, and a signed-in clerk passing the controller's id is still refused.
+- ✓ Fresh-clone test passed (clone → `npm ci` → typecheck, lint, 14 tests, build, `convex dev --once`).
 - `npm test`: 14 tests, all green (added: signed-out refused, session beats spoofed id).
 - Everything from before: `/incident` fan-out, holds/flags, release/reject + audit + ledger, scoping, `resetDemo` (also wipes sign-ins now).
 
 ## In progress
-1. Fresh-clone test by 10:45pm.
-2. Once Role 2's login UI is on main: remove the `actingUserId` fallback entirely (session only).
-3. After 11pm: import `data/dns_links.json` into seed; review Waterloo PRs; run convex-reviewer.
+1. Once Role 2's login UI is on main: remove the `actingUserId` fallback entirely (session only).
+2. After 11pm: import `data/dns_links.json` into seed; review Waterloo PRs; run convex-reviewer.
 
 ## Needs from others
 - → Role 2: **login backend is ready, you can start `src/auth/` now.** Everything you need is in CONTRACT.md → "Sign-in":
