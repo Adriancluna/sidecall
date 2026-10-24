@@ -1,5 +1,5 @@
 # Pegasus: response resilience + payment investigation
-Last updated: 2026-10-24 13:32 America/Los_Angeles by Pegasus
+Last updated: 2026-10-24 13:43 America/Los_Angeles by Pegasus
 
 ## Status
 - Ashwa requested implementation while keeping Hyphenate and Armadin, including resistance to repeated reports causing business disruption.
@@ -11,6 +11,7 @@ Last updated: 2026-10-24 13:32 America/Los_Angeles by Pegasus
 - Latest check: main `02b5a33` adds Role 2's proposed UI polish handoff (#100); coordinate `PortfolioView.tsx`/`CompanyView.tsx` tab integration with Marco and Adrian before merging. No request specifically addressed to Pegasus.
 - Access recommendation verified against official docs: GitHub personal-repository Collaborator (write); Vercel Pro team Member (or Enterprise Contributor + Sidecall Project Administrator); Convex team Developer + Sidecall Project Admin for production writes. No ownership transfer is needed. These are requested human-account roles, not verified access; authenticated local CLI/connection access must still work.
 - Latest access check requested by Ashwa: public Git fetch works and main remains `02b5a33`; direct push dry-run cannot obtain a GitHub username/credential. The GitHub connector briefly appeared and then became unavailable before a write check, so its current permission is unverified (not a new 403). Vercel CLI/auth/linkage and Convex local auth/deployment configuration are absent from this checkout; no relevant environment credentials are exported. Remote account invitations/roles may have changed, but access is not yet usable here. No push or deployment occurred.
+- Prepared `../pegasus-sign-in.command` for Ashwa to run interactively: GitHub CLI browser sign-in and Git credential setup, Vercel sign-in/link to existing team/project, and `npx convex login` (verified available in the installed CLI). Script syntax checked; no sign-ins have been completed by Pegasus, and the script contains no push/deploy commands. Latest remote handoff check remains `02b5a33`.
 - Validation: 95 tests passed (54 backend, 12 MCP, 29 Pegasus), application/backend typechecks, ESLint, production build, and rehearsal-script syntax passed.
 
 ## Completed locally
