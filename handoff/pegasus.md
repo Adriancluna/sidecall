@@ -3,7 +3,7 @@ Last updated: 2026-10-24 15:17 America/Los_Angeles by Pegasus
 
 ## Status
 - Ashwa requested implementation while keeping Hyphenate and Armadin, including resistance to repeated alerts disrupting business.
-- Implementation branch: `feat/pegasus-resilience`, based on `24d029b`; publication in progress, no application deployment performed by Pegasus.
+- Implementation branch: `feat/pegasus-resilience`, based on `24d029b`; published as draft PR #103 (https://github.com/Adriancluna/sidecall/pull/103), no application deployment performed by Pegasus.
 - GitHub CLI is authenticated as `ashwathram-prathap` and repository push permission/dry-run pass; the prior connector 403 no longer blocks CLI delivery.
 - Vercel CLI accesses existing `sidecall` in `adriancluna23-3084s-projects`; link command completed and project inspection passed. CLI 65 stores local authentication/configuration differently from the older `.vercel/project.json` assumption.
 - Convex account login is valid and Adrian's team is accessible; Sidecall deployment selection, production permissions, and live backend tests remain unverified.
