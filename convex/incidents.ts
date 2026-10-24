@@ -1,10 +1,11 @@
 // Incident intake and fan-out. One transaction writes the incident, every exposure,
 // every payment hold, the pending alerts, and schedules the AI writers once.
 import { v } from "convex/values";
+import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import { holdPaymentsForIncident } from "./payments";
 import { scoreExposure, sisterPath, type HeldSummary } from "./scoring";
 import { finding as findingValidator } from "./schema";
@@ -20,6 +21,12 @@ import {
   type ActBudget,
 } from "./responses";
 
+// Both transport paths consume quota in the same transaction as accepted report effects.
+// Named sources use their source ID; all legacy HMAC senders share a separate bucket.
+export const incidentIntakeLimits = new RateLimiter(components.rateLimiter, {
+  intake: { kind: "token bucket", rate: 30, period: MINUTE, capacity: 10 },
+});
+
 type RecordIncidentResult =
   | {
       ok: true;
@@ -29,7 +36,7 @@ type RecordIncidentResult =
     }
   | { ok: false; error: "unknown_asset" | "unknown_reporter" };
 
-const incidentArgs = {
+export const incidentArgs = {
   externalId: v.string(),
   assetName: v.string(),
   reportedByDomain: v.optional(v.string()),
@@ -50,11 +57,17 @@ export async function recordIncidentImpl(
     assessment?: "observation" | "confirmed";
     evidenceRefs?: string[];
   },
+  source?: {
+    sourceId: Id<"detectorSources">;
+    sourceName: string;
+    requestedAssessment?: "observation" | "confirmed";
+    effectiveAssessment: "observation" | "confirmed";
+  },
 ): Promise<RecordIncidentResult> {
   // Idempotency: a replayed webhook returns the original incident and writes nothing.
   const receipt = await ctx.db
     .query("incidentReports")
-    .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
+    .withIndex("by_sourceId_and_externalId", (q) => q.eq("sourceId", source?.sourceId).eq("externalId", args.externalId))
     .unique();
   if (receipt)
     return {
@@ -65,7 +78,7 @@ export async function recordIncidentImpl(
     };
   const existing = await ctx.db
     .query("incidents")
-    .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
+    .withIndex("by_sourceId_and_externalId", (q) => q.eq("sourceId", source?.sourceId).eq("externalId", args.externalId))
     .unique();
   if (existing)
     return {
@@ -128,6 +141,7 @@ export async function recordIncidentImpl(
   // Contained or inactive episodes never swallow genuinely new reports.
   if (episode) {
     await ctx.db.insert("incidentReports", {
+      ...source,
       externalId: args.externalId,
       incidentId: episode._id,
       receivedAt: now,
@@ -176,6 +190,8 @@ export async function recordIncidentImpl(
   }
 
   const incidentId = await ctx.db.insert("incidents", {
+    sourceId: source?.sourceId,
+    sourceName: source?.sourceName,
     externalId: args.externalId,
     assetId: asset._id,
     reportedByCompanyId: reporter?._id,
@@ -191,6 +207,7 @@ export async function recordIncidentImpl(
   });
   const incident = (await ctx.db.get("incidents", incidentId))!;
   await ctx.db.insert("incidentReports", {
+    ...source,
     externalId: args.externalId,
     incidentId,
     receivedAt: now,
@@ -418,8 +435,16 @@ function rank(link: Doc<"links">): number {
 
 // Called by POST /incident (http.ts) and by the seed's demo helper.
 export const recordIncident = internalMutation({
-  args: incidentArgs,
-  handler: async (ctx, args): Promise<RecordIncidentResult> => {
+  args: { ...incidentArgs, transport: v.optional(v.literal("legacy_hmac")) },
+  handler: async (ctx, { transport, ...args }): Promise<RecordIncidentResult | {
+    ok: false; status: 429; error: "legacy_rate_limited"; retryAfter: number;
+  }> => {
+    // Only the authenticated HTTP handler sets this marker. Operator/demo calls stay exempt.
+    if (transport === "legacy_hmac") {
+      const budget = await incidentIntakeLimits.limit(ctx, "intake", { key: "legacy-hmac" });
+      if (!budget.ok) return { ok: false, status: 429, error: "legacy_rate_limited",
+        retryAfter: Math.ceil(budget.retryAfter / 1000) };
+    }
     return await recordIncidentImpl(ctx, args);
   },
 });

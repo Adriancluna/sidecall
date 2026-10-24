@@ -1,0 +1,91 @@
+{
+  "format": "sidecall-detector-rehearsal-v1",
+  "author": "Pegasus",
+  "startedAt": "2026-10-24T23:48:19.971Z",
+  "completedAt": "2026-10-24T23:48:38.261Z",
+  "cloud": "https://tangible-koala-842.convex.cloud",
+  "passed": true,
+  "checks": [
+    {
+      "name": "Source registration defaults to observation; metadata is firm-only and contains no keys",
+      "passed": true
+    },
+    {
+      "name": "Forged asset, forged reporter and omitted required reporter receive HTTP 403 and create no incident",
+      "passed": true
+    },
+    {
+      "name": "Built-in scenario and review-prefixed detector identifiers receive HTTP 400 and create no incident",
+      "passed": true
+    },
+    {
+      "name": "Observation-only source cannot trigger holds/actions; requested and effective assessments are recorded privately",
+      "passed": true
+    },
+    {
+      "name": "Two sources with the same external ID get independent receipts in the same global episode",
+      "passed": true
+    },
+    {
+      "name": "Rotation invalidates the old key while preserving source identity and exact-ID deduplication",
+      "passed": true
+    },
+    {
+      "name": "Burst receives HTTP 429 with retry timing while another source continues; no holds or deadline extensions",
+      "passed": true,
+      "evidence": {
+        "requests": 20,
+        "accepted": 5,
+        "refused": 15,
+        "independentSourceStatus": 200
+      }
+    },
+    {
+      "name": "Revocation returns HTTP 401 even for built-in demo IDs; no authorization fallback",
+      "passed": true
+    },
+    {
+      "name": "Confirm-capable source without evidence remains notify-only",
+      "passed": true
+    },
+    {
+      "name": "Scoped confirmed source automatically changes owned target access 200→403; unrelated access stays 200",
+      "passed": true,
+      "evidence": {
+        "observedElapsedMs": 995,
+        "boundary": "Owned sandbox only; includes network/scheduling time, not a production benchmark."
+      }
+    },
+    {
+      "name": "Authorized Undo restores access; replay does not repeat the action and historical verification remains",
+      "passed": true
+    },
+    {
+      "name": "Revocation hides waiting approval, direct approval is refused and expired, and owned access remains unchanged",
+      "passed": true
+    },
+    {
+      "name": "Every created detector is revoked and its credential receives HTTP 401 after cleanup",
+      "passed": true
+    }
+  ],
+  "cleanup": [
+    {
+      "sourceName": "detector-rehearsal-1792885699971-observe-a",
+      "revoked": true,
+      "rejectedAfterRevocation": true
+    },
+    {
+      "sourceName": "detector-rehearsal-1792885699971-observe-b",
+      "revoked": true,
+      "rejectedAfterRevocation": true
+    },
+    {
+      "sourceName": "detector-rehearsal-1792885699971-confirmed",
+      "revoked": true,
+      "rejectedAfterRevocation": true
+    }
+  ],
+  "scope": "Synthetic data on owned DEV; actual detector HTTP/auth/Convex execution and owned sandbox checks. No external detector integration or live identity-provider action.",
+  "unchanged": "No reset, deploy, environment-flag change, real payment or chatbot operation."
+}

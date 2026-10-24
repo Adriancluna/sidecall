@@ -221,7 +221,7 @@ export const exportOutcomes = internalQuery({
   handler: async (ctx, args) => {
     const incident = await ctx.db
       .query("incidents")
-      .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
+      .withIndex("by_sourceId_and_externalId", (q) => q.eq("sourceId", undefined).eq("externalId", args.externalId))
       .unique();
     if (!incident) return null;
 

@@ -172,6 +172,28 @@ async function policyFor(ctx: QueryCtx, companyId: Id<"companies">, action: Resp
     .unique();
 }
 
+const SOURCE_AUTHORITY_NOTE = "This report's authorization is no longer active. Ask the portfolio team to review the evidence before proceeding.";
+
+// Approval never replaces the authority behind the incident's creating report. Queries omit
+// `now` so they remain clock-free; mutations always enforce expiry as well as revocation.
+async function detectorAuthorityInactive(
+  ctx: QueryCtx,
+  incident: Doc<"incidents"> | null,
+  now?: number,
+) {
+  if (!incident?.sourceId) return false;
+  const source = await ctx.db.get("detectorSources", incident.sourceId);
+  return !source || source.revokedAt !== undefined || source.mode !== "confirm" ||
+    (now !== undefined && source.expiresAt <= now);
+}
+
+async function expireForDetectorAuthority(ctx: MutationCtx, step: Doc<"responseSteps">, now: number) {
+  await ctx.db.patch("responseSteps", step._id, { status: "expired", capNote: SOURCE_AUTHORITY_NOTE });
+  await ctx.db.insert("auditLog", { at: now, actor: "system", action: "expire",
+    incidentId: step.incidentId, companyId: step.companyId, rule: "detector_authority_inactive",
+    reason: "Response step expired because its report source no longer has active confirm authority. Company approval cannot replace that authority. Existing money holds and completed actions are unchanged." });
+}
+
 // Scheduled once per incident (and once per approval). This is where a live connector would call
 // the identity provider; none exists, so the result is recorded as simulated.
 export const execute = internalAction({
@@ -201,6 +223,10 @@ export const recordSimulated = internalMutation({
     for (const step of queued) {
       const incident = await ctx.db.get("incidents", step.incidentId);
       const policy = await policyFor(ctx, step.companyId, step.action);
+      if (await detectorAuthorityInactive(ctx, incident, now)) {
+        await expireForDetectorAuthority(ctx, step, now);
+        continue;
+      }
       if (
         !incident ||
         !activeEpisode(incident, now) ||
@@ -291,6 +317,11 @@ export const approveStep = mutation({
     if (step.status !== "awaiting_approval")
       return { ok: false as const, reason: `already_${step.status}` };
     const now = Date.now();
+    const incident = await ctx.db.get("incidents", step.incidentId);
+    if (await detectorAuthorityInactive(ctx, incident, now)) {
+      await expireForDetectorAuthority(ctx, step, now);
+      return { ok: false as const, reason: "detector_authority_inactive" };
+    }
     await ctx.db.patch("responseSteps", step._id, {
       status: "queued",
       approvedBy: viewer.user._id,
@@ -637,6 +668,7 @@ export const getMyResponsePlan = query({
     if (!link) return [];
     const name = nameOf(ctx);
     const decider = canDecideSteps(viewer);
+    const sourceInactive = await detectorAuthorityInactive(ctx, incident);
     const plan = [];
     for (const rule of responseFor(link, asset)) {
       const step = await ctx.db
@@ -661,7 +693,8 @@ export const getMyResponsePlan = query({
         mode: step?.mode ?? "notify",
         status: step?.status ?? ("recommended" as const),
         capNote:
-          step?.capNote ??
+          (sourceInactive && (step?.status === "awaiting_approval" || step?.status === "queued")
+            ? SOURCE_AUTHORITY_NOTE : step?.capNote) ??
           (rule.cap === "notify" ? (rule.capNote ?? null) : null),
         policyRule: step?.policyRule ?? null,
         approvedByName: step?.approvedBy ? await name(step.approvedBy) : null,
@@ -671,7 +704,7 @@ export const getMyResponsePlan = query({
           step?.executedAt !== undefined
             ? step.executedAt - incident.createdAt
             : null,
-        canApprove: decider && step?.status === "awaiting_approval",
+        canApprove: decider && step?.status === "awaiting_approval" && !sourceInactive,
         canUndo:
           decider &&
           step?.status === "done" &&

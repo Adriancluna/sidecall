@@ -239,8 +239,21 @@ export default defineSchema({
     detail: v.optional(v.string()), // dns_inferred: the record that suggested it, e.g. "MX → mx.relaymail.example"
   }).index("by_assetId", ["assetId"]),
 
+  detectorSources: defineTable({
+    name: v.string(),
+    tokenHash: v.string(),
+    assetNames: v.array(v.string()),
+    reporterDomains: v.array(v.string()),
+    mode: v.union(v.literal("observe"), v.literal("confirm")),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    revokedAt: v.optional(v.number()),
+  }).index("by_tokenHash", ["tokenHash"]),
+
   incidents: defineTable({
     externalId: v.string(), // dedupe key for POST /incident
+    sourceId: v.optional(v.id("detectorSources")), // authenticated authority; firm-only
+    sourceName: v.optional(v.string()),
     assetId: v.id("assets"),
     reportedByCompanyId: v.optional(v.id("companies")), // only the PE firm view may show this
     summary: v.optional(v.string()),
@@ -261,6 +274,7 @@ export default defineSchema({
     reviewEscalatedAt: v.optional(v.number()),
   })
     .index("by_externalId", ["externalId"])
+    .index("by_sourceId_and_externalId", ["sourceId", "externalId"])
     .index("by_correlationKey", ["correlationKey"])
     .index("by_lastReportedAt", ["lastReportedAt"])
     .index("by_assetId", ["assetId"]),
@@ -268,6 +282,10 @@ export default defineSchema({
   // Every accepted sender ID has its own receipt, including reports correlated into an episode.
   incidentReports: defineTable({
     externalId: v.string(),
+    sourceId: v.optional(v.id("detectorSources")),
+    sourceName: v.optional(v.string()),
+    requestedAssessment: v.optional(v.union(v.literal("observation"), v.literal("confirmed"))),
+    effectiveAssessment: v.optional(v.union(v.literal("observation"), v.literal("confirmed"))),
     incidentId: v.id("incidents"),
     receivedAt: v.number(),
     evidenceRefs: v.array(v.string()),
@@ -275,6 +293,7 @@ export default defineSchema({
     finding: v.optional(finding),
   })
     .index("by_externalId", ["externalId"])
+    .index("by_sourceId_and_externalId", ["sourceId", "externalId"])
     .index("by_incidentId", ["incidentId"]),
 
   exposures: defineTable({
