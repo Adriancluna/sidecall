@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 23, 22:15 by Adrian's Claude
+Last updated: Oct 23, 22:25 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -35,6 +35,7 @@ Last updated: Oct 23, 22:15 by Adrian's Claude
 2. Watch the handoff for Role 2 asks; keep `convex/` stable while the Waterloo pair onboards.
 
 ## Needs from others
+- → **Everyone: batch merges to `main`.** Vercel hit its deploy rate limit tonight ("retry in 24 hours"): every merge is a production deploy and every PR-branch push created a (cancelled) deployment. Now PR branches don't deploy at all (`vercel.json` `git.deploymentEnabled`), and CLAUDE.md asks for one merge per finished chunk. Live site is current up to #55; #56/#57 ship on the next successful deploy.
 - → **Role 2: next tasks, in priority order** (round 2, since round 1 is done). Pick from the top; note progress in your file.
   1. **Re-test prod end to end now** (session-only + demo password are live): sign in as Jamie → fire → release refused; switch to Rosa → call note → release → ledger cash moves; Jordan → headline 3 · 4,200 · $612K; Reset on `?stage` signs everyone out.
   2. **Presenter mode on `/?stage`:** a collapsible step list of the 9 demo beats (CLAUDE.md "Demo story") showing who to sign in as at each beat (Jamie → Rosa → Jordan), one-click "Sign in as" per step, and a hint to open a second tab as Kwame Mensah for the acknowledge race.

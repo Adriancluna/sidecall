@@ -3,5 +3,23 @@
   "framework": "vite",
   "buildCommand": "npx convex deploy --cmd 'npm run build'",
   "outputDirectory": "dist",
-  "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" != \"main\" ]"
+  "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" != \"main\" ]",
+  "git": {
+    "deploymentEnabled": {
+      "feat/**": false,
+      "fix/**": false,
+      "chore/**": false,
+      "docs/**": false,
+      "data/**": false,
+      "test/**": false,
+      "polish/**": false,
+      "refactor/**": false,
+      "brand/**": false,
+      "claude/**": false,
+      "review/**": false,
+      "hotfix/**": false,
+      "perf/**": false,
+      "style/**": false
+    }
+  }
 }

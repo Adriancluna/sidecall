@@ -24,7 +24,8 @@ If this conflicts with your role file on *what* to build, ask your human. On *wh
 Rules for every agent:
 - Only create or edit files in your role's folders.
 - No new npm packages unless your human has told the team first (package.json conflicts).
-- Small PRs into `main`. `git pull --rebase origin main` before each push.
+- PRs into `main`. `git pull --rebase origin main` before each push.
+- **Every merge to `main` is a production deploy (Vercel + Convex), and deploys are rate-limited.** Batch: one merge per finished chunk of work, not per small fix. Docs/handoff-only changes ride along with the next code merge unless someone is blocked on them. Branch pushes don't deploy (`vercel.json`), so push branches freely.
 - Feature freeze ~6 hours before the deadline. After that: bug fixes, recording, Devpost.
 
 ## Brand (read before any UI work)
