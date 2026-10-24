@@ -60,16 +60,20 @@ Keep two narratives over the same implementation: Hyphenate = evidence gathering
 
 ## Integration and remaining external requirements
 
-- Backend schema changes require a normal development deployment/code generation and then reviewed integration with Role 1. New fields are optional on existing tables; new tables are cleared by demo resets.
-- GitHub CLI write access is verified; Convex account login can access Adrian's team, but this checkout still has no `CONVEX_DEPLOYMENT`, signing secret, AI key or owned identity-provider tenant configured. Live model/deployment testing requires the team's development setup.
-- Vercel CLI can access the existing Sidecall project in `adriancluna23-3084s-projects`; account authentication does not establish that these application changes have been deployed.
-- Do not reset production to test this branch. The existing production frontend and other roles' in-progress work have not been overwritten.
+- Integrated upstream main through `615713d`, including #98's red-team evidence labels and "What to check"; regenerated Convex declarations with an actual development deployment.
+- GitHub write access, Adrian's Vercel team/project, and Convex project access are verified. Application integration is PR #103; main merges run the existing Vercel + Convex deployment pipeline.
+- Pegasus's isolated development deployment is `adriancluna23:sidecall:dev/pegasus-integration` (`tangible-koala-842`). It has demo auth, `DEMO_MODE=true` and `RESPONSE_SANDBOX=true`; test signing/enrollment settings were removed after the HTTP rehearsal. Never reset production or another contributor's development database.
+- Production detector enrollment is intentionally explicit: generic signed signals remain observations until the operator configures `INCIDENT_AUTO_RESPONSE=true`. Provisioned sandbox resources are development-only; existing external-provider actions remain simulated.
+- Live model extraction still requires the team's dev `AI_LIVE` and `ANTHROPIC_API_KEY` configuration and a separate live validation. Structured text extraction is verified without that key.
+- Role 2's #105 handoff assigns final panel placement to the UI polish in #101: investigation inside Payments, response safety inside Timeline/close-out, and company investigation inside Held payments. This PR keeps working navigation on current main; Role 2 will wire the components into that new layout.
 - Keep source enrollment credentials separate per detector in a production implementation; the prototype retains the existing shared HMAC key.
 
 ## Validation recorded by Pegasus
 
-- 95 local tests passed: 54 existing backend tests, 12 existing MCP tests, 29 Pegasus regression tests. See `docs/pegasus-test-results.json` for individual outcomes. These are authored regression cases, not an accuracy benchmark.
-- Application typecheck, backend typecheck, ESLint and production build passed.
-- Code generation CLI requires a configured development deployment; checked-in API/environment declarations were updated locally to match the new modules and configuration. Regenerate on the team's dev deployment.
-- Live model extraction, actual remote deployment and signed-in browser rehearsal are not verified in this checkout.
-- On a clean, separately seeded own DEV deployment with DEMO_MODE and RESPONSE_SANDBOX enabled, run `node scripts/sandbox/rehearse.mjs` for an actual HTTP access-before/access-after demonstration. It refuses production, generates fresh test tokens in memory, and never resets data or changes deployment configuration.
+- 95 application/backend tests passed: 54 existing backend tests, 12 MCP tests, 29 Pegasus regression tests. See `docs/pegasus-test-results.json` for individual outcomes. An additional 40 prompt/scorecard tests passed (135 total). These are authored regression cases, not an accuracy benchmark.
+- Application typecheck, backend typecheck, ESLint and production build passed; actual Convex dev deployment and code generation succeeded.
+- The existing full live demo rehearsal passed on Pegasus's own development backend, including permissions, acknowledgment races, payment/ledger checks, onboarding and automatic response.
+- Signed HTTP rehearsal: 100 distinct weak-report IDs produced one observation, unchanged company payment queue and unchanged review deadline; a separate confirmed report held the expected payment; ten further confirmed IDs preserved its deadline and the controller's release.
+- Owned sandbox rehearsal: Cedar access changed from HTTP 200 to 403; Summit's separate resource remained HTTP 200. Observed end-to-end duration was 1,223 ms, including CLI, network and scheduling overhead; this is not a production latency benchmark.
+- Signed-in browser check: the firm investigation produced a review-required packet for the synthetic changed-account example, displayed the trusted callback number and literal source quotes, and the safety panel displayed the correlated episodes. Live model extraction and external IdP actions remain unverified.
+- On a clean, separately seeded own DEV deployment with DEMO_MODE and RESPONSE_SANDBOX enabled, run `node scripts/sandbox/rehearse.mjs` for the HTTP access-before/access-after demonstration. It refuses production, generates fresh test tokens in memory, and never resets data or changes deployment configuration.

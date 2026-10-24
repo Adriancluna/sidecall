@@ -34,10 +34,10 @@ type Env = {
   readonly ANTHROPIC_API_KEY: string | undefined;
   readonly DEMO_MODE: string | undefined;
   readonly INCIDENT_AUTO_RESPONSE: string | undefined;
-  readonly RESPONSE_SANDBOX: string | undefined;
   readonly INCIDENT_WEBHOOK_SECRET: string | undefined;
   readonly NOTIFY_LIVE: string | undefined;
   readonly PRESENTER_KEY: string | undefined;
+  readonly RESPONSE_SANDBOX: string | undefined;
 };
 
 /**
