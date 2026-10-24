@@ -8,12 +8,12 @@ import { friendlyError } from "../layout/errors";
 import { money } from "./format";
 import { Card, Chip, Empty } from "./ui";
 
-const STATUS_TONE = {
-  pending: "muted",
-  held: "amber",
-  paid: "ok",
-  released: "ok",
-  rejected: "danger",
+const STATUS = {
+  pending: { tone: "muted", label: "Pending" },
+  held: { tone: "amber", label: "Held until verified" },
+  paid: { tone: "ok", label: "Paid" },
+  released: { tone: "ok", label: "Released" },
+  rejected: { tone: "danger", label: "Rejected" },
 } as const;
 
 const shortDate = (ms: number) =>
@@ -52,7 +52,7 @@ type RowProps = {
   vendorName: string;
   amountCents: number;
   dueDate: number;
-  status?: keyof typeof STATUS_TONE;
+  status?: keyof typeof STATUS;
 };
 
 function BillRow({
@@ -115,7 +115,7 @@ function BillRow({
             {money(amountCents)}
           </span>
           {status ? (
-            <Chip tone={STATUS_TONE[status]}>{status}</Chip>
+            <Chip tone={STATUS[status].tone}>{STATUS[status].label}</Chip>
           ) : (
             <button
               type="button"
