@@ -16,12 +16,12 @@ import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
 import { EXPOSURE_STATUS, paymentLook } from "./labels";
 import { LedgerPanel } from "./LedgerPanel";
 import { NotificationsPanel } from "./NotificationsPanel";
-import { PaymentCard } from "./PaymentCard";
+import { PaymentHero } from "./PaymentHero";
 import { PlaybookPanel } from "./ResponsePlaybook";
 import { TimelinePanel } from "./TimelinePanel";
 import type { HeldPaymentRow } from "./types";
-import { Card, Chip, Empty, LookChip, UrgencyChip } from "./ui";
-import { BUTTON_SECONDARY } from "./styles";
+import { Card, Chip, Empty, Eyebrow, HeroSkeleton, LookChip, UrgencyChip } from "./ui";
+import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "./styles";
 import { useExposureAction } from "./useExposureAction";
 
 type Props = {
@@ -137,7 +137,7 @@ export function CompanyView({ companyId, meId, role }: Props) {
 
   let hero;
   if (exposures === undefined || held === undefined) {
-    hero = <HeroFrame><Empty>Loading…</Empty></HeroFrame>;
+    hero = <HeroSkeleton />;
   } else if (heroPayment) {
     hero = (
       <PaymentHero
@@ -172,7 +172,7 @@ export function CompanyView({ companyId, meId, role }: Props) {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-14">
       {hero}
       <Tabs tabs={tabs} active={active} onSelect={(t) => select(t)} label={`${company?.name ?? "Company"} details`} />
     </div>
@@ -190,59 +190,6 @@ function pickHeroPayment(rows: HeldPaymentRow[], escalations: Map<Id<"payments">
   )[0];
 }
 
-function HeroFrame({ children, tone }: { children: React.ReactNode; tone?: "danger" | "amber" | "ok" }) {
-  const accent = tone === "danger" ? "border-l-danger" : tone === "ok" ? "border-l-ok" : "border-l-amber";
-  return (
-    <section aria-labelledby="hero-title" className={`rounded-2xl border border-l-4 border-line bg-panel p-6 md:p-8 ${accent}`}>
-      {children}
-    </section>
-  );
-}
-
-function PaymentHero({
-  row,
-  escalation,
-  viewer,
-  others,
-  onOpenTab,
-}: {
-  row: HeldPaymentRow;
-  escalation?: string;
-  viewer: { id: Id<"users">; isController: boolean };
-  others: number;
-  onOpenTab: (tab: string) => void;
-}) {
-  const { payment, bankChange } = row;
-  const isRequester = viewer.id === payment.requestedBy;
-  const headline = bankChange
-    ? `${money(payment.amountCents)} held: the account it pays was changed by ${bankChange.requestChannel.replace("_", " ")} ${bankChange.daysBeforeIncident} days before the breach`
-    : `${money(payment.amountCents)} to ${row.vendorName} is held until someone verifies it`;
-  const who = viewer.isController && !isRequester
-    ? "You decide. Call the vendor at the number on file, write down what they confirmed, then release or reject."
-    : isRequester
-      ? "You requested this payment, so you can't release it. A controller verifies it by phone."
-      : "A controller verifies it by phone before any money moves.";
-  return (
-    <HeroFrame tone={bankChange ? "danger" : "amber"}>
-      <p className="text-sm text-ash">
-        {escalation ? "Decision needed today" : "Payment held"} · {row.companyName}
-      </p>
-      <h1 id="hero-title" className="mt-2 max-w-4xl text-3xl font-semibold tracking-tight text-balance md:text-4xl">
-        {headline}
-      </h1>
-      <p className="mt-3 max-w-3xl text-ash">{who}</p>
-      <div className="mt-6">
-        <PaymentCard row={row} escalation={escalation} viewer={viewer} />
-      </div>
-      {others > 0 && (
-        <button type="button" onClick={() => onOpenTab("payments")} className="mt-4 text-sm text-ash hover:text-paper">
-          {others} more held payment{others === 1 ? "" : "s"} →
-        </button>
-      )}
-    </HeroFrame>
-  );
-}
-
 function AllClear({
   companyName,
   resolved,
@@ -253,26 +200,32 @@ function AllClear({
   nextOut?: { cents: number; vendor: string; due: number };
 }) {
   return (
-    <HeroFrame tone="ok">
-      <p className="text-sm text-ok">{resolved ? "Resolved" : "All clear"}</p>
-      <h1 id="hero-title" className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">
-        {resolved ? "Every incident affecting you is resolved" : "Nothing needs your attention"}
-      </h1>
-      <p className="mt-3 max-w-3xl text-ash">
-        {resolved
-          ? `${companyName ?? "Your company"} has closed every alert. The history stays in the tabs below.`
-          : `No active incident touches anything ${companyName ?? "your company"} shares. Sidecall only alerts you when you genuinely share what was compromised, not just the same vendor.`}
-      </p>
-      {nextOut && (
-        <p className="mt-6 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-line pt-4">
-          <span className="text-xs font-semibold tracking-wider text-ash uppercase">Next payment out</span>
-          <span className="text-xl font-semibold tabular-nums">{money(nextOut.cents)}</span>
-          <span className="text-ash">
-            to {nextOut.vendor} · due {shortDate(nextOut.due)}
-          </span>
+    <section aria-labelledby="hero-title" className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] xl:gap-16">
+      <div className="min-w-0">
+        <Eyebrow>
+          <Chip tone="ok">{resolved ? "Resolved" : "All clear"}</Chip>
+          {companyName && <span>{companyName}</span>}
+        </Eyebrow>
+        <h1 id="hero-title" className="mt-6 max-w-3xl text-headline font-semibold text-balance">
+          {resolved ? "Every incident affecting you is resolved" : "Nothing needs your attention"}
+        </h1>
+        <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ash">
+          {resolved
+            ? `${companyName ?? "Your company"} has closed every alert. The history stays in the tabs below.`
+            : `No active incident touches anything ${companyName ?? "your company"} shares. Sidecall only alerts you when you genuinely share what was compromised, not just the same vendor.`}
         </p>
+      </div>
+      {nextOut && (
+        // Pre-incident foreshadow: the payment the demo is about, already in flight.
+        <aside aria-label="Next payment out" className="self-start rounded-tile border border-line bg-panel p-5 md:p-6">
+          <p className="text-sm text-ash">Next payment out</p>
+          <p className="mt-2 text-5xl font-semibold tracking-tight tabular-nums">{money(nextOut.cents)}</p>
+          <p className="mt-2 text-ash">
+            to <span className="text-paper">{nextOut.vendor}</span> · due {shortDate(nextOut.due)}
+          </p>
+        </aside>
       )}
-    </HeroFrame>
+    </section>
   );
 }
 
@@ -328,7 +281,7 @@ function AlertItem({
 }) {
   const { run, busy, message } = useExposureAction(exposure._id);
   return (
-    <article className="grid gap-6 rounded-2xl border border-line bg-panel p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <article className="grid gap-6 rounded-tile border border-line bg-panel p-5 md:p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:gap-10">
       <div>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <UrgencyChip urgency={exposure.urgency} resolved={exposure.status === "closed"} />
@@ -336,12 +289,12 @@ function AlertItem({
           <AcknowledgedBy userId={exposure.acknowledgedBy} />
         </div>
         {incident && (
-          <h3 className="text-lg font-semibold">
+          <h3 className="text-xl font-semibold tracking-tight">
             {incident.vendorName} · {incident.assetName}
-            <span className="ml-2 text-sm font-normal text-ash">{dateTime(incident.createdAt)}</span>
+            <span className="mt-1 block text-sm font-normal text-ash">{dateTime(incident.createdAt)}</span>
           </h3>
         )}
-        <p className="mt-2 max-w-prose text-sm leading-relaxed">
+        <p className="mt-3 max-w-prose leading-relaxed">
           {alert?.status === "ready" ? alert.body : "Writing your alert…"}
         </p>
         {/* The alert text is written once; payments show their state now. */}
@@ -364,9 +317,9 @@ function AlertItem({
         {inHero ? (
           <p className="mt-4 text-sm text-ash">Acknowledge and resolve it from the steps at the top of the page.</p>
         ) : exposure.status !== "closed" && (
-          <div className="mt-4 flex gap-2">
+          <div className="mt-5 flex flex-wrap gap-2">
             {exposure.status === "open" && (
-              <button type="button" disabled={busy} onClick={() => void run("acknowledge")} className={BUTTON_SECONDARY}>
+              <button type="button" disabled={busy} onClick={() => void run("acknowledge")} className={BUTTON_PRIMARY}>
                 Acknowledge
               </button>
             )}
@@ -376,18 +329,18 @@ function AlertItem({
           </div>
         )}
         {message && (
-          <p role="status" className="mt-2 text-sm text-ash">
+          <p role="status" className="mt-3 text-sm text-paper motion-safe:animate-arrive">
             {message}
           </p>
         )}
       </div>
-      <dl className="space-y-3 rounded-xl bg-graphite p-4 text-sm">
+      <dl className="space-y-4 border-t border-line pt-5 text-sm lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8">
         {readableEvidence(exposure.evidence)
           .filter((e) => !(inHero && e.kind === "what_to_check"))
           .map((e) => (
           <div key={`${e.label}-${e.text}`}>
-            <dt className="text-xs font-semibold tracking-wider text-ash uppercase">{e.label}</dt>
-            <dd className="mt-0.5 leading-relaxed">{e.text}</dd>
+            <dt className="text-xs font-medium text-ash">{e.label}</dt>
+            <dd className="mt-1 leading-relaxed">{e.text}</dd>
           </div>
         ))}
       </dl>

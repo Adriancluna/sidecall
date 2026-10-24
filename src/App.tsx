@@ -14,7 +14,19 @@ import { AppShell } from "./layout/AppShell";
 import { ErrorBoundary } from "./layout/ErrorBoundary";
 import { CompanyView } from "./panels/CompanyView";
 import { PortfolioView } from "./panels/PortfolioView";
-import { Empty } from "./panels/ui";
+import symbolUrl from "../brand/logo/sidecall-symbol-small-amber.svg";
+
+// Before we know who you are: the mark, quietly, where the page will be.
+function PageLoading() {
+  return (
+    <main aria-busy="true" className="grid min-h-screen place-items-center">
+      <p className="flex flex-col items-center gap-3 text-sm text-ash">
+        <img src={symbolUrl} alt="" width={32} height={32} className="size-8 motion-safe:animate-pulse" />
+        Loading…
+      </p>
+    </main>
+  );
+}
 
 // The PE firm sees the whole portfolio; anyone at a portfolio company sees only their own company.
 function SignedIn() {
@@ -26,7 +38,7 @@ function SignedIn() {
     if (me === null) void signOut();
   }, [me, signOut]);
 
-  if (!me) return <Empty>Loading…</Empty>;
+  if (!me) return <PageLoading />;
   return (
     <AppShell me={me}>
       {me.role === "pe_partner" || !me.companyId ? (
@@ -48,9 +60,7 @@ export default function App() {
   return (
     <>
       <AuthLoading>
-        <main className="p-8">
-          <Empty>Loading…</Empty>
-        </main>
+        <PageLoading />
       </AuthLoading>
       <Unauthenticated>
         <SignInScreen />

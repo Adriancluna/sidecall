@@ -45,7 +45,7 @@ export function Tabs({
         role="tablist"
         aria-label={label}
         onKeyDown={onKeyDown}
-        className="flex gap-1 overflow-x-auto border-b border-line"
+        className="flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none] sm:gap-2"
       >
         {tabs.map((t) => {
           const selected = t.id === current.id;
@@ -62,15 +62,19 @@ export function Tabs({
               aria-controls={`panel-${t.id}`}
               tabIndex={selected ? 0 : -1}
               onClick={() => onSelect(t.id)}
-              className={`-mb-px flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`-mb-px flex shrink-0 items-center gap-2 border-b-2 px-3 py-3.5 text-[0.9375rem] font-medium whitespace-nowrap transition-colors ${
                 selected
                   ? "border-amber text-paper"
-                  : "border-transparent text-ash hover:text-paper"
+                  : "border-transparent text-ash hover:border-line hover:text-paper"
               }`}
             >
               {t.label}
               {t.count !== undefined && t.count !== 0 && (
-                <span className="rounded-full bg-graphite px-2 py-0.5 text-xs text-ash tabular-nums">
+                <span
+                  className={`rounded-chip px-1.5 py-px text-xs font-semibold tabular-nums ${
+                    selected ? "bg-amber/15 text-amber" : "bg-panel text-ash"
+                  }`}
+                >
                   {t.count}
                 </span>
               )}
@@ -83,7 +87,7 @@ export function Tabs({
         id={`panel-${current.id}`}
         aria-labelledby={`tab-${current.id}`}
         tabIndex={0}
-        className="pt-6 focus-visible:outline-none"
+        className="pt-8 focus-visible:outline-none"
       >
         {current.content()}
       </div>

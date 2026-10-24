@@ -21,11 +21,11 @@ export function UserMenu({ me }: { me: CurrentUser }) {
   };
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-ash">
+    <div className="flex min-w-0 shrink items-center gap-1 text-sm text-ash sm:gap-3">
       <label className="flex min-w-0 items-center gap-2">
-        <span className="sr-only shrink-0 sm:not-sr-only">Signed in as</span>
+        <span className="sr-only shrink-0 lg:not-sr-only">Signed in as</span>
         <select
-          className="w-full max-w-sm min-w-0 rounded-md border border-line bg-panel px-2 py-1.5 text-paper"
+          className="w-full max-w-[13.5rem] min-w-0 truncate rounded-chip border border-line bg-panel py-2 pr-7 pl-3 text-paper hover:border-ash disabled:opacity-60 sm:max-w-xs"
           value={me.email ?? ""}
           disabled={busy}
           onChange={(e) => void switchTo(e.target.value)}
@@ -47,7 +47,7 @@ export function UserMenu({ me }: { me: CurrentUser }) {
       <button
         type="button"
         onClick={() => void signOut()}
-        className="rounded-md px-2 py-1.5 hover:text-paper"
+        className="shrink-0 rounded-chip px-2 py-2 whitespace-nowrap hover:bg-panel hover:text-paper"
       >
         Sign out
       </button>

@@ -1,23 +1,51 @@
 @import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
+@import "../brand/tokens.css";
 
-/* Brand palette from brand/GUIDELINES.md. Amber is a calm heads-up; red is status-only. */
+/* Brand tokens come from brand/tokens.css. These aliases keep the short names the panels and the
+   map already use, with the same brand values. Amber is a calm heads-up; red is status-only. */
 @theme {
-  --font-sans: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --color-graphite: #15171c;
-  --color-panel: #1d2027;
-  --color-line: #2c303a;
-  --color-paper: #f4f2ed;
-  --color-ash: #8c919a;
-  --color-amber: #f5a524;
-  --color-danger: #f26d6d;
-  --color-ok: #4cc38a;
+  --color-graphite: #15171c; /* = graphite-950, app background */
+  --color-panel: #1c1f26; /* = graphite-900, cards */
+  --color-raised: #262a33; /* = graphite-800, hover / raised */
+  --color-danger: #f2665a; /* = urgent */
+  --color-ok: #4cc38a; /* = clear */
+
+  /* One type scale: display numbers, the page headline, body. Sized for a projector. */
+  --text-display: clamp(3.25rem, 1.9rem + 4.4vw, 6rem);
+  --text-display--line-height: 0.95;
+  --text-display--letter-spacing: -0.035em;
+  --text-headline: clamp(1.875rem, 1.35rem + 1.5vw, 2.75rem);
+  --text-headline--line-height: 1.1;
+  --text-headline--letter-spacing: -0.025em;
+
+  /* Motion only answers something that happened: a message arrives, a fresh audit line is marked. */
+  --animate-arrive: arrive 260ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-mark: mark 2.6s ease-out both;
+  @keyframes arrive {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes mark {
+    from {
+      background-color: rgb(245 165 36 / 0.18);
+    }
+    to {
+      background-color: transparent;
+    }
+  }
 }
 
 html {
   color-scheme: dark;
   /* Keep focused elements clear of the sticky header. */
-  scroll-padding-top: 6rem;
+  scroll-padding-top: 5rem;
 }
 
 body {
@@ -26,9 +54,51 @@ body {
   background: var(--color-graphite);
   color: var(--color-paper);
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 :focus-visible {
   outline: 2px solid var(--color-amber);
   outline-offset: 2px;
+}
+
+::selection {
+  background: rgb(245 165 36 / 0.3);
+}
+
+/* Disclosures in our own style: a small chevron that turns when open. */
+summary {
+  list-style: none;
+  cursor: pointer;
+  width: fit-content;
+}
+summary:hover {
+  color: var(--color-paper);
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary::before {
+  content: "";
+  display: inline-block;
+  width: 0.42em;
+  height: 0.42em;
+  margin: 0 0.65em 0.12em 0.1em;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 150ms ease;
+}
+details[open] > summary::before {
+  transform: rotate(45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

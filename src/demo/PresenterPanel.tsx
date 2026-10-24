@@ -150,9 +150,13 @@ export function PresenterPanel() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-3 left-3 z-20 rounded-full border border-line bg-graphite/90 px-3 py-1.5 text-xs font-medium text-ash shadow-lg hover:text-paper"
+        aria-label={`Open presenter steps, beat ${current + 1} of ${BEATS.length}: ${BEATS[current].title}`}
+        className="fixed bottom-3 left-3 z-20 flex max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-chip border border-line bg-graphite/95 px-3 py-1.5 text-xs font-medium text-ash backdrop-blur hover:border-ash hover:text-paper"
       >
-        Presenter · {current + 1}/{BEATS.length}
+        <span className="font-semibold text-amber tabular-nums">
+          {current + 1}/{BEATS.length}
+        </span>
+        <span className="max-w-[14rem] truncate">{BEATS[current].title}</span>
       </button>
     );
   }
@@ -162,7 +166,7 @@ export function PresenterPanel() {
   return (
     <aside
       aria-label="Presenter steps"
-      className="fixed bottom-3 left-3 z-20 max-h-[60vh] w-[min(320px,calc(100vw-1.5rem))] overflow-y-auto rounded-xl border border-line bg-graphite p-3 text-sm shadow-2xl"
+      className="fixed bottom-3 left-3 z-20 max-h-[60vh] w-[min(340px,calc(100vw-1.5rem))] overflow-y-auto rounded-tile border border-line bg-panel p-4 text-sm leading-relaxed shadow-2xl shadow-black/40"
     >
       <header className="mb-2 flex items-center justify-between gap-2">
         <button
@@ -185,7 +189,7 @@ export function PresenterPanel() {
                 type="button"
                 onClick={() => setCurrent(i)}
                 aria-current={i === current ? "step" : undefined}
-                className={`w-full rounded-md px-2 py-1 text-left ${i === current ? "bg-panel text-paper" : "text-ash hover:text-paper"}`}
+                className={`w-full rounded-chip px-2 py-1 text-left ${i === current ? "bg-raised text-paper" : "text-ash hover:text-paper"}`}
               >
                 {i + 1}. {b.title}
               </button>
@@ -194,7 +198,7 @@ export function PresenterPanel() {
         </ol>
       ) : (
         <div className="space-y-2">
-          <p className="font-medium">{beat.title}</p>
+          <p className="text-base font-semibold">{beat.title}</p>
           <p>{beat.say}</p>
           {beat.tip && <p className="text-ash">{beat.tip}</p>}
           <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -205,7 +209,7 @@ export function PresenterPanel() {
                 type="button"
                 disabled={busy}
                 onClick={() => void become(beat.as)}
-                className="rounded-md bg-amber px-3 py-1 font-semibold text-graphite disabled:opacity-50"
+                className="rounded-chip bg-amber px-3 py-1.5 font-semibold text-graphite hover:brightness-110 disabled:opacity-50"
               >
                 Sign in as {beat.as.name}
               </button>
@@ -216,7 +220,7 @@ export function PresenterPanel() {
                 disabled={current === 0}
                 onClick={() => setCurrent(current - 1)}
                 aria-label="Previous beat"
-                className="rounded-md border border-line px-2 py-1 hover:border-ash disabled:opacity-40"
+                className="rounded-chip border border-line px-2.5 py-1 hover:border-ash disabled:opacity-40"
               >
                 ←
               </button>
@@ -225,7 +229,7 @@ export function PresenterPanel() {
                 disabled={current === BEATS.length - 1}
                 onClick={() => setCurrent(current + 1)}
                 aria-label="Next beat"
-                className="rounded-md border border-line px-2 py-1 hover:border-ash disabled:opacity-40"
+                className="rounded-chip border border-line px-2.5 py-1 hover:border-ash disabled:opacity-40"
               >
                 →
               </button>

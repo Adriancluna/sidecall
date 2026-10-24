@@ -53,9 +53,16 @@ export function TimelinePanel({ incidentId }: { incidentId: Id<"incidents"> }) {
   return (
     <Card title="Timeline">
       {parts.length > 0 && (
-        <p className="mb-3 text-sm font-medium text-amber">
-          {parts.join(" · ")}
-        </p>
+        <ul className="mb-5 flex flex-wrap gap-2">
+          {parts.map((part) => (
+            <li
+              key={part}
+              className="rounded-chip border border-line bg-graphite px-3 py-1.5 text-sm first-letter:uppercase"
+            >
+              {part}
+            </li>
+          ))}
+        </ul>
       )}
       <details>
         <summary className="cursor-pointer text-sm text-ash">
@@ -70,7 +77,7 @@ export function TimelinePanel({ incidentId }: { incidentId: Id<"incidents"> }) {
               <span className="w-20 shrink-0 text-right font-mono text-xs text-ash tabular-nums">
                 +{duration(e.at - start)}
               </span>
-              <span className="w-28 shrink-0 font-mono text-xs">
+              <span className="w-28 shrink-0 font-mono text-xs text-ash">
                 {humanize(e.kind)}
               </span>
               <span className="min-w-0 flex-1">

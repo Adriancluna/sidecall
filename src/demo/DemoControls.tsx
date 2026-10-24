@@ -62,7 +62,7 @@ const SITE_URL =
   );
 
 const BUTTON =
-  "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50";
+  "rounded-chip border px-2.5 py-1 text-xs font-semibold transition-colors disabled:opacity-50";
 
 // The presenter key (PRESENTER_KEY on prod) lives in this browser only. Storage can be blocked
 // (private windows), so every read and write is guarded.
@@ -116,6 +116,8 @@ export function DemoControls() {
   const [scenario, setScenario] = useState<Scenario>(SCENARIOS[0]);
   const [presenterKey, setPresenterKey] = useState(loadKey);
   const [editingKey, setEditingKey] = useState(false);
+  // Phones: the simulator folds into one line until opened.
+  const [open, setOpen] = useState(false);
 
   const run = async (label: string, action: () => Promise<string>) => {
     setBusy(true);
@@ -136,100 +138,127 @@ export function DemoControls() {
   };
 
   return (
-    <div className="border-t border-line bg-panel/60">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 md:px-8 xl:px-12">
-        <p className="text-xs font-semibold tracking-wider text-amber uppercase">
+    // Outside the product: a quiet demo-tool bar above the header, dashed off from the app.
+    <div className="border-b border-dashed border-line bg-graphite">
+      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 md:px-8">
+        <p className="hidden items-center gap-2 text-xs font-semibold text-ash md:flex">
+          <DemoTag />
           Data leak simulator
         </p>
-        <label className="sr-only" htmlFor="demo-scenario">
-          Scenario
-        </label>
-        <select
-          id="demo-scenario"
-          value={scenario.body.externalId}
-          onChange={(e) =>
-            setScenario(
-              SCENARIOS.find((s) => s.body.externalId === e.target.value) ??
-                SCENARIOS[0],
-            )
-          }
-          className="rounded-md border border-line bg-graphite px-2 py-1.5 text-sm text-paper"
-        >
-          {SCENARIOS.map((s) => (
-            <option key={s.body.externalId} value={s.body.externalId}>
-              {s.label}
-            </option>
-          ))}
-        </select>
         <button
           type="button"
-          disabled={busy}
-          onClick={() => void run("Fire incident", send)}
-          className={`${BUTTON} border-amber bg-amber text-graphite hover:bg-amber/90`}
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          aria-controls="demo-simulator"
+          className="flex items-center gap-2 py-1 text-xs font-semibold text-ash md:hidden"
         >
-          Fire incident
+          <DemoTag />
+          Data leak simulator
+          <span aria-hidden>{open ? "▴" : "▾"}</span>
         </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void run("Replay webhook", send)}
-          className={`${BUTTON} border-line text-paper hover:border-ash`}
+        <div
+          id="demo-simulator"
+          className={`${open ? "flex" : "hidden"} w-full flex-wrap items-center gap-2 md:flex md:w-auto`}
         >
-          Replay webhook
-        </button>
-        {IS_STAGE && (
+          <label className="sr-only" htmlFor="demo-scenario">
+            Scenario
+          </label>
+          <select
+            id="demo-scenario"
+            value={scenario.body.externalId}
+            onChange={(e) =>
+              setScenario(
+                SCENARIOS.find((s) => s.body.externalId === e.target.value) ??
+                  SCENARIOS[0],
+              )
+            }
+            className="min-w-0 rounded-chip border border-line bg-panel py-1 pr-7 pl-2 text-xs text-paper"
+          >
+            {SCENARIOS.map((s) => (
+              <option key={s.body.externalId} value={s.body.externalId}>
+                {s.label}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             disabled={busy}
-            onClick={() =>
-              window.confirm(
-                "Reset the demo? This wipes every incident, hold and sign-in and reseeds the portfolio.",
-              ) &&
-              void run("Reset", async () => {
-                await resetDemo(presenterKey ? { presenterKey } : {});
-                return "portfolio reseeded.";
-              })
-            }
-            className={`${BUTTON} border-transparent text-ash hover:text-paper`}
+            onClick={() => void run("Fire incident", send)}
+            className={`${BUTTON} border-amber bg-amber text-graphite hover:brightness-110`}
           >
-            Reset
+            {busy ? "Working…" : "Fire incident"}
           </button>
-        )}
-        {IS_STAGE &&
-          (presenterKey && !editingKey ? (
-            // Once set, the key field gets out of the projected frame.
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void run("Replay webhook", send)}
+            className={`${BUTTON} border-line text-paper hover:border-ash`}
+          >
+            Replay webhook
+          </button>
+          {IS_STAGE && (
             <button
               type="button"
-              onClick={() => setEditingKey(true)}
-              className="text-xs text-ash hover:text-paper"
+              disabled={busy}
+              onClick={() =>
+                window.confirm(
+                  "Reset the demo? This wipes every incident, hold and sign-in and reseeds the portfolio.",
+                ) &&
+                void run("Reset", async () => {
+                  await resetDemo(presenterKey ? { presenterKey } : {});
+                  return "portfolio reseeded.";
+                })
+              }
+              className={`${BUTTON} border-transparent text-ash hover:text-paper`}
             >
-              Presenter key set ✓
+              Reset
             </button>
-          ) : (
-            <label className="flex items-center gap-2 text-xs text-ash">
-              Presenter key
-              <input
-                type="password"
-                autoComplete="off"
-                value={presenterKey}
-                onChange={(e) => {
-                  setPresenterKey(e.target.value);
-                  saveKey(e.target.value);
-                }}
-                autoFocus={editingKey}
-                onBlur={() => setEditingKey(false)}
-                placeholder="prod only"
-                className="w-28 rounded-md border border-line bg-graphite px-2 py-1 text-sm text-paper"
-              />
-            </label>
-          ))}
+          )}
+          {IS_STAGE &&
+            (presenterKey && !editingKey ? (
+              // Once set, the key field gets out of the projected frame.
+              <button
+                type="button"
+                onClick={() => setEditingKey(true)}
+                className="text-xs text-ash hover:text-paper"
+              >
+                Presenter key set ✓
+              </button>
+            ) : (
+              <label className="flex items-center gap-2 text-xs text-ash">
+                Presenter key
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={presenterKey}
+                  onChange={(e) => {
+                    setPresenterKey(e.target.value);
+                    saveKey(e.target.value);
+                  }}
+                  autoFocus={editingKey}
+                  onBlur={() => setEditingKey(false)}
+                  placeholder="prod only"
+                  className="w-24 rounded-chip border border-line bg-panel px-2 py-1 text-xs text-paper"
+                />
+              </label>
+            ))}
+        </div>
         <p
-          className={`min-w-0 flex-1 basis-64 text-xs text-ash ${status ? "" : "hidden sm:block"}`}
+          className={`min-w-0 flex-1 basis-56 truncate text-xs ${status ? "text-paper" : "hidden text-ash xl:block"}`}
+          title={status ?? scenario.about}
           aria-live="polite"
         >
           {status ?? scenario.about}
         </p>
       </div>
     </div>
+  );
+}
+
+function DemoTag() {
+  return (
+    <span className="rounded-[4px] border border-amber/50 px-1.5 py-px text-[10px] font-bold tracking-wider text-amber uppercase">
+      Demo
+    </span>
   );
 }
