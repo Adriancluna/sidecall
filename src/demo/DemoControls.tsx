@@ -5,14 +5,41 @@ import { api } from "../../convex/_generated/api";
 import { friendlyError } from "../layout/errors";
 import { IS_STAGE } from "./stage";
 
-// Mirrors SCENARIOS.brightline in convex/seed.ts (not imported: that file is server code).
-const DEMO_INCIDENT = {
-  externalId: "demo-brightline-001",
-  assetName: "Brightline Payroll",
-  reportedByDomain: "pinecreststaffing.example",
-  summary:
-    "Attacker used Brightline's admin access at the newest acquisition to reach the payroll vendor's tenant.",
-};
+// Mirrors SCENARIOS in convex/seed.ts (not imported: that file is server code). These three are
+// the only incidents /incident accepts unsigned, and only on DEMO_MODE deployments.
+const SCENARIOS = [
+  {
+    label: "Brightline payroll breach",
+    body: {
+      externalId: "demo-brightline-001",
+      assetName: "Brightline Payroll",
+      reportedByDomain: "pinecreststaffing.example",
+      summary:
+        "Attacker used Brightline's admin access at the newest acquisition to reach the payroll vendor's tenant.",
+    },
+  },
+  {
+    label: "Ironclad shared login leaked",
+    body: {
+      externalId: "demo-ironclad-cred-002",
+      assetName: "Ironclad shared admin account",
+      reportedByDomain: "pinecreststaffing.example",
+      summary:
+        "Ironclad's shared admin credential seen in use from an unknown host.",
+    },
+  },
+  {
+    label: "Ironclad MSP compromised",
+    body: {
+      externalId: "demo-ironclad-msp-003",
+      assetName: "Ironclad IT Services",
+      reportedByDomain: "pinecreststaffing.example",
+      summary: "Ironclad Managed IT reports a compromise of its own systems.",
+    },
+  },
+] as const;
+
+type Scenario = (typeof SCENARIOS)[number];
 
 // `convex deploy` (Vercel) only sets VITE_CONVEX_URL, so derive the HTTP-actions host from it.
 const SITE_URL =
@@ -25,7 +52,7 @@ const SITE_URL =
 const BUTTON =
   "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50";
 
-async function postIncident(): Promise<{
+async function postIncident(scenario: Scenario): Promise<{
   incidentId: string;
   duplicate: boolean;
 }> {
@@ -33,7 +60,7 @@ async function postIncident(): Promise<{
   const res = await fetch(`${SITE_URL}/incident`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(DEMO_INCIDENT),
+    body: JSON.stringify(scenario.body),
   });
   const body = (await res.json()) as {
     incidentId?: string;
@@ -50,6 +77,7 @@ export function DemoControls() {
   const resetDemo = useMutation(api.seed.resetDemo);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string>();
+  const [scenario, setScenario] = useState<Scenario>(SCENARIOS[0]);
 
   const run = async (label: string, action: () => Promise<string>) => {
     setBusy(true);
@@ -63,7 +91,7 @@ export function DemoControls() {
   };
 
   const send = async () => {
-    const res = await postIncident();
+    const res = await postIncident(scenario);
     return res.duplicate
       ? "duplicate, nothing new written."
       : "incident recorded.";
@@ -71,6 +99,30 @@ export function DemoControls() {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {IS_STAGE && (
+        <label className="sr-only" htmlFor="demo-scenario">
+          Scenario
+        </label>
+      )}
+      {IS_STAGE && (
+        <select
+          id="demo-scenario"
+          value={scenario.body.externalId}
+          onChange={(e) =>
+            setScenario(
+              SCENARIOS.find((s) => s.body.externalId === e.target.value) ??
+                SCENARIOS[0],
+            )
+          }
+          className="rounded-md border border-line bg-panel px-2 py-1.5 text-sm text-paper"
+        >
+          {SCENARIOS.map((s) => (
+            <option key={s.body.externalId} value={s.body.externalId}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+      )}
       <button
         type="button"
         disabled={busy}

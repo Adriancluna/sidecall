@@ -16,7 +16,10 @@ import { Card, Chip, Empty } from "./ui";
 
 export function PortfolioView() {
   const incidents = useQuery(api.blastRadius.listIncidents, {});
-  const incidentId = incidents?.[0]?._id; // newest first
+  // Follow the newest incident (list is newest first) unless the firm picked another one.
+  const [chosen, setChosen] = useState<Id<"incidents">>();
+  const incidentId =
+    incidents?.find((i) => i._id === chosen)?._id ?? incidents?.[0]?._id;
   const blast = useQuery(
     api.blastRadius.getBlastRadius,
     incidentId ? { incidentId } : "skip",
@@ -63,6 +66,25 @@ export function PortfolioView() {
   return (
     <div className="space-y-6">
       <section>
+        {incidents.length > 1 && (
+          <label className="mb-2 flex flex-wrap items-center gap-2 text-sm text-ash">
+            Incident
+            <select
+              value={incident._id}
+              onChange={(e) => {
+                setChosen(e.target.value as Id<"incidents">);
+                setSelected(undefined);
+              }}
+              className="max-w-full min-w-0 rounded-md border border-line bg-panel px-2 py-1.5 text-paper"
+            >
+              {incidents.map((i) => (
+                <option key={i._id} value={i._id}>
+                  {i.assetName} · {dateTime(i.createdAt)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <p className="text-sm text-ash">
           {blast.asset.name} ({blast.asset.kind}) ·{" "}
           {dateTime(incident.createdAt)}
