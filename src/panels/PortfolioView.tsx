@@ -11,7 +11,7 @@ import { ApImportPanel } from "./ApImportPanel";
 import { ContainPanel } from "./ContainPanel";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
-import { EXPOSURE_STATUS, PAYMENT_STATUS, URGENCY } from "./labels";
+import { EXPOSURE_STATUS, paymentLook, URGENCY } from "./labels";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { ProofPanel } from "./ProofPanel";
 import { TimelinePanel } from "./TimelinePanel";
@@ -151,7 +151,7 @@ export function PortfolioView() {
                       </span>
                       <span className="flex gap-1">
                         {r.bankChange && <Chip tone="danger">Bank change</Chip>}
-                        <LookChip look={PAYMENT_STATUS[r.payment.status]} />
+                        <LookChip look={paymentLook(r.payment)} />
                       </span>
                     </li>
                   ))}

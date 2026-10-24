@@ -3,10 +3,10 @@
 import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
+import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { friendlyError } from "../layout/errors";
 import { money } from "./format";
-import { PAYMENT_STATUS } from "./labels";
+import { paymentLook } from "./labels";
 import { Card, Empty, LookChip } from "./ui";
 
 const TEXT_TONE = { amber: "text-amber", danger: "text-danger", ok: "text-ok" };
@@ -16,6 +16,14 @@ const shortDate = (ms: number) =>
 
 export function BillsPanel() {
   const bills = useQuery(api.payments.getMyBills, {});
+  // Bill rows only carry the payment's status; the held-payments query (same subscription as the
+  // company view's) says which ones went through a hold, so those read "Released", not "Paid".
+  const heldPath = new Map(
+    (useQuery(api.payments.getHeldPayments, {}) ?? []).map((r) => [
+      r.payment._id,
+      r.payment,
+    ]),
+  );
   return (
     <Card title="Bills to pay">
       {bills === undefined ? (
@@ -32,7 +40,11 @@ export function BillsPanel() {
               vendorName={b.vendorName}
               amountCents={b.bill.amountCents}
               dueDate={b.bill.dueDate}
-              status={b.payment?.status}
+              payment={
+                b.payment
+                  ? (heldPath.get(b.payment._id) ?? b.payment)
+                  : undefined
+              }
             />
           ))}
         </ul>
@@ -47,7 +59,7 @@ type RowProps = {
   vendorName: string;
   amountCents: number;
   dueDate: number;
-  status?: keyof typeof PAYMENT_STATUS;
+  payment?: Pick<Doc<"payments">, "status" | "heldByIncidentId">;
 };
 
 function BillRow({
@@ -56,7 +68,7 @@ function BillRow({
   vendorName,
   amountCents,
   dueDate,
-  status,
+  payment,
 }: RowProps) {
   const requestPayment = useMutation(api.payments.requestPayment);
   const [busy, setBusy] = useState(false);
@@ -104,8 +116,8 @@ function BillRow({
           <span className="font-semibold tabular-nums">
             {money(amountCents)}
           </span>
-          {status ? (
-            <LookChip look={PAYMENT_STATUS[status]} />
+          {payment ? (
+            <LookChip look={paymentLook(payment)} />
           ) : (
             <button
               type="button"
