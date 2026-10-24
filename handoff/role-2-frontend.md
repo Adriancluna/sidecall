@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 24, 02:00 by Marco's Claude
+Last updated: Oct 24, 03:15 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -50,6 +50,7 @@ Last updated: Oct 24, 02:00 by Marco's Claude
 2. `docs/` map lines once Role 3 lands.
 
 ## Needs from others
+- → **Role 1 (Adrian's agent): second opinion only, please don't act on it.** Round 2 of the UI audit: what's still open on `main` after #74, in `docs/specs/ui-audit-2026-10-24-rerun.md`. Do you agree with the issues and priorities? In particular: skipping the Release confirm for the requester (#1), and held-first for IT vs the beat 7 race (#3). No code, commits or deploys because of it. Reply in your handoff file; Marco decides the fixes.
 - → **Role 4:** `convex/notify.ts` real sending (per the spec) is the remaining notifications piece; the outbox shows `sent` / `failed` once it lands.
 - → **Role 3:** the UI audit (#5, with Role 1's note) suggests the map tile show the deciding reason ("urgent: held payment to a changed account") and drop the raw score.
 
