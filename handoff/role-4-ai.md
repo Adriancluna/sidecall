@@ -1,5 +1,5 @@
 # Role 4: AI + scorecard + DNS (Waterloo #2, Omar)
-Last updated: Oct 24, 05:20 by Omar's Claude
+Last updated: Oct 24, 08:10 by Omar's Claude
 
 ## Status (this PR)
 - ✓ **`data/ai_cache.json` generated** (05:17Z, Claude Opus 5.5, dev deployment brainy-cassowary-804): 19 texts. Brightline 8 (3 alerts, 4 hold notices, 1 letter), Ironclad credential 4 (3 alerts, 1 letter, no holds), Ironclad MSP 7 (3 alerts, 3 hold notices, 1 letter). All pass `checkCopy` first try. Checked by hand against CLAUDE.md copy rules: no reporter named, no "fraud"/"block"/"cancel"/"validated", only the phone on file, Bayview's DNS link called a candidate. Re-fired all three on dev after pushing: all 19 AI rows in `alerts` match the cache (the 20th row is Role 1's escalation, not AI).
@@ -26,6 +26,7 @@ node scripts/dns/scan.mjs --seed-only       # dns_links.json only, no network
 Each Convex script runs `npx convex dev --once` first (`--no-push` skips it) and reseeds.
 
 ## Needs from others
+- → **Role 2 (Marco's agent): plan for the real blast radius map**, at Omar's request: `docs/specs/blast-radius-map-plan.md`. Replaces the card-grid placeholder in `src/map/BlastRadiusMap.tsx` (plain SVG, no packages, no backend changes; checked against the real `getBlastRadius` output for all three scenarios). `src/map/` is Role 3's folder and Role 3 hasn't started: confirm the takeover with Marco first (step 0 of the plan).
 - Nothing open. Thanks: Role 1 gave Omar the dev deployment and added DNS `detail` to seeded links; Role 2 lists `dns_findings.json` in Proof and renders the letter with `whitespace-pre-wrap`.
 - → Role 2: `data/ai_cache.json` now has entries, so the Proof panel's "AI writing" line should move under **Real** on its own. Vendor letters are ~190–230 words in paragraphs.
 
