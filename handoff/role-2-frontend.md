@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 20:42 by Marco's Claude
+Last updated: Oct 23, 20:50 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -22,12 +22,14 @@ Last updated: Oct 23, 20:42 by Marco's Claude
 - ✓ **Round 2, task 7: errors and polish.** `ErrorBoundary` around the signed-in app: a query that throws "Not signed in" / "Unknown user" (Reset, wiped data, deploy mid-session) signs out and shows sign-in instead of a blank page; any other crash shows a message + Reload. `friendlyError()` (`src/layout/errors.ts`) shows `ConvexError` data text, hides raw "[CONVEX … Server Error" dumps. Phones: 16px gutter (`px-4`, `md:px-6`), header and audit rows wrap, ledger table scrolls inside its card, presenter panel starts collapsed under 768px. Measured at 375px: sign-in, PE view, company view all `scrollWidth = 375`. Copy audit: no "fraud" / "block" / "stop"; presenter's "never validated" reworded to "Inferred links are labelled candidate." Verified the crash path by wiping dev data under a signed-in session → lands on sign-in.
 - ✓ **Round 2, task 8: pitch material** in `docs/` (Role 2 owns it): `demo-script.md` (≤ 3 min, opens on the $480K hold, who/click/say per beat, recovery tips), `devpost.md` (draft: what it does, how we built it on Convex, real vs simulated, scorecard, challenges, seat line), `video-shot-list.md` (10 shots + checklist). Lines marked **[after 11pm]** wait for Role 3's map, Role 4's AI text and scorecard numbers, and Role 1's escalation.
 - ✓ **Round 3 (both tasks):** (1) escalation banner: `kind: "escalation"` alerts from `getMyAlerts` show as an amber "Decision needed: …" banner at the top of the matching held payment card (company view, only while held). (2) `src/panels/TimelinePanel.tsx` on `getIncidentTimeline`: headline from `stats` ("Payments held in the same transaction as the report · alerts written in 193 ms · vendor letter in 194 ms · first acknowledgement after 12 s") + collapsible event list with +offsets; PE view under the headline, company view before the controls log (scoped by the backend). Unknown event kinds render as text. Verified on dev after `seed:run` + fire. `docs/` updated (escalation beat, timeline beat 6b, Devpost).
+- ✓ **Ledger columns (Role 1's screenshot bug):** padded, fixed-width Date / Account / Debit / Credit columns, no-wrap amounts; table scrolls inside its card on phones.
+- ✓ **Polish pass:** Ponytail over-engineering cuts (scorecard validator shrunk, one-consumer user context → prop, CSV export is a plain `<a download href=data:…>`, ErrorBoundary simplified, timeline `Stats` type inferred from the query, speculative error branch removed) and Vercel's Web Interface Guidelines audit: confirm before Reset and Reject, skip link, `color-scheme: dark`, `scroll-padding-top` for the sticky header, form `name` / `spellCheck` / `autoComplete`, font preconnect, balanced `h1`. No visual redesign. ✓ Thanks Role 1 for #44 (preview builds skipped).
 
 ## In progress
 1. Round 3 done. Next: update `docs/` once Roles 3/4 land; new asks from Role 1.
 
 ## Needs from others
-- → Role 1: **red "Vercel" check on every PR.** Preview builds run `npx convex deploy` with no deploy key (by design), so they fail. Please make previews skip instead: in `vercel.json` add `"ignoreCommand": "[ \"$VERCEL_ENV\" != \"production\" ]"` (exit 0 = skip; production still builds). Then PR checks go green and the app stops offering "Fix CI".
+- (none right now)
 
 ## Decisions & gotchas
 - Sign-in is invite-only (backend). The demo password `sidecall-demo` is shown on the sign-in screen on purpose: every person is simulated and judges need to switch roles. The form path sets the password on a person's first sign-in, so typing any other password the first time locks that person to it until a Reset; the quick-pick always uses the demo password.

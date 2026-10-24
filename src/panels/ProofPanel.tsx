@@ -18,12 +18,12 @@ const SIMULATED = [
   "Incidents and bank-detail changes",
 ];
 
-const RESULT_TONE = {
+const RESULT_TONE: Record<string, "ok" | "danger"> = {
   caught: "ok",
   correct_no_action: "ok",
   missed: "danger",
   false_hold: "danger",
-} as const;
+};
 
 export function ProofPanel() {
   return (
@@ -120,7 +120,7 @@ function ScenarioBlock({ scenario: s }: { scenario: ScorecardScenario }) {
                 <td className="py-1.5 pr-3">{c.expected.replace(/_/g, " ")}</td>
                 <td className="py-1.5 pr-3">{c.actual.replace(/_/g, " ")}</td>
                 <td className="py-1.5 pr-3">
-                  <Chip tone={RESULT_TONE[c.result]}>
+                  <Chip tone={RESULT_TONE[c.result] ?? "muted"}>
                     {c.result.replace(/_/g, " ")}
                   </Chip>
                 </td>

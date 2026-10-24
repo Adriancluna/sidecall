@@ -92,6 +92,9 @@ export function DemoControls() {
           type="button"
           disabled={busy}
           onClick={() =>
+            window.confirm(
+              "Reset the demo? This wipes every incident, hold and sign-in and reseeds the portfolio.",
+            ) &&
             void run("Reset", async () => {
               await resetDemo({});
               return "portfolio reseeded.";

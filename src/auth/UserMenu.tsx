@@ -1,12 +1,11 @@
 // Header identity: who is signed in, a quick switch to another seeded person, and sign out.
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useState } from "react";
-import { useCurrentUser } from "./currentUser";
+import type { CurrentUser } from "./currentUser";
 import { ROLE_LABEL, useDirectory } from "./directory";
 import { useSwitchTo } from "./useSignInAs";
 
-export function UserMenu() {
-  const me = useCurrentUser();
+export function UserMenu({ me }: { me: CurrentUser }) {
   const directory = useDirectory();
   const { signOut } = useAuthActions();
   const switchToPerson = useSwitchTo();

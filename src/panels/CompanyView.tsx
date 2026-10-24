@@ -34,7 +34,7 @@ export function CompanyView({ companyId }: Props) {
     <div className="space-y-6">
       <header>
         <p className="text-sm text-ash">{company?.sector}</p>
-        <h1 className="text-3xl font-semibold tracking-tight">
+        <h1 className="text-3xl font-semibold tracking-tight text-balance">
           {company?.name}
         </h1>
         {company && !company.holdRuleEnabled && (

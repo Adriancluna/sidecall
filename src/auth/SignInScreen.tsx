@@ -53,8 +53,10 @@ export function SignInScreen() {
             Work email
             <input
               type="email"
+              name="email"
               required
               autoComplete="username"
+              spellCheck={false}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="mt-1 w-full rounded-md border border-line bg-panel px-3 py-2 text-paper"
@@ -64,6 +66,7 @@ export function SignInScreen() {
             Password
             <input
               type="password"
+              name="password"
               required
               autoComplete="current-password"
               value={password}

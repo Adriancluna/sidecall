@@ -25,7 +25,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
     return SESSION_ENDED.test(message) ? (
       <SessionEnded />
     ) : (
-      <Crashed text={friendlyError(error)} />
+      <Notice text={friendlyError(error)} reload />
     );
   }
 }
@@ -40,28 +40,22 @@ function SessionEnded() {
   );
 }
 
-function Crashed({ text }: { text: string }) {
-  return (
-    <Notice text={text}>
-      <button
-        type="button"
-        onClick={() => window.location.reload()}
-        className="mt-3 rounded-md bg-amber px-3 py-1.5 text-sm font-semibold text-graphite"
-      >
-        Reload
-      </button>
-    </Notice>
-  );
-}
-
-function Notice({ text, children }: { text: string; children?: ReactNode }) {
+function Notice({ text, reload = false }: { text: string; reload?: boolean }) {
   return (
     <main className="mx-auto max-w-xl px-4 py-16 md:px-6">
       <Card>
         <p role="alert" className="text-sm">
           {text}
         </p>
-        {children}
+        {reload && (
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-3 rounded-md bg-amber px-3 py-1.5 text-sm font-semibold text-graphite"
+          >
+            Reload
+          </button>
+        )}
       </Card>
     </main>
   );

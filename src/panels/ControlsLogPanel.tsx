@@ -35,15 +35,6 @@ function toCsv(rows: AuditRow[]): string {
   return [COLUMNS.map(csvField).join(","), ...lines].join("\r\n");
 }
 
-function download(filename: string, text: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
 type Props = { incidentId: Id<"incidents">; fileLabel: string };
 
 export function ControlsLogPanel({ incidentId, fileLabel }: Props) {
@@ -55,15 +46,13 @@ export function ControlsLogPanel({ incidentId, fileLabel }: Props) {
       aside={
         rows &&
         rows.length > 0 && (
-          <button
-            type="button"
-            onClick={() =>
-              download(`sidecall-controls-log-${fileLabel}.csv`, toCsv(rows))
-            }
+          <a
+            download={`sidecall-controls-log-${fileLabel}.csv`}
+            href={`data:text/csv;charset=utf-8,${encodeURIComponent(toCsv(rows))}`}
             className="rounded-md border border-line px-3 py-1 text-sm hover:border-ash"
           >
             Export CSV
-          </button>
+          </a>
         )
       }
     >
