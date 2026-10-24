@@ -80,6 +80,22 @@ export const auditAction = v.union(
   v.literal("contain"),
 );
 
+export const notifyEvent = v.union(
+  v.literal("alert"),
+  v.literal("hold"),
+  v.literal("escalation"),
+  v.literal("incident"),
+  v.literal("contained"),
+);
+export const notifyKind = v.union(v.literal("slack"), v.literal("discord"), v.literal("webhook"));
+export const notifyStatus = v.union(
+  v.literal("queued"),
+  v.literal("sending"), // claimed by a dispatch run, so two runs never send the same row
+  v.literal("sent"),
+  v.literal("simulated"), // NOTIFY_LIVE off: written to the outbox, never sent (stage rule)
+  v.literal("failed"),
+);
+
 export const evidenceItem = v.object({ kind: v.string(), detail: v.string() });
 
 export const ledgerLine = v.object({
@@ -236,6 +252,39 @@ export default defineSchema({
   })
     .index("by_companyId_and_date", ["companyId", "date"])
     .index("by_paymentId", ["paymentId"]),
+
+  // ---- Notifications (docs/specs/notifications.md) ----
+
+  notificationChannels: defineTable({
+    scope: v.union(v.literal("company"), v.literal("firm")),
+    companyId: v.optional(v.id("companies")), // set for scope "company"
+    kind: notifyKind,
+    label: v.string(),
+    url: v.string(), // secret: never returned to clients (listChannels masks it)
+    events: v.array(notifyEvent),
+    enabled: v.boolean(),
+    createdBy: v.id("users"),
+  })
+    .index("by_companyId", ["companyId"])
+    .index("by_scope", ["scope"]),
+
+  // Outbox: one row per (channel, refId); refId is "<event>:<alert or incident id>" or "test:<time>".
+  notifications: defineTable({
+    channelId: v.id("notificationChannels"),
+    companyId: v.optional(v.id("companies")),
+    incidentId: v.optional(v.id("incidents")),
+    event: v.union(notifyEvent, v.literal("test")),
+    refId: v.string(),
+    status: notifyStatus,
+    text: v.string(),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    sentAt: v.optional(v.number()),
+  })
+    .index("by_channelId_and_refId", ["channelId", "refId"])
+    .index("by_incidentId", ["incidentId"])
+    .index("by_status", ["status"])
+    .index("by_companyId", ["companyId"]),
 
   auditLog: defineTable({
     at: v.number(),

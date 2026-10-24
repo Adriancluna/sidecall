@@ -7,6 +7,7 @@ The data shapes and function signatures every role builds against. Owned by Role
 
 ## Changelog
 
+- **Oct 23, ~10:50pm.** Notifications (spec `docs/specs/notifications.md`), backend part: tables `notificationChannels`, `notifications` (outbox); `notifications.listChannels / listOutbox / addChannel / removeChannel / sendTest`; enqueue hooks on ready alerts, holds, escalations, incidents (firm) and containment (firm); `internal.notifications.claimQueued / markResults` for Role 4's `convex/notify.ts` (stub in place); env `NOTIFY_LIVE`. Seed adds `#summit-finance` (Summit) and `#northpass-portfolio-risk` (firm) simulated Slack channels.
 - **Oct 23, ~9:45pm.** Scale: `getBlastRadius` totals now come from the incident's exposures and payments (were capped by reading only 100 companies); fan-out reads bounded at 500 everywhere. New `internal.alerts.saveAlerts({ alerts: [...] })` (batch upsert, same fields as `saveAlert`). Dev/test-only `internal.ops.addScalePortfolio({ count })` (DEMO_MODE only).
 - **Oct 23, ~9:25pm.** Containment: `incidents.containIncident({ incidentId, note })` (PE partner only; note ≥ 15 chars). Incidents gained `containedAt?`, `containedBy?`, `containmentNote?`; `listIncidents` rows gained `containedAt | null`; audit action `contain`; timeline event `contain` + `stats.msToContained`. After containment new requests to that vendor are not held; existing holds stay held. `scoring:exportOutcomes` may list payments with `seedRef: null` (created by `requestPayment`): scorecard scripts should skip them.
 - **Oct 23, ~9:15pm.** New `payments.requestPayment({ billId })` (AP clerk; pays the vendor's latest bank details; held + flagged on creation if the vendor had an incident in the last 30 days) and `payments.getMyBills()`. Seed adds one unpaid Summit → Brightline bill ($38K). Summit's AP no longer reaches $0 after releasing the $480K (the $38K bill is still owed).
@@ -105,6 +106,34 @@ Module prefix in brackets: `api.blastRadius.listIncidents`, etc. `null` means "n
 - `pe_partner` (Jordan Ames, Northpass Capital) = PE firm view: sees every company, the map and who reported. Cannot acknowledge or release.
 - Anyone else sees only their own company. Passing another company's id returns your own data (or nothing), never theirs.
 - Signed out: every scoped function throws "Not signed in". Public (no sign-in needed): `listCompanies`, `listUsers`, `listAssets`, `access.me` (returns null).
+
+## Notifications (Slack / Discord / webhook)
+
+```ts
+notificationChannels: { scope: "company" | "firm", companyId?, kind: "slack" | "discord" | "webhook", label,
+                        url /* secret, never returned */, events: ("alert"|"hold"|"escalation"|"incident"|"contained")[],
+                        enabled, createdBy }
+notifications (outbox): { channelId, companyId?, incidentId?, event: <event> | "test",
+                          refId /* "<event>:<alert or incident id>" | "test:<time>" */,
+                          status: "queued" | "sending" | "sent" | "simulated" | "failed", text, error?, createdAt, sentAt? }
+
+[notifications] listChannels() -> { _id, scope, kind, label, target /* masked: host/…last4 */, events, enabled, canEdit }[]
+[notifications] listOutbox({ incidentId? }) -> { _id, createdAt, channelLabel, kind | null, event, status, text, error | null, sentAt | null }[]
+                // newest first, ≤ 100; firm: all (or the incident's), company: own rows
+[notifications] addChannel({ scope, kind, label, url, events }) -> { ok: true, channelId } | { ok: false, reason }
+[notifications] removeChannel({ channelId }) -> { ok: true } | { ok: false, reason }
+[notifications] sendTest({ channelId }) -> { ok: true } | { ok: false, reason }
+                // controller: own company's channels; pe_partner: firm channels. Refusals logged (rule notification_settings).
+
+internal.notifications.claimQueued({ limit? }) -> { notificationId, event, text, incidentId, companyName, createdAt,
+                                                    channel: { kind, url, label } | null }[]   // marks them "sending"
+internal.notifications.markResults({ results: { notificationId, status: "sent" | "simulated" | "failed", error? }[] })
+```
+
+- Who gets what: company channels get `alert`, `hold`, `escalation` (text reuses the company's own alert, never names the reporter); firm channels get `incident` (headline numbers, may name the reporter) and `contained`.
+- One row per (channel, refId): replays and re-saved alerts never notify twice. One `notify.dispatch` scheduled per mutation.
+- URLs: https only; Slack must be `hooks.slack.com/services/…`, Discord `discord(app).com/api/webhooks/…`; generic webhooks can't be localhost, `.local`/`.internal` or an IP literal.
+- `NOTIFY_LIVE` (deployment env) off by default: rows end `simulated`, nothing leaves Convex (stage rule).
 
 ## Sign-in (Convex Auth, Password provider)
 

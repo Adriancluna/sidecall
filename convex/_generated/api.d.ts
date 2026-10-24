@@ -16,6 +16,8 @@ import type * as blastRadius from "../blastRadius.js";
 import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as incidents from "../incidents.js";
+import type * as notifications from "../notifications.js";
+import type * as notify from "../notify.js";
 import type * as ops from "../ops.js";
 import type * as payments from "../payments.js";
 import type * as scoring from "../scoring.js";
@@ -36,6 +38,8 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   http: typeof http;
   incidents: typeof incidents;
+  notifications: typeof notifications;
+  notify: typeof notify;
   ops: typeof ops;
   payments: typeof payments;
   scoring: typeof scoring;

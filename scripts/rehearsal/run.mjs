@@ -115,6 +115,15 @@ const alerts = await query("alerts:getMyAlerts", {}, jamie);
 check("  escalated to Rosa (knows when to ask)", alerts.some((a) => a.kind === "escalation" && a.body.includes("Rosa Alvarez")));
 check("  alert never names the reporter", alerts.every((a) => !a.body.includes("Pinecrest")));
 
+await sleep(1500); // let the AI writers and the notification dispatch finish
+const outbox = await query("notifications:listOutbox", {}, rosa);
+const kinds = new Set(outbox.map((r) => r.event));
+check(
+  "  Summit's Slack outbox: alert + hold + escalation",
+  ["alert", "hold", "escalation"].every((e) => kinds.has(e)) && outbox.every((r) => r.status === "simulated" || r.status === "sent"),
+  outbox.map((r) => `${r.event}:${r.status}`).join(", "),
+);
+
 // 3. Segregation of duties.
 const selfRelease = await mutation("payments:releasePayment", { paymentId: big.payment._id, verificationNote: "Looks fine to me, please pay" }, jamie);
 check("3 Jamie can't release her own request", selfRelease.ok === false, selfRelease.reason);
@@ -164,6 +173,8 @@ check(
 );
 const letter = (await query("alerts:getIncidentAlerts", { incidentId }, jordan)).find((a) => a.kind === "vendor_letter");
 check("  vendor letter written", letter?.status === "ready");
+const firmOutbox = await query("notifications:listOutbox", { incidentId }, jordan);
+check("  firm Slack got the headline", firmOutbox.some((r) => r.event === "incident"));
 
 // 8. Containment ends it; existing holds stay.
 const contained = await mutation(

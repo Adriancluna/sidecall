@@ -34,6 +34,7 @@ type Env = {
   readonly ANTHROPIC_API_KEY: string | undefined;
   readonly DEMO_MODE: string | undefined;
   readonly INCIDENT_WEBHOOK_SECRET: string | undefined;
+  readonly NOTIFY_LIVE: string | undefined;
 };
 
 /**

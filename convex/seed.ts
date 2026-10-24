@@ -20,6 +20,8 @@ const usd = (dollars: number) => Math.round(dollars * 100);
 
 // Auth tables are cleared too: their rows point at users that a reseed replaces.
 const TABLES: TableNames[] = [
+  "notifications",
+  "notificationChannels",
   "authSessions",
   "authRefreshTokens",
   "authAccounts",
@@ -245,6 +247,7 @@ async function seedAll(ctx: MutationCtx) {
   }
 
   const clerkIds = {} as Record<CompanyKey, Id<"users">>;
+  const controllerIds = {} as Record<CompanyKey, Id<"users">>;
   for (const [key, people] of Object.entries(USERS) as [CompanyKey, (typeof USERS)[CompanyKey]][]) {
     const domain = COMPANIES[key].domain;
     clerkIds[key] = await ctx.db.insert("users", {
@@ -253,7 +256,7 @@ async function seedAll(ctx: MutationCtx) {
       role: "ap_clerk",
       email: demoEmail(people.clerk, domain),
     });
-    await ctx.db.insert("users", {
+    controllerIds[key] = await ctx.db.insert("users", {
       companyId: companyIds[key],
       name: people.controller,
       role: "controller",
@@ -268,10 +271,32 @@ async function seedAll(ctx: MutationCtx) {
       });
     }
   }
-  await ctx.db.insert("users", {
+  const peId = await ctx.db.insert("users", {
     name: "Jordan Ames (Northpass Capital)",
     role: "pe_partner",
     email: "jordan.ames@northpasscapital.example",
+  });
+
+  // Demo notification channels, so the outbox fills during the demo with no setup. The URLs
+  // are placeholders: with NOTIFY_LIVE off (the default) nothing is ever sent, rows end "simulated".
+  await ctx.db.insert("notificationChannels", {
+    scope: "company",
+    companyId: companyIds.C,
+    kind: "slack",
+    label: "#summit-finance",
+    url: "https://hooks.slack.com/services/T0DEMO/B0SUMMIT/sidecall-demo-only",
+    events: ["alert", "hold", "escalation"],
+    enabled: true,
+    createdBy: controllerIds.C,
+  });
+  await ctx.db.insert("notificationChannels", {
+    scope: "firm",
+    kind: "slack",
+    label: "#northpass-portfolio-risk",
+    url: "https://hooks.slack.com/services/T0DEMO/B0FIRM/sidecall-demo-only",
+    events: ["incident", "contained"],
+    enabled: true,
+    createdBy: peId,
   });
 
   for (const change of BANK_CHANGES) {

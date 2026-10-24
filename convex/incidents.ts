@@ -8,6 +8,7 @@ import { internal } from "./_generated/api";
 import { holdPaymentsForIncident } from "./payments";
 import { scoreExposure } from "./scoring";
 import { getViewer } from "./access";
+import { enqueue, scheduleDispatchIfQueued } from "./notifications";
 
 export type RecordIncidentResult =
   | { ok: true; incidentId: Id<"incidents">; duplicate: boolean }
@@ -74,7 +75,9 @@ export async function recordIncidentImpl(
     if (!current || rank(link) > rank(current)) strongest.set(link.companyId, link);
   }
 
+  let peopleExposed = 0;
   for (const link of strongest.values()) {
+    peopleExposed += (await ctx.db.get("companies", link.companyId))?.headcount ?? 0;
     const held = heldByCompany.get(link.companyId) ?? { count: 0, cents: 0, flagged: 0 };
     const scored = scoreExposure(link, asset, held);
     const exposureId = await ctx.db.insert("exposures", {
@@ -114,6 +117,21 @@ export async function recordIncidentImpl(
       body: `Payment to ${asset.vendorName} held until verified. Call ${asset.vendorName} at the number on file (${asset.phoneOnFile}), never a number from a recent email.`,
     });
   }
+
+  // Firm channels get the headline. Firm-only, so naming the reporter is allowed here.
+  const heldCents = [...heldByCompany.values()].reduce((sum, h) => sum + h.cents, 0);
+  await enqueue(ctx, {
+    event: "incident",
+    scope: "firm",
+    incidentId,
+    refId: `incident:${incidentId}`,
+    text:
+      `Sidecall incident: ${asset.vendorName} (${asset.name}). ` +
+      `${strongest.size} compan${strongest.size === 1 ? "y" : "ies"} exposed · ${peopleExposed.toLocaleString("en-US")} people · ` +
+      `$${(heldCents / 100).toLocaleString("en-US")} in payments held until verified.` +
+      (reporter ? ` Reported by ${reporter.name}.` : ""),
+  });
+  await scheduleDispatchIfQueued(ctx);
 
   // AI writes once per incident and loops inside the action (scheduler cap is per transaction).
   await ctx.scheduler.runAfter(0, internal.ai.generateAlert, { incidentId });
@@ -232,6 +250,15 @@ export const containIncident = mutation({
       rule: "pe_firm_marks_contained",
       reason: note,
     });
+    const asset = await ctx.db.get("assets", incident.assetId);
+    await enqueue(ctx, {
+      event: "contained",
+      scope: "firm",
+      incidentId: incident._id,
+      refId: `contained:${incident._id}`,
+      text: `Sidecall: the ${asset?.vendorName ?? "vendor"} incident is marked contained by ${viewer.user.name}. ${note} New payments to this vendor are no longer held; payments already held still need a controller's decision.`,
+    });
+    await scheduleDispatchIfQueued(ctx);
     return { ok: true as const };
   },
 });

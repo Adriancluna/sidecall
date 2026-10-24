@@ -343,6 +343,69 @@ describe("scale", () => {
   });
 });
 
+describe("notifications", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test("an incident fills the outboxes once, simulated, and company text never names the reporter", async () => {
+    vi.useFakeTimers();
+    const { t, as, fire } = await seeded();
+    await fire();
+    await t.finishAllScheduledFunctions(vi.runAllTimers); // AI writers + dispatch
+    const rows = () => t.run((ctx) => ctx.db.query("notifications").take(200));
+    const first = await rows();
+
+    const events = first.map((r) => r.event).sort();
+    expect(events).toEqual(["alert", "escalation", "hold", "incident"]); // Summit's channel + the firm's
+    expect(first.every((r) => r.status === "simulated")).toBe(true); // NOTIFY_LIVE off: nothing sent
+    for (const r of first.filter((r) => r.event !== "incident")) expect(r.text).not.toContain("Pinecrest");
+    expect(first.find((r) => r.event === "incident")!.text).toMatch(/3 companies exposed · 4,200 people · \$612,000/);
+
+    await fire(); // replayed webhook
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect(await rows()).toHaveLength(first.length);
+
+    const summitOutbox = await (await as("Rosa Alvarez")).query(api.notifications.listOutbox, {});
+    expect(summitOutbox.map((r) => r.event).sort()).toEqual(["alert", "escalation", "hold"]);
+  });
+
+  test("only the right people add channels, bad URLs are refused and logged, URLs never leave the server", async () => {
+    const { t, as } = await seeded();
+    const rosa = await as("Rosa Alvarez");
+    const slack = (url: string) => ({ scope: "company" as const, kind: "slack" as const, label: "#test", url, events: ["alert" as const] });
+
+    expect(await (await as("Jamie Chen")).mutation(api.notifications.addChannel, slack("https://hooks.slack.com/services/A/B/C"))).toMatchObject({ ok: false });
+    for (const bad of [
+      "http://hooks.slack.com/services/A/B/C",
+      "https://127.0.0.1/services/x",
+      "https://localhost/services/x",
+      "https://evil.example/services/x",
+    ]) {
+      expect(await rosa.mutation(api.notifications.addChannel, slack(bad))).toMatchObject({ ok: false });
+    }
+    expect(
+      await rosa.mutation(api.notifications.addChannel, { ...slack("https://hooks.slack.com/services/A/B/C"), scope: "firm" }),
+    ).toMatchObject({ ok: false }); // a controller can't set firm channels
+    const added = await rosa.mutation(api.notifications.addChannel, slack("https://hooks.slack.com/services/T1/B2/secret1234"));
+    expect(added).toMatchObject({ ok: true });
+
+    const refusals = await t.run(async (ctx) =>
+      (await ctx.db.query("auditLog").take(200)).filter((a) => a.rule === "notification_settings"),
+    );
+    expect(refusals).toHaveLength(6);
+
+    const listed = JSON.stringify(await rosa.query(api.notifications.listChannels, {}));
+    expect(listed).not.toContain("secret");
+    expect(listed).not.toContain("/services/");
+    if (!added.ok) throw new Error(added.reason);
+    expect(await (await as("Elena Ruiz")).mutation(api.notifications.removeChannel, { channelId: added.channelId })).toMatchObject({
+      ok: false,
+    }); // another company's controller
+    expect(await rosa.mutation(api.notifications.sendTest, { channelId: added.channelId })).toEqual({ ok: true });
+  });
+});
+
 describe("demo readiness", () => {
   test("fresh seed is ready; after firing it says to Reset", async () => {
     const { t, fire } = await seeded();

@@ -5,6 +5,7 @@ import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { HeldSummary } from "./scoring";
 import { canSeeCompany, getViewer } from "./access";
+import { enqueueAlert, scheduleDispatchIfQueued } from "./notifications";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const BANK_CHANGE_WINDOW_MS = 30 * DAY_MS;
@@ -36,7 +37,7 @@ async function escalateIfDue(ctx: MutationCtx, payment: Doc<"payments">, now: nu
   const body = `Decision needed: the ${dollars(payment.amountCents)} payment to ${vendor} ${when} and is still held. ${controllers.join(" or ") || "A controller"}: call ${vendor} at the number on file${asset ? ` (${asset.phoneOnFile})` : ""}, then release or reject it.`;
 
   await ctx.db.patch("payments", payment._id, { escalatedAt: now });
-  await ctx.db.insert("alerts", {
+  const escalationId = await ctx.db.insert("alerts", {
     incidentId: payment.heldByIncidentId!,
     companyId: payment.companyId,
     paymentId: payment._id,
@@ -45,6 +46,7 @@ async function escalateIfDue(ctx: MutationCtx, payment: Doc<"payments">, now: nu
     body,
     readyAt: now,
   });
+  await enqueueAlert(ctx, { _id: escalationId, kind: "escalation", body, incidentId: payment.heldByIncidentId!, companyId: payment.companyId });
   await ctx.db.insert("auditLog", {
     at: now,
     actor: "system",
@@ -73,6 +75,7 @@ export const escalateDueHolds = internalMutation({
     for (const payment of due) {
       if (await escalateIfDue(ctx, payment, now)) escalated += 1;
     }
+    await scheduleDispatchIfQueued(ctx);
     return { escalated };
   },
 });
@@ -246,15 +249,18 @@ export const requestPayment = mutation({
       "hold_payments_requested_during_incident",
       `Requested while ${asset.vendorName} is under an active security incident. Payment held until verified.`,
     );
-    await ctx.db.insert("alerts", {
+    const noticeBody = `Your ${dollars(bill.amountCents)} payment to ${asset.vendorName} is held until verified. Call ${asset.vendorName} at the number on file, ${asset.phoneOnFile}, not a number from a recent email. A controller other than the requester can then release or reject it.`;
+    const noticeId = await ctx.db.insert("alerts", {
       incidentId: incident._id,
       companyId: bill.companyId,
       paymentId,
       kind: "hold_notice",
       status: "ready",
       readyAt: now,
-      body: `Your ${dollars(bill.amountCents)} payment to ${asset.vendorName} is held until verified. Call ${asset.vendorName} at the number on file, ${asset.phoneOnFile}, not a number from a recent email. A controller other than the requester can then release or reject it.`,
+      body: noticeBody,
     });
+    await enqueueAlert(ctx, { _id: noticeId, kind: "hold_notice", body: noticeBody, incidentId: incident._id, companyId: bill.companyId });
+    await scheduleDispatchIfQueued(ctx);
     return { ok: true as const, paymentId, held: true, flagged };
   },
 });

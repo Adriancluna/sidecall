@@ -5,6 +5,7 @@ import { internalMutation, internalQuery, query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { alertKind } from "./schema";
 import { getViewer } from "./access";
+import { enqueueAlert, scheduleDispatchIfQueued } from "./notifications";
 
 const alertInput = v.object({
   incidentId: v.id("incidents"),
@@ -40,17 +41,26 @@ async function upsertAlert(ctx: MutationCtx, args: AlertInput) {
       )
       .first();
   }
+  let alertId;
   if (existing) {
     await ctx.db.patch("alerts", existing._id, { body: args.body, status: "ready", readyAt: Date.now() });
-    return existing._id;
+    alertId = existing._id;
+  } else {
+    alertId = await ctx.db.insert("alerts", { ...args, status: "ready", readyAt: Date.now() });
   }
-  return await ctx.db.insert("alerts", { ...args, status: "ready", readyAt: Date.now() });
+  // Ready text goes out to the company's channels (deduped per alert, so rewrites don't resend).
+  await enqueueAlert(ctx, { _id: alertId, kind: args.kind, body: args.body, incidentId: args.incidentId, companyId: args.companyId });
+  return alertId;
 }
 
 // One alert. Role 4's actions call this (or saveAlerts below).
 export const saveAlert = internalMutation({
   args: alertInput.fields,
-  handler: async (ctx, args) => await upsertAlert(ctx, args),
+  handler: async (ctx, args) => {
+    const alertId = await upsertAlert(ctx, args);
+    await scheduleDispatchIfQueued(ctx);
+    return alertId;
+  },
 });
 
 // Many alerts in one transaction: use this from a loop over hundreds of companies, so every
@@ -59,6 +69,7 @@ export const saveAlerts = internalMutation({
   args: { alerts: v.array(alertInput) },
   handler: async (ctx, args) => {
     for (const alert of args.alerts) await upsertAlert(ctx, alert);
+    await scheduleDispatchIfQueued(ctx);
     return { saved: args.alerts.length };
   },
 });
