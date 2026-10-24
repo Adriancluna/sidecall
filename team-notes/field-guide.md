@@ -215,7 +215,7 @@ For each part: what it does, how, why it's there, the line to say, and what can 
 
 ### 5.11 Proof
 - **Planted answer key:** 18 cases with known right answers (should hold, should flag, must leave alone). Nothing in the backend reads the key; a separate script compares. Result: 0 missed, 0 false holds.
-- **66 automated tests** cover the backend guarantees, including privacy and the playbook rules. (This becomes 68 if PR #96 merges.)
+- **95 automated tests** for the backend and app, plus **40** for the AI text rules and the scorecard. They cover the guarantees, privacy, the playbook rules and Pegasus's report handling.
 - **Rehearsal script:** plays every demo beat against a live deployment with real sign-ins and checks each number.
 - **Readiness check and presenter lock:** before going on stage, one command says READY, and a presenter key stops anyone else resetting the live demo.
 - **Don't say:** "99% accurate" or any accuracy figure. Say "on our own planted cases, not a benchmark."
@@ -223,7 +223,10 @@ For each part: what it does, how, why it's there, the line to say, and what can 
 ### 5.12 Also built
 - **AP import:** a newly acquired company is onboarded from the vendor list and open bills any AP system exports. Mid-incident, its payments to the breached vendor are held on import.
 - **MCP:** AI assistants can look up holds and request payments for a clerk. They're audited as agents, and there's no release tool.
-- **Dashboards per role:** each person lands on the one thing they must do first, with quick links and tabs for everything else.
+- **Dashboards per role** (Marco's council redesign): each person lands on the one thing they must do first. The firm view fits on one screen (three figures, response by company, 6 tabs).
+- **Payment investigation (Pegasus):** paste an invoice or vendor email. Sidecall pulls out vendor, invoice, amount and account, quoting the source for every field, and compares them with the trusted record. It can't approve payments or change vendor data.
+- **Owned sandbox (Pegasus):** a test resource the project owns, where "pause the shared login" really flips access from allowed to denied (Cedar's denied, Summit's still allowed). It's labelled as a sandbox, not a company's real Okta.
+- **Report handling (Pegasus):** repeated reports about the same vendor are grouped into one episode, so a flood of reports can't keep re-triggering holds, and there's a fixed review deadline. Pending (split from PR #113): close the episode on containment or inactivity, and warn companies at once on unconfirmed reports while holds and steps wait for confirmation.
 
 ---
 
@@ -232,13 +235,13 @@ About 3 minutes. Open on the money. Use `sidecall.vercel.app/?stage` (or `sideca
 
 | Beat | Be | Do | Say |
 |---|---|---|---|
-| 1. Fire | Jamie | Simulator: Brightline payroll breach → Fire | "Pinecrest's security team reports their payroll vendor was breached." |
+| 1. Fire | Jamie | Header → Simulator → Brightline payroll breach → Fire | "Pinecrest's security team reports their payroll vendor was breached." |
 | 2. Money | Jamie | Point at the hero | "Summit was about to pay $480,000 to an account changed by email two days ago. It's held until verified." |
 | 3. Refused | Jamie → Rosa | Jamie presses Release → refused. Rosa writes the call note → Release | "Jamie asked for it, so Jamie can't release it. Rosa calls the number on file. Cash moves only now." |
 | 4. Zoom out | Jordan | Hero + map | "3 companies exposed, 4,200 people, $612,000 held. Only the firm sees this." |
-| 5. Red team | Jordan | Simulator: Red-team finding → Fire. Point at "First step done at 1 of 3" | "Armadin's path stops at Pinecrest. Cedar Ridge shares that login and pre-approved pausing it. Done in a tenth of a second, one click to undo." |
+| 5. Red team | Jordan | Header → Simulator → Red-team finding → Fire. Point at "First step done at 1 of 3" | "Armadin's path stops at Pinecrest. Cedar Ridge shares that login and pre-approved pausing it. Done in a tenth of a second, one click to undo." |
 | 6. Convex | any | Replay webhook; two tabs Acknowledge | "Replay: nothing duplicates. Two clicks: exactly one wins." |
-| 7. Proof | Jordan | Proof tab | "18 planted cases, 0 missed, 0 false holds, on our own answer key." |
+| 7. Proof | Jordan | Proof tab (firm view) | "18 planted cases, 0 missed, 0 false holds, on our own answer key." |
 
 **Recovery tips:**
 - "Fire incident: duplicate" on stage means someone fired it already. Press Reset (with the presenter key) and fire again.
@@ -271,6 +274,8 @@ Practise these out loud. Short answer first; stop there unless they ask for more
 - **Liability: "If you only warn, aren't you just creating more calls?"** That's why each company can pre-approve first steps. The step is already done or one click away, and the alert says exactly what to check, so the call is shorter or doesn't happen.
 - **Realism: "Is any of this real?"** Real: the backend and its guarantees, the exposure and hold logic, the playbook rules, the AI writing, the scorecard, and DNS vendor detection on real public domains. Simulated: the portfolio, payments and incidents, and the identity-provider calls behind the steps. We say that on screen.
 - **Data: "How do you know which companies share a login?"** Companies report their shared logins and vendor access when they join the portfolio; AP exports show which vendors they pay; public DNS records suggest vendors as candidates. Confirmed links outweigh candidates, and candidates never trigger automatic steps.
+- **Data: "Do portfolio companies really share vendors?"** Yes, and we measured it on real ones. Public DNS of 26 companies in one real PE portfolio shows 24 on Microsoft 365, 9 on the same device-management vendor, and 3 each on the same password manager and login vendors. Same vendor isn't the same weakness, so each is a candidate until a company confirms what it actually shares. (Totals only; never name the companies.)
+- **Realism: "Has the money part ever happened for real?"** Per Omar's research: in a March 2024 SEC filing (8-K, Item 1.05), the Federal Home Loan Bank of New York reported that a vendor of one of its vendors was compromised and someone tried to fraudulently move funds; no money moved. Check the filing wording before quoting it on stage.
 - **Armadin: "Who authorized you to touch the sibling?"** The sibling did, in advance, for one reversible step. With its switch off, nothing is touched. Sidecall never tests or probes anything.
 - **Armadin: "Isn't acting on a sister company exactly what the pentesting standard forbids?"** That standard (OWASP APTS) governs testing infrastructure nobody authorized. This is a defensive change in the company's own tenant that the company pre-approved. We don't test anything.
 - **Armadin: "Why can't the PE firm just put every company in one red-team engagement?"** The shared login is usually discovered at the end of a test, after the scope was signed. Most portfolio companies aren't on a common engagement, and each must consent. It's a legal and organizational barrier, not a technical one.
@@ -306,6 +311,8 @@ Practise these out loud. Short answer first; stop there unless they ask for more
 | Firm tries to change a company's playbook | Refused and logged. The firm can only recommend. |
 | Someone signs in with the public password and presses Reset or Fire on production | Refused without the presenter key. |
 | A company opens an incident that never touched it | Sees nothing. |
+| A signed report from an outside tool (not a built-in demo scenario) | Today: recorded as an unconfirmed observation for firm review, unless that tool is enrolled for automatic response. Pending (Pegasus, split from #113): companies are warned at once; holds and steps wait for confirmation. |
+| The same vendor reported again under a new report ID | Grouped into the existing episode: nothing is re-held or re-run. |
 
 ---
 
@@ -338,7 +345,9 @@ Practise these out loud. Short answer first; stop there unless they ask for more
 | ~0.2 s | Alerts written after the report | Measured on our runs |
 | 303 / 304 / 1.4 s | Companies, payments held, one transaction | "In our test suite" |
 | 18 · 0 · 0 | Planted cases, missed, false holds | Our own planted cases, not a benchmark |
-| 66 | Backend tests on main | Our test suite (68 if PR #96 merges) |
+| 95 + 40 | App/backend tests + AI-text and scorecard tests | Our test suite |
+| 14 · 3 · 10 | Demo portfolio: companies, exposed in Brightline, not linked | Our demo data |
+| 26 → 24 · 9 · 3 | Real PE portfolio (public DNS, totals only): on Microsoft 365 · same device-management vendor (Jamf) · same password manager / login-MFA vendor | Omar's scan, `scripts/dns/portfolio_report.json`; never name a company |
 | 48% | Breaches involving a third party | Verizon DBIR 2026 |
 | 73 days | Median time for a vendor to tell customers | Black Kite 2026 (vendor-reported); present as a gap |
 | 29 min | Average attacker breakout time | CrowdStrike 2026; never as a ratio |
