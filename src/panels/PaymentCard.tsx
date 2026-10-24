@@ -90,13 +90,24 @@ export function PaymentCard({ row, actingUser, canDecide }: Props) {
       </header>
 
       {row.bankChange && (
-        <p className="mt-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
-          Vendor bank details changed {row.bankChange.daysBeforeIncident} days
-          before the breach, requested by{" "}
-          {row.bankChange.requestChannel.replace("_", " ")}: new account ••
-          {row.bankChange.accountLast4}. This payment goes to ••
-          {payment.accountLast4}.
-        </p>
+        <div className="mt-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
+          <p className="font-mono text-base">
+            {/* "Old" = last account confirmed by phone; fall back to the change before this one. */}
+            ••
+            {row.bankChange.lastVerifiedAccountLast4 ??
+              row.bankChange.previousAccountLast4 ??
+              "????"}{" "}
+            → ••{row.bankChange.accountLast4}
+          </p>
+          <p className="mt-1">
+            Vendor bank details changed {row.bankChange.daysBeforeIncident} days
+            before the breach, requested by{" "}
+            {row.bankChange.requestChannel.replace("_", " ")}.
+            {row.bankChange.lastVerifiedAccountLast4 &&
+              ` ••${row.bankChange.lastVerifiedAccountLast4} is the last account confirmed by phone.`}{" "}
+            This payment goes to ••{payment.accountLast4}.
+          </p>
+        </div>
       )}
 
       {row.holdReasons.length > 0 && (
