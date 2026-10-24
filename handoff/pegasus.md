@@ -1,5 +1,5 @@
 # Pegasus: response resilience + payment investigation
-Last updated: 2026-10-24 12:50 America/Los_Angeles by Pegasus
+Last updated: 2026-10-24 13:13 America/Los_Angeles by Pegasus
 
 ## Status
 - Ashwa requested implementation while keeping Hyphenate and Armadin, including resistance to repeated reports causing business disruption.
@@ -8,6 +8,8 @@ Last updated: 2026-10-24 12:50 America/Los_Angeles by Pegasus
 - Alternative delivery prepared at Ashwa's request: `../pegasus-handoff.patch` adds only this Markdown file; an authenticated teammate can apply it to their checkout and publish using their normal workflow. The full implementation remains in `../pegasus-sidecall.patch`.
 - Direct Git dry-run failed authentication; the in-app GitHub browser is signed out. No ownership, permissions, deployment settings or remote files were changed. Local Markdown editing remains available without GitHub access.
 - Read access works; fetched main `7c2f5f8` and checked the updated Role 3 handoff, with no new request addressed to Pegasus. Main now includes #98's plain-English evidence/red-team labels; reconcile the overlapping `EvidencePanel.tsx` edit before integrating this branch (still based on `24d029b`).
+- Latest check: main `02b5a33` adds Role 2's proposed UI polish handoff (#100); coordinate `PortfolioView.tsx`/`CompanyView.tsx` tab integration with Marco and Adrian before merging. No request specifically addressed to Pegasus.
+- Access recommendation verified against official docs: GitHub personal-repository Collaborator (write); Vercel Pro team Member (or Enterprise Contributor + Sidecall Project Administrator); Convex team Developer + Sidecall Project Admin for production writes. No ownership transfer is needed. These are requested human-account roles, not verified access; authenticated local CLI/connection access must still work.
 - Validation: 95 tests passed (54 backend, 12 MCP, 29 Pegasus), application/backend typechecks, ESLint, production build, and rehearsal-script syntax passed.
 
 ## Completed locally
