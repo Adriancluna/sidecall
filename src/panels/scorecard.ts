@@ -1,21 +1,13 @@
 // Role 4's data/scorecard.json (CONTRACT.md "Scorecard"), read as text at build time and
-// checked here: a malformed file shows an "unreadable" state instead of breaking the PE view.
+// shape-checked here: a malformed file shows an "unreadable" state instead of breaking the PE view.
 import raw from "../../data/scorecard.json?raw";
-
-const OUTCOMES = ["hold_and_flag", "hold_no_flag", "no_action"] as const;
-const RESULTS = [
-  "caught",
-  "missed",
-  "false_hold",
-  "correct_no_action",
-] as const;
 
 export type ScorecardCase = {
   ref: string;
-  type: "payment" | "bankChange";
-  expected: (typeof OUTCOMES)[number];
-  actual: (typeof OUTCOMES)[number];
-  result: (typeof RESULTS)[number];
+  type: string;
+  expected: string;
+  actual: string;
+  result: string; // "caught" | "missed" | "false_hold" | "correct_no_action"
   why: string;
 };
 
@@ -33,53 +25,34 @@ export type Scorecard = {
   scenarios: ScorecardScenario[];
 };
 
-const isObj = (v: unknown): v is Record<string, unknown> =>
-  typeof v === "object" && v !== null;
-const isNum = (v: unknown) => typeof v === "number" && Number.isFinite(v);
-const isStr = (v: unknown) => typeof v === "string";
-const oneOf = (list: readonly string[], v: unknown) =>
-  isStr(v) && list.includes(v);
+type Obj = Record<string, unknown>;
+const isObj = (v: unknown): v is Obj => typeof v === "object" && v !== null;
+const all = (o: Obj, keys: string[], type: "string" | "number") =>
+  keys.every((k) => typeof o[k] === type);
 
-function isCase(v: unknown): v is ScorecardCase {
-  return (
-    isObj(v) &&
-    isStr(v.ref) &&
-    (v.type === "payment" || v.type === "bankChange") &&
-    oneOf(OUTCOMES, v.expected) &&
-    oneOf(OUTCOMES, v.actual) &&
-    oneOf(RESULTS, v.result) &&
-    isStr(v.why)
+const isScenario = (s: unknown) =>
+  isObj(s) &&
+  all(s, ["externalId"], "string") &&
+  all(s, ["caught", "missed", "falseHolds", "correctNoAction"], "number") &&
+  Array.isArray(s.cases) &&
+  s.cases.every(
+    (c) =>
+      isObj(c) &&
+      all(c, ["ref", "type", "expected", "actual", "result", "why"], "string"),
   );
-}
-
-function isScenario(v: unknown): v is ScorecardScenario {
-  return (
-    isObj(v) &&
-    isStr(v.externalId) &&
-    isNum(v.caught) &&
-    isNum(v.missed) &&
-    isNum(v.falseHolds) &&
-    isNum(v.correctNoAction) &&
-    Array.isArray(v.cases) &&
-    v.cases.every(isCase)
-  );
-}
 
 export function parseScorecard(text: string): Scorecard | null {
   try {
     const data: unknown = JSON.parse(text);
-    if (
+    const ok =
       isObj(data) &&
-      (data.generatedAt === null || isStr(data.generatedAt)) &&
+      (data.generatedAt === null || typeof data.generatedAt === "string") &&
       Array.isArray(data.scenarios) &&
-      data.scenarios.every(isScenario)
-    ) {
-      return data as Scorecard;
-    }
+      data.scenarios.every(isScenario);
+    return ok ? (data as Scorecard) : null;
   } catch {
-    // fall through: unreadable
+    return null;
   }
-  return null;
 }
 
 export const scorecard = parseScorecard(raw);

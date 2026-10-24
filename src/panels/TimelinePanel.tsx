@@ -1,6 +1,7 @@
 // Incident timeline from real timestamps (api.blastRadius.getIncidentTimeline): the Convex-track
 // proof on screen. Scoped by the backend: firm = whole portfolio, company = its own events.
 import { useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Card, Empty } from "./ui";
@@ -13,13 +14,9 @@ function duration(ms: number): string {
   return s % 60 ? `${m} min ${s % 60} s` : `${m} min`;
 }
 
-type Stats = {
-  holdsInReportTransaction: boolean;
-  msToFirstAlert: number | null;
-  msToVendorLetter: number | null;
-  msToFirstAcknowledgement: number | null;
-  msToFirstRelease: number | null;
-};
+type Stats = NonNullable<
+  FunctionReturnType<typeof api.blastRadius.getIncidentTimeline>
+>["stats"];
 
 // "Payments held in the same transaction as the report · alerts written in 97 ms · …"
 function headline(stats: Stats): string[] {

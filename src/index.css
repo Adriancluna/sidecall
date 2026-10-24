@@ -14,7 +14,15 @@
   --color-ok: #4cc38a;
 }
 
+html {
+  color-scheme: dark;
+  /* Keep focused elements clear of the sticky header. */
+  scroll-padding-top: 6rem;
+}
+
 body {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   background: var(--color-graphite);
   color: var(--color-paper);
   font-family: var(--font-sans);

@@ -54,6 +54,15 @@ export function PaymentCard({ row, canDecide, escalation }: Props) {
   const [refusal, setRefusal] = useState<string>();
 
   const decide = async (action: "release" | "reject") => {
+    // Rejecting is final and writes to the audit log: confirm first. Release already needs a note.
+    if (
+      action === "reject" &&
+      !window.confirm(
+        `Reject the ${money(payment.amountCents)} payment to ${row.vendorName}? This is final.`,
+      )
+    ) {
+      return;
+    }
     setBusy(true);
     setRefusal(undefined);
     try {
@@ -169,6 +178,8 @@ export function PaymentCard({ row, canDecide, escalation }: Props) {
           </label>
           <textarea
             id={`note-${payment._id}`}
+            name="verificationNote"
+            autoComplete="off"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}

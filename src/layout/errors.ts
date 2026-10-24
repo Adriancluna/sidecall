@@ -11,9 +11,6 @@ export function friendlyError(err: unknown): string {
   }
   const message = err instanceof Error ? err.message : "";
   if (SESSION_ENDED.test(message)) return "Your session ended. Sign in again.";
-  if (/network|fetch|connection/i.test(message)) {
-    return "Can't reach the server. Check the connection and try again.";
-  }
   // Our own errors (e.g. the webhook's JSON error) are readable; Convex server dumps are not.
   if (message && !/\[CONVEX|Request ID|Server Error/.test(message))
     return message;

@@ -69,7 +69,7 @@ export function PortfolioView() {
           {incident.reportedByName &&
             ` · reported by ${incident.reportedByName} (visible to the PE firm only)`}
         </p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight md:text-4xl">
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-balance md:text-4xl">
           {totals.companiesExposed} companies exposed ·{" "}
           {totals.peopleExposed.toLocaleString()} people behind them ·{" "}
           <span className="text-amber">

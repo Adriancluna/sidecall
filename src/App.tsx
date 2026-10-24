@@ -7,7 +7,6 @@ import {
 } from "convex/react";
 import { useEffect } from "react";
 import { api } from "../convex/_generated/api";
-import { CurrentUserContext } from "./auth/currentUser";
 import { SignInScreen } from "./auth/SignInScreen";
 import { PresenterPanel } from "./demo/PresenterPanel";
 import { IS_STAGE } from "./demo/stage";
@@ -29,16 +28,14 @@ function SignedIn() {
 
   if (!me) return <Empty>Loading…</Empty>;
   return (
-    <CurrentUserContext.Provider value={me}>
-      <AppShell>
-        {me.role === "pe_partner" || !me.companyId ? (
-          <PortfolioView />
-        ) : (
-          // key: switching people starts with clean local state (no stale refusal or note)
-          <CompanyView key={me._id} companyId={me.companyId} />
-        )}
-      </AppShell>
-    </CurrentUserContext.Provider>
+    <AppShell me={me}>
+      {me.role === "pe_partner" || !me.companyId ? (
+        <PortfolioView />
+      ) : (
+        // key: switching people starts with clean local state (no stale refusal or note)
+        <CompanyView key={me._id} companyId={me.companyId} />
+      )}
+    </AppShell>
   );
 }
 
