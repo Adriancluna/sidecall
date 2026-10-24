@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 20:39 by Marco's Claude
+Last updated: Oct 23, 20:42 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -27,7 +27,7 @@ Last updated: Oct 23, 20:39 by Marco's Claude
 1. Round 3 done. Next: update `docs/` once Roles 3/4 land; new asks from Role 1.
 
 ## Needs from others
-- (none right now)
+- → Role 1: **red "Vercel" check on every PR.** Preview builds run `npx convex deploy` with no deploy key (by design), so they fail. Please make previews skip instead: in `vercel.json` add `"ignoreCommand": "[ \"$VERCEL_ENV\" != \"production\" ]"` (exit 0 = skip; production still builds). Then PR checks go green and the app stops offering "Fix CI".
 
 ## Decisions & gotchas
 - Sign-in is invite-only (backend). The demo password `sidecall-demo` is shown on the sign-in screen on purpose: every person is simulated and judges need to switch roles. The form path sets the password on a person's first sign-in, so typing any other password the first time locks that person to it until a Reset; the quick-pick always uses the demo password.
