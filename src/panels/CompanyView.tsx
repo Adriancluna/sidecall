@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
+import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
 import { LedgerPanel } from "./LedgerPanel";
 import { Card, Chip, Empty } from "./ui";
@@ -16,6 +17,7 @@ export function CompanyView({ companyId }: Props) {
   const exposures = useQuery(api.blastRadius.getMyExposures, {});
   const alerts = useQuery(api.alerts.getMyAlerts, {});
   const held = useQuery(api.payments.getHeldPayments, {});
+  const latestIncident = useQuery(api.blastRadius.listIncidents, {})?.[0];
 
   return (
     <div className="space-y-6">
@@ -57,6 +59,13 @@ export function CompanyView({ companyId }: Props) {
           title="Payments held until verified"
           rows={held}
           canDecide
+        />
+      )}
+
+      {latestIncident && (
+        <ControlsLogPanel
+          incidentId={latestIncident._id}
+          fileLabel={`${company?.domain ?? "company"}-${latestIncident.externalId}`}
         />
       )}
 
