@@ -1,10 +1,13 @@
-// PE firm view: the only view allowed to name the reporting company.
+// PE firm dashboard: the only view allowed to name the reporting company. The hero answers
+// "how bad, and is every company handling it?"; the map and everything else are tabs.
 import { useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { BlastRadiusMap } from "../map/BlastRadiusMap";
 import { EvidencePanel } from "../map/EvidencePanel";
+import { QuickLinks, Tabs, type QuickLink, type TabDef } from "../layout/Tabs";
+import { useTabs } from "../layout/useTabs";
 import { dateTime, money } from "./format";
 import { ExposureAcknowledgedBy } from "./AcknowledgedBy";
 import { ApImportPanel } from "./ApImportPanel";
@@ -15,41 +18,44 @@ import { EXPOSURE_STATUS, paymentLook, URGENCY } from "./labels";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { ProofPanel } from "./ProofPanel";
 import { TimelinePanel } from "./TimelinePanel";
+import type { BlastRadius } from "./types";
 import { VendorLetterActions } from "./VendorLetterActions";
 import { Card, Chip, Empty, LookChip } from "./ui";
+
+const TAB_IDS = ["map", "alerts", "payments", "timeline", "letter", "closeout", "onboard", "notifications", "proof"] as const;
 
 export function PortfolioView() {
   const incidents = useQuery(api.blastRadius.listIncidents, {});
   // Follow the newest incident (list is newest first) unless the firm picked another one.
   const [chosen, setChosen] = useState<Id<"incidents">>();
-  const incidentId =
-    incidents?.find((i) => i._id === chosen)?._id ?? incidents?.[0]?._id;
-  const blast = useQuery(
-    api.blastRadius.getBlastRadius,
-    incidentId ? { incidentId } : "skip",
-  );
-  const held = useQuery(
-    api.payments.getHeldPayments,
-    incidentId ? { incidentId } : "skip",
-  );
-  const alerts = useQuery(
-    api.alerts.getIncidentAlerts,
-    incidentId ? { incidentId } : "skip",
-  );
-  const letter = alerts?.find((a) => a.kind === "vendor_letter");
+  const incidentId = incidents?.find((i) => i._id === chosen)?._id ?? incidents?.[0]?._id;
+  const blast = useQuery(api.blastRadius.getBlastRadius, incidentId ? { incidentId } : "skip");
+  const held = useQuery(api.payments.getHeldPayments, incidentId ? { incidentId } : "skip");
+  const alerts = useQuery(api.alerts.getIncidentAlerts, incidentId ? { incidentId } : "skip");
   const [selected, setSelected] = useState<Id<"companies">>();
+  const { active, select } = useTabs(TAB_IDS, "map");
 
   if (incidents === undefined) return <Empty>Loading…</Empty>;
+
   if (!incidentId) {
+    const tabs: TabDef[] = [
+      { id: "onboard", label: "Onboard a company", content: () => <ApImportPanel /> },
+      { id: "notifications", label: "Slack & alerts out", content: () => <NotificationsPanel scope="firm" canManage /> },
+      { id: "proof", label: "Proof", content: () => <ProofPanel /> },
+    ];
     return (
-      <div className="space-y-6">
-        <Card>
-          <Empty>
-            No open incidents across the portfolio. Fire the demo incident to
-            start.
-          </Empty>
-        </Card>
-        <ApImportPanel />
+      <div className="space-y-8">
+        <section aria-labelledby="hero-title" className="rounded-2xl border border-l-4 border-line border-l-ok bg-panel p-6 md:p-8">
+          <p className="text-sm text-ok">All clear</p>
+          <h1 id="hero-title" className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">
+            No open incidents across the portfolio
+          </h1>
+          <p className="mt-3 max-w-3xl text-ash">
+            When a shared vendor or login is compromised, Sidecall shows here which companies genuinely share it, what
+            each was told to do, and which payments are held. Use the data leak simulator above to run one.
+          </p>
+        </section>
+        <Tabs tabs={tabs} active={tabs.some((t) => t.id === active) ? active : "onboard"} onSelect={(t) => select(t)} label="Portfolio" />
       </div>
     );
   }
@@ -57,33 +63,220 @@ export function PortfolioView() {
 
   const { incident, totals } = blast;
   const nodeById = new Map(blast.nodes.map((n) => [n.companyId, n]));
-  const nodeFor = (companyId?: Id<"companies">) =>
-    companyId ? nodeById.get(companyId) : undefined;
-  const selectedNode = nodeFor(selected);
+  const selectedNode = selected ? nodeById.get(selected) : undefined;
   const selectedHeld = held?.filter((r) => r.payment.companyId === selected);
-  // The headline counts money still held; show what controllers have released since.
   const releasedCents = (held ?? [])
     .filter((r) => r.decision?.status === "paid")
     .reduce((sum, r) => sum + r.payment.amountCents, 0);
-  // Tailored company alerts, most urgent first (the AI writes; scoring decides urgency).
+  const letter = alerts?.find((a) => a.kind === "vendor_letter");
+  // Most urgent first (scoring decides urgency; the AI only writes).
+  const exposed = blast.nodes
+    .filter((n) => n.exposed)
+    .sort((a, b) => Number(b.urgency === "urgent") - Number(a.urgency === "urgent") || b.score - a.score);
+  const acknowledged = exposed.filter((n) => n.status !== "open").length;
   const companyAlerts = (alerts ?? [])
     .filter((a) => a.kind === "company_alert")
-    .map((alert) => ({ alert, node: nodeFor(alert.companyId) }))
+    .map((alert) => ({ alert, node: alert.companyId ? nodeById.get(alert.companyId) : undefined }))
     .sort((a, b) => (b.node?.score ?? 0) - (a.node?.score ?? 0));
 
+  const openCompany = (id: Id<"companies">) => {
+    setSelected(id);
+    select("map", true);
+  };
+
+  const tabs: TabDef[] = [
+    {
+      id: "map",
+      label: "Blast radius map",
+      content: () => (
+        <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_400px] lg:grid-cols-[minmax(0,1fr)_360px]">
+          <BlastRadiusMap blast={blast} selected={selected} onSelect={setSelected} />
+          <div className="space-y-6">
+            <EvidencePanel exposureId={selectedNode?.exposureId ?? undefined} companyName={selectedNode?.name} />
+            {selectedNode && (
+              <Card title={`Payments held · ${selectedNode.name}`}>
+                {!selectedHeld?.length ? (
+                  <Empty>No payments held at this company.</Empty>
+                ) : (
+                  <ul className="space-y-2 text-sm">
+                    {selectedHeld.map((r) => (
+                      <li key={r.payment._id} className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-semibold tabular-nums">{money(r.payment.amountCents)}</span>
+                        <span className="flex gap-1">
+                          {r.bankChange && <Chip tone="danger">Bank change</Chip>}
+                          <LookChip look={paymentLook(r.payment)} />
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Card>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "alerts",
+      label: "What each company was told",
+      count: companyAlerts.length,
+      content: () => (
+        <div className="grid gap-4 xl:grid-cols-2">
+          {companyAlerts.map(({ alert, node }) => (
+            <article key={alert._id} className="rounded-2xl border border-line bg-panel p-5">
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <span className="font-semibold">{node?.name}</span>
+                {node?.urgency && <LookChip look={URGENCY[node.urgency]} />}
+                {node?.status && <Chip tone="muted">{EXPOSURE_STATUS[node.status]}</Chip>}
+                {alert.exposureId && <ExposureAcknowledgedBy exposureId={alert.exposureId} />}
+              </div>
+              <p className="max-w-prose text-sm leading-relaxed">{alert.status === "ready" ? alert.body : "Writing alert…"}</p>
+            </article>
+          ))}
+        </div>
+      ),
+    },
+    {
+      id: "payments",
+      label: "Payments & controls log",
+      count: totals.paymentsHeld,
+      content: () => (
+        <div className="space-y-6">
+          <HeldPaymentsPanel
+            title={`Payments held · ${totals.paymentsHeld}`}
+            rows={held}
+            intro="The firm sees every hold. Only a controller at the portfolio company can release or reject."
+          />
+          <ControlsLogPanel incidentId={incident._id} fileLabel={incident.externalId} />
+        </div>
+      ),
+    },
+    { id: "timeline", label: "Timeline", content: () => <TimelinePanel incidentId={incident._id} /> },
+    {
+      id: "letter",
+      label: "Vendor letter",
+      count: letter?.status === "ready" ? "ready" : undefined,
+      content: () =>
+        letter ? (
+          <Card
+            title={`Letter to ${blast.asset.vendorName}`}
+            aside={
+              letter.status === "ready" ? (
+                <VendorLetterActions vendorName={blast.asset.vendorName} body={letter.body} />
+              ) : (
+                <Chip tone="muted">writing…</Chip>
+              )
+            }
+          >
+            <p className="max-w-3xl leading-relaxed whitespace-pre-wrap">{letter.body}</p>
+          </Card>
+        ) : (
+          <Card><Empty>No letter for this incident.</Empty></Card>
+        ),
+    },
+    {
+      id: "closeout",
+      label: "Mark contained",
+      content: () => (
+        <ContainPanel key={incident._id} incidentId={incident._id} containedAt={incident.containedAt ?? null} />
+      ),
+    },
+    { id: "onboard", label: "Onboard a company", content: () => <ApImportPanel /> },
+    {
+      id: "notifications",
+      label: "Slack & alerts out",
+      content: () => <NotificationsPanel scope="firm" canManage incidentId={incident._id} />,
+    },
+    { id: "proof", label: "Proof", content: () => <ProofPanel /> },
+  ];
+
+  const links: QuickLink[] = [
+    { tab: "map", label: "Blast radius map", detail: "Who shares it, and how" },
+    { tab: "alerts", label: "What each company was told", detail: `${companyAlerts.length} tailored alerts` },
+    {
+      tab: "payments",
+      label: "Payments held",
+      detail: `${totals.paymentsHeld} held · ${money(totals.heldCents)}`,
+      tone: totals.heldCents > 0 ? "amber" : undefined,
+    },
+    {
+      tab: "letter",
+      label: `Letter to ${blast.asset.vendorName}`,
+      detail: letter?.status === "ready" ? "Ready to send" : "Being written",
+      tone: letter?.status === "ready" ? "ok" : undefined,
+    },
+    { tab: "timeline", label: "What happened, second by second" },
+    {
+      tab: "closeout",
+      label: "Mark contained",
+      detail: incident.containedAt !== undefined ? `Contained ${dateTime(incident.containedAt)}` : "When the vendor confirms a fix",
+      tone: incident.containedAt !== undefined ? "ok" : undefined,
+    },
+  ];
+
   return (
-    <div className="space-y-6">
-      <section>
+    <div className="space-y-8">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <PortfolioHero
+          blast={blast}
+          incidents={incidents}
+          onPickIncident={(id) => {
+            setChosen(id);
+            setSelected(undefined);
+          }}
+          releasedCents={releasedCents}
+          exposed={exposed}
+          acknowledged={acknowledged}
+          onOpenCompany={openCompany}
+        />
+        <QuickLinks links={links} onPick={(t) => select(t, true)} />
+      </div>
+      <Tabs tabs={tabs} active={active} onSelect={(t) => select(t)} label="Incident details" />
+    </div>
+  );
+}
+
+type Node = BlastRadius["nodes"][number];
+
+function PortfolioHero({
+  blast,
+  incidents,
+  onPickIncident,
+  releasedCents,
+  exposed,
+  acknowledged,
+  onOpenCompany,
+}: {
+  blast: BlastRadius;
+  incidents: NonNullable<ReturnType<typeof useQuery<typeof api.blastRadius.listIncidents>>>;
+  onPickIncident: (id: Id<"incidents">) => void;
+  releasedCents: number;
+  exposed: Node[];
+  acknowledged: number;
+  onOpenCompany: (id: Id<"companies">) => void;
+}) {
+  const { incident, totals, asset } = blast;
+  const finding = incident.finding;
+  const contained = incident.containedAt !== undefined;
+  return (
+    <section
+      aria-labelledby="hero-title"
+      className={`rounded-2xl border border-l-4 border-line bg-panel p-6 md:p-8 ${contained ? "border-l-ok" : "border-l-danger"}`}
+    >
+      <div className="flex flex-wrap items-center gap-2 text-sm text-ash">
+        {contained ? <Chip tone="ok">Contained</Chip> : <Chip tone="danger">Active incident</Chip>}
+        <span>
+          {asset.vendorName.toLowerCase().startsWith(asset.name.toLowerCase()) ? asset.vendorName : `${asset.vendorName} · ${asset.name}`}{" "}
+          · {dateTime(incident.createdAt)}
+          {incident.reportedByName && ` · reported by ${incident.reportedByName} (visible to the firm only)`}
+        </span>
         {incidents.length > 1 && (
-          <label className="mb-2 flex flex-wrap items-center gap-2 text-sm text-ash">
-            Incident
+          <label className="ml-auto flex items-center gap-2">
+            <span className="sr-only">Incident</span>
             <select
               value={incident._id}
-              onChange={(e) => {
-                setChosen(e.target.value as Id<"incidents">);
-                setSelected(undefined);
-              }}
-              className="max-w-full min-w-0 rounded-md border border-line bg-panel px-2 py-1.5 text-paper"
+              onChange={(e) => onPickIncident(e.target.value as Id<"incidents">)}
+              className="max-w-full min-w-0 rounded-md border border-line bg-graphite px-2 py-1.5 text-paper"
             >
               {incidents.map((i) => (
                 <option key={i._id} value={i._id}>
@@ -94,143 +287,68 @@ export function PortfolioView() {
             </select>
           </label>
         )}
-        <p className="text-sm text-ash">
-          {incident.containedAt !== undefined && (
-            <span className="mr-2 inline-block align-middle">
-              <Chip tone="ok">Contained</Chip>
-            </span>
-          )}
-          {blast.asset.name} ({blast.asset.kind}) ·{" "}
-          {dateTime(incident.createdAt)}
-          {incident.reportedByName &&
-            ` · reported by ${incident.reportedByName} (visible to the PE firm only)`}
-        </p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-balance md:text-4xl">
-          {totals.companiesExposed} companies exposed ·{" "}
-          {totals.peopleExposed.toLocaleString()} people behind them ·{" "}
-          <span className="text-amber">
-            {money(totals.heldCents)} in payments held
-          </span>
-        </h1>
-        {releasedCents > 0 && (
-          <p className="mt-1 text-sm text-ok">
-            {money(releasedCents)} released after verification
-          </p>
-        )}
-        {incident.summary && (
-          <p className="mt-2 max-w-3xl text-ash">{incident.summary}</p>
-        )}
-      </section>
-
-      <TimelinePanel incidentId={incident._id} />
-
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <BlastRadiusMap
-          blast={blast}
-          selected={selected}
-          onSelect={setSelected}
-        />
-        <div className="space-y-6">
-          <EvidencePanel
-            exposureId={selectedNode?.exposureId ?? undefined}
-            companyName={selectedNode?.name}
-          />
-          {selectedNode && (
-            <Card title={`Payments held · ${selectedNode.name}`}>
-              {!selectedHeld?.length ? (
-                <Empty>No payments held at this company.</Empty>
-              ) : (
-                <ul className="space-y-2 text-sm">
-                  {selectedHeld.map((r) => (
-                    <li
-                      key={r.payment._id}
-                      className="flex flex-wrap items-center justify-between gap-2"
-                    >
-                      <span className="font-semibold tabular-nums">
-                        {money(r.payment.amountCents)}
-                      </span>
-                      <span className="flex gap-1">
-                        {r.bankChange && <Chip tone="danger">Bank change</Chip>}
-                        <LookChip look={paymentLook(r.payment)} />
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
-          )}
-        </div>
       </div>
 
-      {companyAlerts.length > 0 && (
-        <Card title={`Tailored alerts · ${companyAlerts.length}`}>
-          <ul className="space-y-3">
-            {companyAlerts.map(({ alert, node }) => (
-              <li
-                key={alert._id}
-                className="rounded-lg border border-line bg-graphite p-4"
+      <h1 id="hero-title" className="mt-3 text-3xl font-semibold tracking-tight text-balance md:text-5xl">
+        {totals.companiesExposed} {totals.companiesExposed === 1 ? "company" : "companies"} exposed ·{" "}
+        {totals.peopleExposed.toLocaleString()} people ·{" "}
+        {totals.heldCents > 0 ? (
+          <span className="text-amber">{money(totals.heldCents)} held</span>
+        ) : (
+          <span className="text-ash">no payments held</span>
+        )}
+      </h1>
+      {releasedCents > 0 && <p className="mt-1 text-ok">{money(releasedCents)} released after phone verification</p>}
+      {incident.summary && <p className="mt-3 max-w-3xl text-ash">{incident.summary}</p>}
+
+      {finding && (
+        <p className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-line bg-graphite px-3 py-2 text-sm">
+          <Chip tone="amber">Red-team finding</Chip>
+          <span>
+            Path validated at {incident.reportedByName ?? "the tested company"}
+            {finding.technique.name && ` using ${finding.technique.name} (${finding.technique.id})`}. Sister companies that
+            share it are <strong>reachable, not tested</strong>. Nobody touched their systems.
+          </span>
+        </p>
+      )}
+
+      <div className="mt-8 flex items-baseline justify-between gap-4">
+        <h2 className="text-xs font-semibold tracking-wider text-ash uppercase">Response by company</h2>
+        <p className="text-sm text-ash tabular-nums">
+          {acknowledged} of {exposed.length} acknowledged
+        </p>
+      </div>
+      {exposed.length === 0 ? (
+        <p className="mt-3 text-ash">No company shares what was compromised. No alerts were sent.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-line rounded-xl border border-line">
+          {exposed.map((n) => (
+            <li key={n.companyId}>
+              <button
+                type="button"
+                onClick={() => onOpenCompany(n.companyId)}
+                className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-4 py-3 text-left hover:bg-graphite sm:grid-cols-[minmax(0,1.4fr)_auto_minmax(0,1.2fr)_auto]"
               >
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{node?.name}</span>
-                  {node?.urgency && <LookChip look={URGENCY[node.urgency]} />}
-                  {node?.status && (
-                    <Chip tone="muted">{EXPOSURE_STATUS[node.status]}</Chip>
+                <span className="min-w-0 truncate font-medium">{n.name}</span>
+                {n.urgency && <LookChip look={URGENCY[n.urgency]} />}
+                <span className="text-sm text-ash">
+                  {n.status === "open" ? (
+                    <span className="text-amber">Not acknowledged yet</span>
+                  ) : n.exposureId ? (
+                    <ExposureAcknowledgedBy exposureId={n.exposureId} />
+                  ) : (
+                    EXPOSURE_STATUS[n.status ?? "open"]
                   )}
-                  {alert.exposureId && (
-                    <ExposureAcknowledgedBy exposureId={alert.exposureId} />
-                  )}
-                </div>
-                <p className="max-w-prose text-sm leading-relaxed">
-                  {alert.status === "ready" ? alert.body : "Writing alert…"}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </Card>
+                  {n.status === "closed" && " · resolved"}
+                </span>
+                <span className="text-sm tabular-nums sm:text-right">
+                  {n.heldCents > 0 ? <span className="text-amber">{money(n.heldCents)} held</span> : <span className="text-ash">no holds</span>}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
-
-      <HeldPaymentsPanel
-        title={`Payments held · ${totals.paymentsHeld}`}
-        rows={held}
-        intro="The firm sees every hold. Only a controller at the portfolio company can release or reject."
-      />
-
-      <ControlsLogPanel
-        incidentId={incident._id}
-        fileLabel={incident.externalId}
-      />
-
-      {letter && (
-        <Card
-          title="Letter to the shared vendor"
-          aside={
-            letter.status === "ready" ? (
-              <VendorLetterActions
-                vendorName={blast.asset.vendorName}
-                body={letter.body}
-              />
-            ) : (
-              <Chip tone="muted">writing…</Chip>
-            )
-          }
-        >
-          <p className="max-w-3xl text-sm leading-relaxed whitespace-pre-wrap">
-            {letter.body}
-          </p>
-        </Card>
-      )}
-
-      <ApImportPanel />
-
-      <NotificationsPanel scope="firm" canManage incidentId={incident._id} />
-
-      <ContainPanel
-        key={incident._id}
-        incidentId={incident._id}
-        containedAt={incident.containedAt ?? null}
-      />
-
-      <ProofPanel />
-    </div>
+    </section>
   );
 }

@@ -33,7 +33,7 @@ const BEATS: Beat[] = [
     title: "Fire the incident",
     say: "The shared payroll vendor is compromised. One webhook call.",
     as: JAMIE,
-    tip: "Click Fire incident in the header.",
+    tip: "Data leak simulator strip: pick Brightline payroll breach, then Fire incident.",
   },
   {
     title: "The money moment",
@@ -44,13 +44,13 @@ const BEATS: Beat[] = [
     title: "New requests are caught too",
     say: "Jamie requests the $38K November bill to the same vendor. It's held and flagged the moment it's requested, not just what was already in flight.",
     as: JAMIE,
-    tip: "Bills to pay → Request payment on the $38,000 bill.",
+    tip: "Jump to → Bills to pay → Request payment on the $38,000 bill.",
   },
   {
     title: "It reached their Slack (optional)",
     say: "Nobody had to have the dashboard open: the same warning already went to Summit's #summit-finance channel. Here it's simulated so the demo doesn't depend on Wi-Fi.",
     as: JAMIE,
-    tip: "Scroll to Notifications → Outbox.",
+    tip: "Jump to → Slack messages sent (Outbox).",
   },
   {
     title: "Requester refused, controller verifies",
@@ -68,40 +68,42 @@ const BEATS: Beat[] = [
     title: "A new acquisition (optional)",
     say: "A new acquisition closes today. Here's its AP export: it already pays Brightline at the 7731 account. Import, and its payments are held on the spot: 4 companies, 4,650 people.",
     as: JORDAN,
-    tip: "Onboard card → Use sample files → point at the red warning → Import. Sign in as Daniel Okoro (Lakeside controller) to show the holds. Reset removes Lakeside.",
+    tip: "Onboard a company tab → Use sample files → point at the red warning → Import. Sign in as Daniel Okoro (Lakeside controller) to show the holds. Reset removes Lakeside.",
   },
   {
     title: "Evidence",
-    say: "Click a company: reasons, confidence, its held payments. Inferred links are labelled candidate.",
+    say: "Click a company in the response list or on the map: reasons, confidence, its held payments. Inferred links are labelled candidate.",
     as: JORDAN,
   },
   {
     title: "Discipline (optional)",
     say: "A shared Ironclad login leaks. Summit uses Ironclad too, but with its own login, so Summit gets no alert. Same vendor isn't the same weakness.",
     as: JAMIE,
-    tip: 'Pick "Ironclad shared login leaked" in the header, Fire, stay as Jamie: no new alert. Switch to Jordan and use the Incident menu to compare.',
+    tip: 'Simulator: pick "Ironclad shared login leaked", Fire, stay as Jamie: no new alert. Switch to Jordan and use the incident menu in the hero to compare.',
   },
   {
     title: "Tailored alerts + vendor letter",
     say: "Urgent where a credential is shared, advisory where it's only the same vendor. One letter to the vendor fixes it for everyone.",
     as: JORDAN,
+    tip: "Tabs: What each company was told, then Vendor letter.",
   },
   {
     title: "Convex guarantees",
     say: "Replay the webhook: nothing duplicates. Two people acknowledge at once: exactly one wins.",
     as: JAMIE,
-    tip: `Open a second tab with ?stage, sign in there as ${KWAME.name}, click Acknowledge in both tabs.`,
+    tip: `Open a second tab with ?stage, sign in there as ${KWAME.name}, click Acknowledge in both tabs (Kwame: in his hero; Jamie: Incident & evidence tab).`,
   },
   {
     title: "Contained",
     say: "The vendor fixed it and confirmed by phone. The firm marks the incident contained, with a note, and it's on the record.",
     as: JORDAN,
-    tip: "Containment card: say what was fixed and how it was confirmed, then Mark contained.",
+    tip: "Jump to → Mark contained: say what was fixed and how it was confirmed.",
   },
   {
     title: "Scorecard",
     say: "Caught, missed and false holds against the planted answer key.",
     as: JORDAN,
+    tip: "Proof tab.",
   },
 ];
 
