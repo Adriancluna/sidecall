@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 20:12 by Marco's Claude
+Last updated: Oct 23, 20:16 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -14,10 +14,11 @@ Last updated: Oct 23, 20:12 by Marco's Claude
 - ✓ **Round 2, task 1: prod end-to-end re-test** (session-only): Reset on `?stage` → everyone signed out, reseeded; Jamie → Fire incident → "incident recorded" → release refused ("The person who requested a payment cannot also approve it."); Jordan → "3 companies exposed · 4,200 people behind them · $612,000 in payments held"; Rosa → call note → release → status paid, ledger cash $5,000,000 → $4,520,000, AP $480,000 → $0; Reset again → prod left clean (8 companies, no incident).
 - ✓ **Round 2, task 2: presenter mode** on `/?stage` (`src/demo/PresenterPanel.tsx`): collapsible panel with the 9 demo beats, what to say, tips, "Sign in as" per beat (Jamie → Rosa → Jordan; beat 8 says open a second tab as Kwame Mensah for the race), current person marked. Works signed out too (after Reset).
 - ✓ **Role 1's "do first" bug (decided payment cards):** a decided card shows "Released by Rosa Alvarez · “note” · time" (or "Rejected by …"), chip says Released/Rejected, `holdReasons` labelled "Why it was held" ("Why it's held" while held), call prompt and note box hidden. PE headline gets a second line "$X released after verification" (sum of `decision.status === "paid"`). Verified on dev: note "480000" refused with the backend's guidance, full note → released card, PE shows $132,000 held + $480,000 released.
+- ✓ **Round 2, task 3: controls log** (`src/panels/ControlsLogPanel.tsx`, `api.payments.getIncidentAudit`): table time · company · who · action · rule · reason, newest first, with **Export CSV** (client-side, every field quoted, leading `= + - @` neutralised). PE view: under held payments, whole portfolio. Company view: newest incident, own rows only. Verified on dev: PE 9 rows → `sidecall-controls-log-demo-brightline-001.csv` (header + 9 lines); Cedar Ridge sees 1 row, its own.
 - Bug seen during task 1: a query error during a deploy (old session token) blanked the whole page. Fixing in task 7 with an error boundary.
 
 ## In progress
-1. Round 2 tasks 3 → 8 in order (controls log + CSV, acknowledged by, proof panel, vendor letter buttons, errors/polish, docs/).
+1. Round 2 tasks 4 → 8 in order (acknowledged by, proof panel, vendor letter buttons, errors/polish, docs/).
 
 ## Needs from others
 - (none right now)

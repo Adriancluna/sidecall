@@ -6,6 +6,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { BlastRadiusMap } from "../map/BlastRadiusMap";
 import { EvidencePanel } from "../map/EvidencePanel";
 import { dateTime, money } from "./format";
+import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
 import { Card, Chip, Empty } from "./ui";
 
@@ -154,6 +155,11 @@ export function PortfolioView() {
         rows={held}
         canDecide={false}
         intro="The firm sees every hold. Only a controller at the portfolio company can release or reject."
+      />
+
+      <ControlsLogPanel
+        incidentId={incident._id}
+        fileLabel={incident.externalId}
       />
 
       {letter && (
