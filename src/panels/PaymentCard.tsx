@@ -1,5 +1,5 @@
 // One held payment. Company users see the Release form (the backend refuses the requester and
-// non-controllers, which is demo beat 3); the PE firm only reads (canDecide=false).
+// non-controllers, which is demo beat 3); the PE firm only reads (no viewer).
 // Refusals are expected outcomes (segregation of duties), shown inline, not as errors.
 import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
@@ -16,14 +16,14 @@ export type Viewer = { id: Id<"users">; isController: boolean };
 
 type Props = {
   row: HeldPaymentRow;
-  canDecide: boolean;
   escalation?: string;
   viewer?: Viewer;
 };
 
 const HOUR = 3_600_000;
 
-export function PaymentCard({ row, canDecide, escalation, viewer }: Props) {
+export function PaymentCard({ row, escalation, viewer }: Props) {
+  const canDecide = viewer !== undefined;
   const { payment } = row;
   const release = useMutation(api.payments.releasePayment);
   const reject = useMutation(api.payments.rejectPayment);

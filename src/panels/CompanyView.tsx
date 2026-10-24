@@ -36,6 +36,13 @@ export function CompanyView({ companyId, meId, role }: Props) {
         : [],
     ),
   );
+  const alertByExposure = new Map(
+    (alerts ?? []).flatMap((a) =>
+      a.kind === "company_alert" && a.exposureId
+        ? [[a.exposureId, a] as const]
+        : [],
+    ),
+  );
   const held = useQuery(api.payments.getHeldPayments, {});
   const latestIncident = useQuery(api.blastRadius.listIncidents, {})?.[0];
   // Clerks and controllers act on payments, so the decision leads (it's the money moment);
@@ -46,7 +53,6 @@ export function CompanyView({ companyId, meId, role }: Props) {
       title="Payments held until verified"
       rows={held}
       escalations={handlesPayments ? escalations : undefined}
-      canDecide
       viewer={{ id: meId, isController }}
     />
   );
@@ -78,10 +84,7 @@ export function CompanyView({ companyId, meId, role }: Props) {
               <AlertItem
                 key={exposure._id}
                 exposure={exposure}
-                alert={alerts?.find(
-                  (a) =>
-                    a.kind === "company_alert" && a.exposureId === exposure._id,
-                )}
+                alert={alertByExposure.get(exposure._id)}
               />
             ))}
           </div>

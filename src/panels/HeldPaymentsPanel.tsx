@@ -6,7 +6,6 @@ import { Card, Empty } from "./ui";
 type Props = {
   title: string;
   rows: HeldPaymentRow[] | undefined;
-  canDecide: boolean;
   intro?: string;
   // "Decision needed" text per payment (escalation alerts), company view only.
   escalations?: Map<Id<"payments">, string>;
@@ -16,7 +15,6 @@ type Props = {
 export function HeldPaymentsPanel({
   title,
   rows,
-  canDecide,
   intro,
   escalations,
   viewer,
@@ -36,7 +34,6 @@ export function HeldPaymentsPanel({
             <PaymentCard
               key={row.payment._id}
               row={row}
-              canDecide={canDecide}
               escalation={escalations?.get(row.payment._id)}
               viewer={viewer}
             />
