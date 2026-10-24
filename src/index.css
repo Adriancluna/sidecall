@@ -68,6 +68,15 @@ html {
   scroll-padding-top: 4.5rem;
 }
 
+/* Everything clickable shows the hand (Tailwind v4's preflight leaves buttons on the arrow). */
+button:not(:disabled),
+[role="tab"],
+select:not(:disabled),
+input[type="file"],
+input[type="checkbox"] {
+  cursor: pointer;
+}
+
 /* Native selects stay dark on every OS. */
 select,
 option,
