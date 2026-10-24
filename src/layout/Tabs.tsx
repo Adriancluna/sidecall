@@ -2,7 +2,7 @@
 // tab can be linked, opened in a new tab, and the back button works.
 // proto/ux-vercel: the tab list renders in the shell's left sidebar (desktop) or the strip under
 // the top bar (phones), and the active tab's name sits centred in the top bar.
-import { useRef, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useIsDesktop, useShellSlots } from "./shellSlots";
 import { TABS_ANCHOR } from "./useTabs";
@@ -49,13 +49,20 @@ export function Tabs({
   };
 
   const vertical = isDesktop && slots.nav !== null;
+  // Phones: keep the active tab in view in the scrolling strip.
+  useEffect(() => {
+    if (!vertical) refs.current.get(current.id)?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [vertical, current.id]);
   const tablist = (
     <div
       role="tablist"
       aria-label={label}
       aria-orientation={vertical ? "vertical" : "horizontal"}
       onKeyDown={onKeyDown}
-      className={vertical ? "flex flex-col gap-0.5" : "flex gap-1 overflow-x-auto [scrollbar-width:none]"}
+      className={
+        vertical ? "flex flex-col gap-0.5"
+        : "flex gap-1 overflow-x-auto pr-8 [mask-image:linear-gradient(to_right,black_85%,transparent)] [scrollbar-width:none]"
+      }
     >
       {tabs.map((t) => {
         const selected = t.id === current.id;

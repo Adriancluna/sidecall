@@ -108,7 +108,7 @@ export function PhoneOnFile({ phone, large = false }: { phone: string; large?: b
   return (
     <a
       href={`tel:${phone.replace(/[^\d+]/g, "")}`}
-      className={`whitespace-nowrap text-amber tabular-nums underline-offset-4 hover:underline ${
+      className={`whitespace-nowrap text-link tabular-nums underline-offset-4 hover:underline ${
         large ? "text-2xl font-semibold tracking-tight md:text-[1.75rem]" : "font-semibold"
       }`}
     >

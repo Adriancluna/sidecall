@@ -30,7 +30,7 @@ export const URGENCY: Record<Doc<"exposures">["urgency"], Look> = {
 export const OUTBOX_STATUS: Record<Doc<"notifications">["status"], Look> = {
   queued: { tone: "muted", label: "Queued" },
   sending: { tone: "muted", label: "Sending" },
-  simulated: { tone: "amber", label: "Simulated" },
+  simulated: { tone: "muted", label: "Simulated" },
   sent: { tone: "ok", label: "Sent" },
   failed: { tone: "danger", label: "Failed" },
 };
