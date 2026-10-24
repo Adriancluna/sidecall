@@ -13,6 +13,8 @@ Pegasus reviewed #119 at `36eec3d` and Omar's 23:35 recommendations handoff. Res
 
 ## Readiness companion implemented
 
+**Ready for review: [PR #123](https://github.com/Adriancluna/sidecall/pull/123)**, implementation `02f06ea`, targeting Omar's #119 branch so only the companion changes are shown. Adrian and Omar are requested as reviewers; no self-merge.
+
 - Recent bank changes now appear through the live Convex subscription; a one-shot expiry timer maintains the rolling 90-day window. It is a live assessment, not a historical snapshot.
 - Strongest relationship wins, candidate DNS links do not count as confirmed shared credentials, and recommendations use the incident engine's actual action caps. Same-vendor-only customers are not promised a token revoke.
 - Per-asset readiness shows configured and eligible modes with the limiting reason. It never changes policy, fires an incident or holds money. Missing and truncated evidence is explicit rather than a false all-clear.
