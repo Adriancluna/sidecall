@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 24, ~02:00 (after the Part C batch) by Adrian's Claude
+Last updated: Oct 24, ~03:00 (Part A live) by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -62,8 +62,20 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 - **C7:** `convex/README.md` is now an architecture page (request flow, file map, rules, env, tests).
 - Skipped C2/C3 as announced. 49 tests (4 new), typecheck, lint, build, dev push and rehearsal 25/25 green. CONTRACT.md changelog updated.
 
-## In progress (Role 1, from the Armadin spec)
-1. Part A backend: finding intake on `POST /incident` (our schema), storage, `sisterPath`, labels, query fields, the `demo-armadin-004` scenario, tests, CONTRACT (~4–5 h). Omar's UI follows.
+## Status update: Part A (red-team findings) backend LIVE (PR `feat/armadin-finding`)
+**Shapes are live: Omar, build against them now** (CONTRACT.md → HTTP + Queries, changelog "Oct 24, ~3am"):
+- `getBlastRadius().incident.finding` (full finding, firm only) and `edges[].path`: `"validated_at_source"` (Pinecrest's edge) / `"reachable_not_tested"` (exposed sisters) / `null`.
+- `getExposureEvidence().path`: `{ techniqueId, techniqueName, sharedHop, linkType, source: "validated_at_source", here: "reachable_not_tested" }`; evidence also has `{ kind: "technique" }` and `{ kind: "path", detail: <sister-safe sentence> }`.
+- `listIncidents()` rows: `findingSource` (firm only).
+- `internal.alerts.getWritingContext`: `technique: { id, name } | null` and `companyAlerts[].pathSummary`.
+- Scenario `armadinFinding` = `demo-armadin-004` (Ironclad shared admin login; same exposures as `ironcladCredential`, no holds). `npx convex run seed:fireDemoIncident '{"scenario":"armadinFinding"}'`, or unsigned `POST /incident` with just `{"externalId":"demo-armadin-004","assetName":"Ironclad shared admin account"}` on DEMO_MODE.
+- Firm Slack line adds: "Validated attack path at Pinecrest Staffing (red-team finding ARM-2026-0412); sister companies are reachable, not tested."
+- Rules held by tests: score/urgency/confidence identical to the plain credential report; credential findings skip `same_vendor_only` links; sisters never see Pinecrest, hop labels, finding/engagement ids, or "validated" without "not tested"; unsigned demo bodies can't inject their own finding or summary.
+- 55 tests (6 new), typecheck, lint, build, rehearsal 25/25. Verified on dev via the real webhook.
+
+## In progress (Role 1)
+1. Watch for Omar's/Marco's asks on the finding shapes; add a rehearsal beat for `demo-armadin-004` once the button exists.
+2. (done) Part A backend: finding intake on `POST /incident` (our schema), storage, `sisterPath`, labels, query fields, the `demo-armadin-004` scenario, tests, CONTRACT (~4–5 h). Omar's UI follows.
 
 ## Needs from others
 - → **Role 2 (Marco): optimize first, then pitch.** (1) Run `/simplify` on your `src/` files (not `src/map/`, that's Omar's now) and `PRODUCT.md`-level duplication; behavior unchanged, `npm run build` + `npm run rehearse` green; one PR. (2) Then the **video and Devpost** (they decide judging; numbers are in `docs/devpost.md` and `data/scorecard.json`). (3) MCP clip, then remaining audit polish. Hand the map placeholder to Omar: don't edit `src/map/` from here on.
@@ -76,9 +88,11 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
   - Nothing missing that I'd add; the list is accurate against `main` as far as I can verify from source.
 - → **Role 3+4 (Omar): new spec for you, approved by Adrian: `docs/specs/armadin-one-step-ahead.md`.** Sidecall accepts a validated finding from an autonomous red team *like* Armadin (**our own schema**; Armadin's real format/API isn't available to us, so never write "Armadin integration" or "Armadin's format") and carries it to sister companies as **"reachable here · not tested"**; only the reporter's proven hops are "validated at source", firm view only. Your parts, in order:
   1. **Inside the map build you're already doing (no wait on me):** B1 remove `· score N` from the map tiles (`src/map/BlastRadiusMap.tsx`); B2 replace the bare "Confidence 90%" in `src/map/EvidencePanel.tsx` with words + bar ("High · self-reported link" / "Low · candidate link from public DNS").
-  2. **After Role 1 lands Part A** (I'll post here when the shapes are live; until then build against spec §A5): map edge labels from `getBlastRadius().edges[].path`: "validated at source" (reporter edge) / "reachable here · not tested" (exposed edges); `dns_inferred` edges keep "candidate · DNS". `EvidencePanel` shows a path block from `getExposureEvidence().path` (technique + shared hop + "validated at another portfolio company · reachable here, not tested"). AI writers: use `getWritingContext().companyAlerts[].pathSummary` and `technique`, and **never "validated" for a sister company** (add it to `checkCopy`); generate cache entries for `demo-armadin-004`.
+  2. **✓ Part A is live on main (see "Status update: Part A" above):** map edge labels from `getBlastRadius().edges[].path`: "validated at source" (reporter edge) / "reachable here · not tested" (exposed edges); `dns_inferred` edges keep "candidate · DNS". `EvidencePanel` shows a path block from `getExposureEvidence().path` (technique + shared hop + "validated at another portfolio company · reachable here, not tested"). AI writers: use `getWritingContext().companyAlerts[].pathSummary` and `technique`, and **never "validated" for a sister company** (add it to `checkCopy`); generate cache entries for `demo-armadin-004`.
   3. **✓ B3 is done (renamed to `*_email_change`): now** rerun `node scripts/scorecard/run.mjs` and commit `data/scorecard.json`.
   Ask here if any shape doesn't fit the map; I'll adjust the backend, not you.
+  4. **AI canned text drops the path today:** on dev, `ai.generateAlert` replaced my alert template (which includes the path sentence) with canned text from `reasons` only. Append `item.pathSummary` to the canned alert when it's non-null, and use `context.technique` in the vendor letter ("An authorized test validated use of T1078 Valid Accounts against <asset> held by a portfolio company…", spec §A4).
+- → **Role 2 (Marco): one stage button, when you get to it.** Add a 4th scenario to `src/demo/DemoControls.tsx` SCENARIOS: `{ externalId: "demo-armadin-004", assetName: "Ironclad shared admin account" }`, label e.g. "Red-team finding (Ironclad login)". The server ignores any other body fields for unsigned demo requests, so nothing else is needed. Pitch wording stays "accepts a validated finding from an autonomous red team *like* Armadin" (our schema, no integration).
 - → **Role 3+4 (Omar): optimize first, then build the map.** Details and order in `handoff/role-3-map.md`. `notify.ts` is no longer yours.
 - → **Role 2 (Marco): second opinion on `docs/specs/ui-audit-2026-10-24.md`** (review only; no code changed on my side; you decide):
   - **Agree, severities right:** #1 P0 ($480K must read from the back of the room; one-column when one card), #2 P0 (the card says the phone number 3×; keep amount + bank-change block + one action line, fold the rest into `<details>`), #3 P1 (confirming Reject but not Release is backwards; Release to ••7731 is the risky action; naming the destination in the confirm is a good touch). Backend agrees with your rules: release needs status `held`, actor ≠ requester, a **controller at that company**, and a note ≥ 15 chars that reads like a sentence; reject has the same checks minus the note. Both refuse inline (`{ ok: false, reason }`) and log the refusal.

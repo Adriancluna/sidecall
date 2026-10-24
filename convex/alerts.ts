@@ -7,6 +7,7 @@ import { alertKind } from "./schema";
 import type { Id } from "./_generated/dataModel";
 import { getViewer } from "./access";
 import { enqueueAlert } from "./notifications";
+import { ATTACK_TECHNIQUES } from "./findings";
 import { MAX_FANOUT, memo } from "./shared";
 
 const alertInput = v.object({
@@ -98,6 +99,8 @@ export const getWritingContext = internalQuery({
           urgency: e.urgency,
           reasons: e.reasons,
           confidence: e.confidence,
+          // Sister-safe path sentence (scoring.ts sisterPath); null without a finding.
+          pathSummary: e.evidence.find((x) => x.kind === "path")?.detail ?? null,
         };
       }),
     );
@@ -125,6 +128,10 @@ export const getWritingContext = internalQuery({
       incidentId: incident._id,
       externalId: incident.externalId, // e.g. "demo-brightline-001": key for pre-generated text
       summary: incident.summary ?? null,
+      // Only ids and names from our ATT&CK table: safe for sister alerts and the vendor letter.
+      technique: incident.finding
+        ? { id: incident.finding.technique.id, name: ATTACK_TECHNIQUES[incident.finding.technique.id] ?? null }
+        : null,
       asset: {
         name: asset.name,
         vendorName: asset.vendorName,

@@ -331,7 +331,10 @@ export const importPortfolioCompany = mutation({
     let held = 0;
     let flagged = 0;
     let heldCents = 0;
-    const heldByIncident = new Map<Id<"incidents">, { asset: Doc<"assets">; count: number; cents: number; flagged: number }>();
+    const heldByIncident = new Map<
+      Id<"incidents">,
+      { asset: Doc<"assets">; finding: Doc<"incidents">["finding"]; count: number; cents: number; flagged: number }
+    >();
     // Per-vendor lookups, computed once rather than for every bill.
     const latestByAsset = new Map(matches.flatMap((m) => (m.asset && m.latestChange ? [[m.asset._id, m.latestChange] as const] : [])));
     const incidents = new Map<Id<"assets">, Doc<"incidents"> | null>();
@@ -386,7 +389,7 @@ export const importPortfolioCompany = mutation({
       held += 1;
       heldCents += b.amountCents;
       if (isFlagged) flagged += 1;
-      const s = heldByIncident.get(incident._id) ?? { asset, count: 0, cents: 0, flagged: 0 };
+      const s = heldByIncident.get(incident._id) ?? { asset, finding: incident.finding, count: 0, cents: 0, flagged: 0 };
       s.count += 1;
       s.cents += b.amountCents;
       if (isFlagged) s.flagged += 1;
@@ -396,7 +399,14 @@ export const importPortfolioCompany = mutation({
     // The new company is now exposed to each active incident on a vendor it pays.
     const exposedTo: string[] = [];
     for (const [incidentId, s] of heldByIncident) {
-      await openExposure(ctx, { incidentId, link: linkByAsset.get(s.asset._id)!, asset: s.asset, held: s, ready: true });
+      await openExposure(ctx, {
+        incidentId,
+        link: linkByAsset.get(s.asset._id)!,
+        asset: s.asset,
+        held: s,
+        finding: s.finding,
+        ready: true,
+      });
       exposedTo.push(s.asset.vendorName);
     }
 

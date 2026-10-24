@@ -10,6 +10,7 @@ import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id, TableNames } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { recordIncidentImpl } from "./incidents";
+import type { Finding } from "./findings";
 import { getViewer } from "./access";
 // Role 4's DNS findings, bundled at deploy time. Each entry becomes a dns_inferred candidate link.
 import dnsLinks from "../data/dns_links.json";
@@ -149,6 +150,24 @@ const OPENING_CASH = cents(5_000_000);
 
 
 
+// A validated red-team finding at Pinecrest (our finding schema, convex/findings.ts), already
+// normalized: the stage button sends only the id and asset, and this copy is what runs.
+const PINECREST_FINDING: Finding = {
+  source: "armadin",
+  findingId: "ARM-2026-0412",
+  engagementId: "ENG-PINECREST-Q4",
+  validatedAt: Date.parse("2026-10-24T08:12:00Z"),
+  technique: { id: "T1078", name: "Valid Accounts" },
+  terminalKind: "credential",
+  path: [
+    { kind: "foothold", label: "Exposed RDP on PC-OPS-12" },
+    { kind: "system", label: "pinecrest-jump01" },
+    { kind: "credential", label: "Ironclad shared admin (ironclad-svc) in jump-host script" },
+  ],
+  evidence: [{ kind: "session", summary: "Interactive logon as ironclad-svc on pinecrest-jump01 08:09 UTC" }],
+  confidence: 0.92,
+};
+
 export const SCENARIOS = {
   brightline: {
     externalId: "demo-brightline-001",
@@ -167,6 +186,13 @@ export const SCENARIOS = {
     assetName: "Ironclad IT Services",
     reportedByDomain: "pinecreststaffing.example",
     summary: "Ironclad Managed IT reports a compromise of its own systems.",
+  },
+  armadinFinding: {
+    externalId: "demo-armadin-004",
+    assetName: "Ironclad shared admin account",
+    reportedByDomain: "pinecreststaffing.example",
+    summary: "An autonomous red-team test validated a path from a Pinecrest workstation to Ironclad's shared admin account.",
+    finding: PINECREST_FINDING,
   },
 } as const;
 
@@ -452,7 +478,12 @@ export const resetDemo = mutation({
 // Same code path as POST /incident, for testing without curl.
 export const fireDemoIncident = internalMutation({
   args: {
-    scenario: v.union(v.literal("brightline"), v.literal("ironcladCredential"), v.literal("ironcladMsp")),
+    scenario: v.union(
+      v.literal("brightline"),
+      v.literal("ironcladCredential"),
+      v.literal("ironcladMsp"),
+      v.literal("armadinFinding"),
+    ),
   },
   handler: async (ctx, args) => {
     return await recordIncidentImpl(ctx, SCENARIOS[args.scenario]);

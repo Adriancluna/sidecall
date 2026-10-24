@@ -1,8 +1,11 @@
 // Exposure scoring. Deterministic rules only; the AI never decides exposure or urgency.
 import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
+import type { Infer } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { formatUsd, MAX_FANOUT } from "./shared";
+import { ATTACK_TECHNIQUES, techniqueLabel, type Finding } from "./findings";
+import type { exposurePath } from "./schema";
 
 const BASE_SCORE: Record<Doc<"links">["shareType"], number> = {
   shared_credential: 90,
@@ -95,6 +98,49 @@ export function scoreExposure(
     urgency: score >= URGENT_AT ? "urgent" : "advisory",
     reasons,
     evidence,
+  };
+}
+
+// One step ahead of a red-team finding: what a sister company learns about the proven path.
+// Built only from Sidecall's own asset and link rows (never the finding's hop labels, evidence
+// or ids), so it can't reveal the reporter. "Validated" only ever appears next to "not tested at
+// your company". Score, urgency and confidence stay exactly what scoreExposure says: a proof
+// inside another company says nothing about whether this company really has the link.
+const HERE_SENTENCE: Record<Doc<"links">["shareType"], (vendor: string) => string> = {
+  shared_credential: (vendor) =>
+    `Your company shares that login with ${vendor}, so the path is reachable at your company (not tested at your company).`,
+  shared_admin_access: (vendor) =>
+    `Your company gives ${vendor} admin access through that account, so the path is reachable at your company (not tested at your company).`,
+  same_vendor_only: (vendor) =>
+    `You use your own login, so it reaches your company only if an attacker can cross between ${vendor} customers (not tested at your company).`,
+};
+
+export function sisterPath(
+  finding: Finding,
+  link: Doc<"links">,
+  asset: Doc<"assets">,
+): { path: Infer<typeof exposurePath>; evidence: { kind: string; detail: string }[] } {
+  const sharedHop = vendorLabel(asset);
+  const vendor = asset.vendorName;
+  const summary = [
+    `A validated attack path at another portfolio company ends at ${sharedHop}.`,
+    HERE_SENTENCE[link.shareType](vendor),
+    link.source === "dns_inferred" ? `Candidate link only: public DNS suggests you use ${vendor}; the link is not confirmed.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return {
+    path: {
+      techniqueId: finding.technique.id,
+      techniqueName: ATTACK_TECHNIQUES[finding.technique.id] ?? null,
+      sharedHop,
+      linkType: link.shareType,
+      here: "reachable_not_tested",
+    },
+    evidence: [
+      { kind: "technique", detail: techniqueLabel(finding.technique.id) },
+      { kind: "path", detail: summary },
+    ],
   };
 }
 

@@ -5,6 +5,7 @@ import { auth } from "./auth";
 import { SCENARIOS } from "./seed";
 import { mcpHandler, mcpMethodNotAllowed } from "./mcp";
 import { toHex } from "./shared";
+import { parseFinding } from "./findings";
 
 const http = httpRouter();
 
@@ -22,6 +23,7 @@ const CORS = {
 // INCIDENT_WEBHOOK_SECRET>. Unsigned requests are accepted only for the built-in demo
 // scenarios, and only on deployments with DEMO_MODE=true (the stage button).
 const SIGNATURE_HEADER = "X-Sidecall-Signature";
+const MAX_BODY_CHARS = 32 * 1024;
 
 async function hmacSha256Hex(secret: string, body: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -51,10 +53,11 @@ async function hasValidSignature(req: Request, rawBody: string): Promise<boolean
   return constantTimeEqual(header, expected);
 }
 
-function isDemoScenario(externalId: string, assetName: string): boolean {
-  return Object.values(SCENARIOS).some(
-    (s) => s.externalId === externalId && s.assetName === assetName,
-  );
+// The built-in scenario an unsigned stage request names, if any. Matched on id + asset only:
+// the stored scenario (reporter, summary, finding) is what runs, so an unsigned body can't
+// smuggle in its own text.
+function demoScenario(externalId: string, assetName: string) {
+  return Object.values(SCENARIOS).find((s) => s.externalId === externalId && s.assetName === assetName);
 }
 
 function json(status: number, body: unknown): Response {
@@ -74,6 +77,7 @@ http.route({
   method: "POST",
   handler: httpAction(async (ctx, req) => {
     const rawBody = await req.text();
+    if (rawBody.length > MAX_BODY_CHARS) return json(400, { error: "body is larger than 32 KB" });
     let body: unknown;
     try {
       body = JSON.parse(rawBody);
@@ -84,34 +88,54 @@ http.route({
       return json(400, { error: "body must be an object" });
     }
     const raw = body as Record<string, unknown>;
-    const { externalId, assetName } = raw;
-    const reportedByDomain = optionalString(raw.reportedByDomain);
-    const summary = optionalString(raw.summary);
+
+    // Optional validated red-team finding (our schema, convex/findings.ts). It fills in the
+    // incident fields the sender left out and must agree with any it gave.
+    const parsed = raw.finding === undefined ? null : parseFinding(raw.finding, Date.now());
+    if (parsed && "error" in parsed) return json(400, { error: parsed.error });
+
+    const fields = {
+      externalId: optionalString(raw.externalId),
+      assetName: optionalString(raw.assetName),
+      reportedByDomain: optionalString(raw.reportedByDomain),
+      summary: optionalString(raw.summary),
+    };
+    if (Object.values(fields).includes(null)) {
+      return json(400, { error: "externalId, assetName, reportedByDomain and summary must be strings" });
+    }
     if (
-      typeof externalId !== "string" ||
-      externalId.length === 0 ||
-      typeof assetName !== "string" ||
-      assetName.length === 0 ||
-      reportedByDomain === null ||
-      summary === null
+      parsed &&
+      ((fields.assetName && fields.assetName !== parsed.assetName) ||
+        (fields.reportedByDomain && fields.reportedByDomain !== parsed.organizationDomain))
     ) {
+      return json(400, { error: "scope and reporter disagree: assetName and reportedByDomain must match the finding" });
+    }
+    const externalId = fields.externalId || (parsed ? `${parsed.finding.source}:${parsed.finding.findingId}` : "");
+    const assetName = fields.assetName || parsed?.assetName || "";
+    if (!externalId || !assetName) {
       return json(400, {
-        error: "expected { externalId: string, assetName: string, reportedByDomain?: string, summary?: string }",
+        error: "expected { externalId: string, assetName: string, reportedByDomain?: string, summary?: string, finding?: object }",
       });
     }
 
     const signed = await hasValidSignature(req, rawBody);
-    const demo = env.DEMO_MODE === "true" && isDemoScenario(externalId, assetName);
+    const demo = env.DEMO_MODE === "true" ? demoScenario(externalId, assetName) : undefined;
     if (!signed && !demo) {
       return json(401, { error: `missing or invalid ${SIGNATURE_HEADER}` });
     }
 
-    const result = await ctx.runMutation(internal.incidents.recordIncident, {
-      externalId,
-      assetName,
-      reportedByDomain,
-      summary,
-    });
+    const result = await ctx.runMutation(
+      internal.incidents.recordIncident,
+      signed
+        ? {
+            externalId,
+            assetName,
+            reportedByDomain: fields.reportedByDomain || parsed?.organizationDomain,
+            summary: fields.summary || undefined,
+            finding: parsed?.finding,
+          }
+        : demo!,
+    );
     if (!result.ok) return json(404, { error: result.error });
     return json(200, { incidentId: result.incidentId, duplicate: result.duplicate });
   }),

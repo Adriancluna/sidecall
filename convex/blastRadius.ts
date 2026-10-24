@@ -46,6 +46,7 @@ export const listIncidents = query({
           containedAt: incident.containedAt ?? null,
           reportedByCompanyId: viewer.firm ? (incident.reportedByCompanyId ?? null) : null,
           summary: viewer.firm ? (incident.summary ?? null) : null,
+          findingSource: viewer.firm ? (incident.finding?.source ?? null) : null,
           assetName: asset?.name ?? "",
           vendorName: asset?.vendorName ?? "",
         };
@@ -152,6 +153,7 @@ export const getBlastRadius = query({
         shareType: l.shareType,
         source: l.source,
         compromised: l.assetId === asset._id,
+        path: edgePath(incident, l, asset._id, exposureByCompany.has(l.companyId)),
       })),
       totals: {
         companiesExposed: exposures.length,
@@ -162,6 +164,15 @@ export const getBlastRadius = query({
     };
   },
 });
+
+// With a red-team finding: the reporter's edge is what was proven ("validated_at_source"); an
+// exposed sister's edge is what Sidecall infers ("reachable_not_tested"). Firm view only.
+type EdgePath = "validated_at_source" | "reachable_not_tested" | null;
+function edgePath(incident: Doc<"incidents">, link: Doc<"links">, assetId: Id<"assets">, exposed: boolean): EdgePath {
+  if (!incident.finding || link.assetId !== assetId) return null;
+  if (link.companyId === incident.reportedByCompanyId) return "validated_at_source";
+  return exposed ? "reachable_not_tested" : null;
+}
 
 export const getExposureEvidence = query({
   args: { exposureId: v.id("exposures") },
@@ -180,6 +191,8 @@ export const getExposureEvidence = query({
       score: exposure.score,
       status: exposure.status,
       acknowledgedBy: exposure.acknowledgedBy ?? null,
+      // Proven at another company, reachable (not tested) here. Never names the reporter.
+      path: exposure.path ? { ...exposure.path, source: "validated_at_source" as const } : null,
     };
   },
 });

@@ -6,7 +6,9 @@ import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { holdPaymentsForIncident } from "./payments";
-import { scoreExposure, type HeldSummary } from "./scoring";
+import { scoreExposure, sisterPath, type HeldSummary } from "./scoring";
+import { finding as findingValidator } from "./schema";
+import type { Finding } from "./findings";
 import { getViewer } from "./access";
 import { enqueue } from "./notifications";
 import { insertReadyAlert } from "./alerts";
@@ -14,13 +16,14 @@ import { formatUsd, MAX_FANOUT } from "./shared";
 
 type RecordIncidentResult =
   | { ok: true; incidentId: Id<"incidents">; duplicate: boolean }
-  | { ok: false; error: "unknown_asset" };
+  | { ok: false; error: "unknown_asset" | "unknown_reporter" };
 
 const incidentArgs = {
   externalId: v.string(),
   assetName: v.string(),
   reportedByDomain: v.optional(v.string()),
   summary: v.optional(v.string()),
+  finding: v.optional(findingValidator), // already validated by convex/findings.ts parseFinding
 };
 
 export async function recordIncidentImpl(
@@ -30,6 +33,7 @@ export async function recordIncidentImpl(
     assetName: string;
     reportedByDomain?: string;
     summary?: string;
+    finding?: Finding;
   },
 ): Promise<RecordIncidentResult> {
   // Idempotency: a replayed webhook returns the original incident and writes nothing.
@@ -51,6 +55,8 @@ export async function recordIncidentImpl(
         .withIndex("by_domain", (q) => q.eq("domain", args.reportedByDomain!))
         .unique()
     : null;
+  // A finding is measured from the company that was tested: without it there are no "sisters".
+  if (args.finding && !reporter) return { ok: false, error: "unknown_reporter" };
 
   const incidentId = await ctx.db.insert("incidents", {
     externalId: args.externalId,
@@ -58,6 +64,7 @@ export async function recordIncidentImpl(
     reportedByCompanyId: reporter?._id,
     summary: args.summary,
     createdAt: Date.now(),
+    finding: args.finding,
   });
   const incident = (await ctx.db.get("incidents", incidentId))!;
 
@@ -71,8 +78,12 @@ export async function recordIncidentImpl(
     .withIndex("by_assetId", (q) => q.eq("assetId", asset._id))
     .take(MAX_FANOUT);
   const strongest = new Map<Id<"companies">, Doc<"links">>();
+  // A proven leaked login reaches only companies that share that login, not every customer of
+  // the vendor: same_vendor_only links on a credential don't count.
+  const credentialOnly = args.finding?.terminalKind === "credential";
   for (const link of links) {
     if (link.companyId === reporter?._id) continue;
+    if (credentialOnly && link.shareType === "same_vendor_only") continue;
     const current = strongest.get(link.companyId);
     if (!current || rank(link) > rank(current)) strongest.set(link.companyId, link);
   }
@@ -84,6 +95,7 @@ export async function recordIncidentImpl(
         link,
         asset,
         held: heldByCompany.get(link.companyId) ?? { count: 0, cents: 0, flagged: 0 },
+        finding: args.finding,
         ready: false, // the AI writer rewrites it once per incident
       });
       return await ctx.db.get("companies", link.companyId);
@@ -120,7 +132,10 @@ export async function recordIncidentImpl(
       `Sidecall incident: ${asset.vendorName} (${asset.name}). ` +
       `${strongest.size} compan${strongest.size === 1 ? "y" : "ies"} exposed · ${peopleExposed.toLocaleString("en-US")} people · ` +
       `${formatUsd(heldCents)} in payments held until verified.` +
-      (reporter ? ` Reported by ${reporter.name}.` : ""),
+      (reporter ? ` Reported by ${reporter.name}.` : "") +
+      (args.finding && reporter
+        ? ` Validated attack path at ${reporter.name} (red-team finding ${args.finding.findingId}); sister companies are reachable, not tested.`
+        : ""),
   });
 
   // AI writes once per incident and loops inside the action (scheduler cap is per transaction).
@@ -138,17 +153,33 @@ export async function recordIncidentImpl(
 // incident) writes it ready and notifies at once. Shared so both paths use the same template.
 export async function openExposure(
   ctx: MutationCtx,
-  args: { incidentId: Id<"incidents">; link: Doc<"links">; asset: Doc<"assets">; held: HeldSummary; ready: boolean },
+  args: {
+    incidentId: Id<"incidents">;
+    link: Doc<"links">;
+    asset: Doc<"assets">;
+    held: HeldSummary;
+    finding: Finding | undefined;
+    ready: boolean;
+  },
 ) {
   const { incidentId, link, asset } = args;
   const scored = scoreExposure(link, asset, args.held);
-  const exposureId = await ctx.db.insert("exposures", { incidentId, companyId: link.companyId, status: "open", ...scored });
+  const sister = args.finding ? sisterPath(args.finding, link, asset) : null;
+  const exposureId = await ctx.db.insert("exposures", {
+    incidentId,
+    companyId: link.companyId,
+    status: "open",
+    ...scored,
+    evidence: [...scored.evidence, ...(sister?.evidence ?? [])],
+    path: sister?.path,
+  });
+  const pathSentence = sister ? ` ${sister.evidence.find((e) => e.kind === "path")!.detail}` : "";
   const alert = {
     incidentId,
     exposureId,
     companyId: link.companyId,
     kind: "company_alert" as const,
-    body: `${scored.urgency === "urgent" ? "Urgent: act today." : "Advisory: review this week."} ${asset.vendorName} is under an active security incident. ${scored.reasons.join(" ")} Rotate any credentials you share with ${asset.vendorName} and review recent access.`,
+    body: `${scored.urgency === "urgent" ? "Urgent: act today." : "Advisory: review this week."} ${asset.vendorName} is under an active security incident. ${scored.reasons.join(" ")}${pathSentence} Rotate any credentials you share with ${asset.vendorName} and review recent access.`,
   };
   if (args.ready) await insertReadyAlert(ctx, alert);
   else await ctx.db.insert("alerts", { ...alert, status: "pending" });
