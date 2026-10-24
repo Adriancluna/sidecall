@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 23, 21:50 by Adrian's Claude
+Last updated: Oct 23, 22:05 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -23,6 +23,9 @@ Last updated: Oct 23, 21:50 by Adrian's Claude
 - **New: containment.** `incidents.containIncident({ incidentId, note })`, PE partner only. Afterwards new payment requests to that vendor aren't held; payments already held stay held until a controller decides ("held, never cancelled"). Logged (`contain`) and on the timeline (company view gets a neutral label, never the reporter).
 - **Fixed: production had stopped deploying since #44.** The `ignoreCommand` used `$VERCEL_ENV`, which isn't set during Vercel's ignore step, so every build (production too) was skipped ("Canceled by Ignored Build Step"). Now `[ "$VERCEL_GIT_COMMIT_REF" != "main" ]`: only `main` builds. Everything from #44–#50 ships with this. After it deploys, Reset once on `/?stage`.
 - **Scale benchmark (real dev backend, via the webhook):** 8 seed + 300 extra companies sharing a credential with Brightline. One report → **303 companies exposed, 304 payments held, $3.61M, in one transaction (~1.4 s server time)**; holds still land in the report's own transaction. Found and fixed: the PE headline only counted the first 100 companies (said 68 exposed); totals now come from the incident's rows; fan-out reads bounded at 500 (above any PE portfolio). Test pins it (303 / 304 / AI context sees all 303).
+- ✓ **Reviewed and merged Role 4's #55** (AI cache/live/canned writer, scorecard + DNS scripts): tsc, lint, build, 25 tests green; live fire on dev writes all 8 alerts, headline unchanged; DNS import adds 4 candidate links.
+- ✓ **Ran Role 4's scripts for Omar** (his container can't reach Convex or the internet): `data/scorecard.json` (Brightline caught 6 / missed 0 / false holds 0 / left alone 4; Ironclad credential 0/0/0/3; Ironclad MSP 4/0/0/1) and `data/dns_findings.json` (83 real findings across 10 public domains). `data/ai_cache.json` still empty: needs `ANTHROPIC_API_KEY=… node prompts/generate.mjs` on a machine with Convex access (Adrian).
+- ✓ done for Role 4: seeded `dns_inferred` links now get their DNS record as `detail` from `dns_links.json` (5 links; `seed:run` reports `dnsDetailed`).
 - `npm test`: 25 tests green (they sign in as each person; added: client can't pass a user id, controls log scoping).
 - ✓ done for Role 2: reviewed and merged #26. Earlier: #20, #22, #24.
 
