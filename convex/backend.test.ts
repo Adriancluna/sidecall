@@ -4,7 +4,7 @@
 // balanced ledger, per-company scoping, session-only identity, and
 // "same vendor ≠ shared weakness".
 import { convexTest } from "convex-test";
-import { afterEach, beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import schema from "./schema";
 
@@ -217,6 +217,50 @@ describe("payment release", () => {
   });
 });
 
+describe("escalation (knows when to ask)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test("a hold due within 24h is escalated to the controller at once; others wait", async () => {
+    const { t, as, fire } = await seeded();
+    await fire();
+    const payments = await t.run((ctx) => ctx.db.query("payments").take(50));
+    const escalated = payments.filter((p) => p.escalatedAt !== undefined).map((p) => p.seedRef);
+    expect(escalated).toEqual(["pay_C_brightline_480k"]); // due in 20h
+
+    const alerts = await (await as("Rosa Alvarez")).query(api.alerts.getMyAlerts, {});
+    const escalation = alerts.find((a) => a.kind === "escalation");
+    expect(escalation?.body).toMatch(/Rosa Alvarez/);
+    expect(escalation?.body).not.toMatch(/fraud/i);
+  });
+
+  test("the cron escalates the rest once they come due, exactly once", async () => {
+    const { t, fire } = await seeded();
+    await fire();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + 2.5 * 24 * 60 * 60 * 1000); // other bills are due at +72h
+    expect(await t.mutation(internal.payments.escalateDueHolds, {})).toEqual({ escalated: 3 });
+    expect(await t.mutation(internal.payments.escalateDueHolds, {})).toEqual({ escalated: 0 });
+  });
+});
+
+describe("timeline", () => {
+  test("holds land in the report's own transaction; a company sees only its events", async () => {
+    const { as, fire } = await seeded();
+    const { incidentId } = await fire();
+    const firm = await (await as(PE)).query(api.blastRadius.getIncidentTimeline, { incidentId });
+    expect(firm!.stats.holdsInReportTransaction).toBe(true);
+    const count = (kind: string) => firm!.events.filter((e) => e.kind === kind).length;
+    expect([count("reported"), count("hold"), count("flag"), count("escalate")]).toEqual([1, 4, 2, 1]);
+
+    const summit = await (await as("Jamie Chen")).query(api.blastRadius.getIncidentTimeline, { incidentId });
+    const names = new Set(summit!.events.map((e) => e.companyName).filter(Boolean));
+    expect(names).toEqual(new Set(["Summit Home Health"]));
+    expect(JSON.stringify(summit)).not.toContain("Pinecrest");
+  });
+});
+
 describe("controls log", () => {
   test("PE sees every company's rows, a company only its own", async () => {
     const { as, fire } = await seeded();
@@ -228,6 +272,7 @@ describe("controls log", () => {
     );
     expect(peRows.filter((r) => r.action === "hold")).toHaveLength(4);
     expect(peRows.filter((r) => r.action === "flag")).toHaveLength(2);
+    expect(peRows.filter((r) => r.action === "escalate")).toHaveLength(1);
     expect(new Set(summitRows.map((r) => r.companyName))).toEqual(new Set(["Summit Home Health"]));
   });
 });

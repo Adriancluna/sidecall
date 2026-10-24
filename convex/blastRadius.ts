@@ -214,3 +214,117 @@ export const listAssets = query({
   args: {},
   handler: async (ctx) => await ctx.db.query("assets").take(100),
 });
+
+type TimelineEvent = {
+  at: number;
+  kind:
+    | "reported"
+    | "hold"
+    | "flag"
+    | "escalate"
+    | "refused"
+    | "release"
+    | "reject"
+    | "alert_ready"
+    | "vendor_letter_ready"
+    | "acknowledged";
+  label: string;
+  companyName: string | null;
+};
+
+// What happened, when, for one incident: the proof behind "held in the same transaction
+// as the report". The firm sees every company; a company sees only its own events, and the
+// "reported" event never says who reported.
+export const getIncidentTimeline = query({
+  args: { incidentId: v.id("incidents") },
+  handler: async (ctx, args) => {
+    const viewer = await getViewer(ctx);
+    const incident = await ctx.db.get("incidents", args.incidentId);
+    if (!incident) return null;
+    const asset = await ctx.db.get("assets", incident.assetId);
+
+    const [audit, exposures, alertGroups] = await Promise.all([
+      viewer.firm
+        ? ctx.db
+            .query("auditLog")
+            .withIndex("by_incidentId", (q) => q.eq("incidentId", incident._id))
+            .take(500)
+        : ctx.db
+            .query("auditLog")
+            .withIndex("by_companyId_and_incidentId", (q) =>
+              q.eq("companyId", viewer.companyId).eq("incidentId", incident._id),
+            )
+            .take(500),
+      ctx.db
+        .query("exposures")
+        .withIndex("by_incidentId_and_companyId", (q) => q.eq("incidentId", incident._id))
+        .take(200),
+      Promise.all(
+        (["company_alert", "hold_notice", "vendor_letter"] as const).map((kind) =>
+          ctx.db
+            .query("alerts")
+            .withIndex("by_incidentId_and_kind", (q) =>
+              q.eq("incidentId", incident._id).eq("kind", kind),
+            )
+            .take(200),
+        ),
+      ),
+    ]);
+
+    const companyNames = new Map<string, string>();
+    const companyName = async (id: Id<"companies"> | undefined) => {
+      if (!id) return null;
+      if (!companyNames.has(id)) companyNames.set(id, (await ctx.db.get("companies", id))?.name ?? "");
+      return companyNames.get(id)!;
+    };
+    const visible = (companyId: Id<"companies"> | undefined) =>
+      companyId === undefined ? viewer.firm : canSeeCompany(viewer, companyId);
+
+    const events: TimelineEvent[] = [
+      {
+        at: incident.createdAt,
+        kind: "reported",
+        label: `Incident received: ${asset?.vendorName ?? "vendor"} (${asset?.name ?? ""})`,
+        companyName: null,
+      },
+    ];
+    for (const row of audit) {
+      events.push({ at: row.at, kind: row.action, label: row.reason, companyName: await companyName(row.companyId) });
+    }
+    for (const alert of alertGroups.flat()) {
+      if (alert.status !== "ready" || alert.readyAt === undefined || !visible(alert.companyId)) continue;
+      events.push({
+        at: alert.readyAt,
+        kind: alert.kind === "vendor_letter" ? "vendor_letter_ready" : "alert_ready",
+        label: alert.kind === "vendor_letter" ? "Vendor letter drafted" : alert.kind === "hold_notice" ? "Hold notice written" : "Alert written",
+        companyName: await companyName(alert.companyId),
+      });
+    }
+    for (const exposure of exposures) {
+      if (exposure.acknowledgedAt === undefined || !visible(exposure.companyId)) continue;
+      events.push({
+        at: exposure.acknowledgedAt,
+        kind: "acknowledged",
+        label: "Exposure acknowledged",
+        companyName: await companyName(exposure.companyId),
+      });
+    }
+    events.sort((a, b) => a.at - b.at);
+
+    const after = (kind: TimelineEvent["kind"]) => {
+      const first = events.find((e) => e.kind === kind);
+      return first ? first.at - incident.createdAt : null;
+    };
+    return {
+      events,
+      stats: {
+        // Holds and flags are written in the report's own transaction, so their offset is 0.
+        holdsInReportTransaction: events.some((e) => e.kind === "hold") && after("hold") === 0,
+        msToFirstAlert: after("alert_ready"),
+        msToVendorLetter: after("vendor_letter_ready"),
+        msToFirstAcknowledgement: after("acknowledged"),
+        msToFirstRelease: after("release"),
+      },
+    };
+  },
+});

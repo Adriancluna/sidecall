@@ -120,8 +120,9 @@ const PAYMENTS: {
   last4: string;
   status: "pending" | "paid";
   description: string;
+  dueInHours?: number; // default 72h; the $480K is due tomorrow so escalation shows in the demo
 }[] = [
-  { ref: "pay_C_brightline_480k", company: "C", asset: "brightline", dollars: 480_000, last4: "7731", status: "pending", description: "Q4 payroll funding and service fees" },
+  { ref: "pay_C_brightline_480k", company: "C", asset: "brightline", dollars: 480_000, last4: "7731", status: "pending", description: "Q4 payroll funding and service fees", dueInHours: 20 },
   { ref: "pay_B_brightline_92k", company: "B", asset: "brightline", dollars: 92_000, last4: "2208", status: "pending", description: "Payroll processing, October" },
   { ref: "pay_D_brightline_28k", company: "D", asset: "brightline", dollars: 28_000, last4: "2208", status: "pending", description: "Payroll processing, October" },
   { ref: "pay_D_brightline_12k", company: "D", asset: "brightline", dollars: 12_000, last4: "4419", status: "pending", description: "Year-end tax filing add-on" },
@@ -270,11 +271,13 @@ async function seedAll(ctx: MutationCtx) {
     const amountCents = usd(p.dollars);
     const companyId = companyIds[p.company];
     const booked = now - (p.status === "paid" ? 35 : 6) * DAY;
+    const dueDate =
+      p.status === "paid" ? now - 30 * DAY : now + (p.dueInHours ?? 72) * 60 * 60 * 1000;
     const billId = await ctx.db.insert("bills", {
       companyId,
       assetId: assetIds[p.asset],
       amountCents,
-      dueDate: p.status === "paid" ? now - 30 * DAY : now + 3 * DAY,
+      dueDate,
       description: p.description,
     });
     await ctx.db.insert("ledgerEntries", {
@@ -295,6 +298,7 @@ async function seedAll(ctx: MutationCtx) {
       accountLast4: p.last4,
       status: p.status,
       requestedBy: clerkIds[p.company],
+      dueDate,
       seedRef: p.ref,
       decidedAt: p.status === "paid" ? now - 30 * DAY : undefined,
     });

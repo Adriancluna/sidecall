@@ -26,7 +26,9 @@ export const saveAlert = internalMutation({
     } else if (args.paymentId) {
       existing = await ctx.db
         .query("alerts")
-        .withIndex("by_paymentId", (q) => q.eq("paymentId", args.paymentId))
+        .withIndex("by_paymentId_and_kind", (q) =>
+          q.eq("paymentId", args.paymentId).eq("kind", args.kind),
+        )
         .first();
     } else if (args.kind === "vendor_letter") {
       existing = await ctx.db
@@ -37,10 +39,10 @@ export const saveAlert = internalMutation({
         .first();
     }
     if (existing) {
-      await ctx.db.patch("alerts", existing._id, { body: args.body, status: "ready" });
+      await ctx.db.patch("alerts", existing._id, { body: args.body, status: "ready", readyAt: Date.now() });
       return existing._id;
     }
-    return await ctx.db.insert("alerts", { ...args, status: "ready" });
+    return await ctx.db.insert("alerts", { ...args, status: "ready", readyAt: Date.now() });
   },
 });
 

@@ -42,6 +42,7 @@ export const alertKind = v.union(
   v.literal("company_alert"),
   v.literal("vendor_letter"),
   v.literal("hold_notice"),
+  v.literal("escalation"), // a held payment is near its due date and nobody has decided it
 );
 
 export const alertStatus = v.union(v.literal("pending"), v.literal("ready"));
@@ -75,6 +76,7 @@ export const auditAction = v.union(
   v.literal("release"),
   v.literal("reject"),
   v.literal("refused"),
+  v.literal("escalate"),
 );
 
 export const evidenceItem = v.object({ kind: v.string(), detail: v.string() });
@@ -146,6 +148,7 @@ export default defineSchema({
     companyId: v.id("companies"),
     status: exposureStatus,
     acknowledgedBy: v.optional(v.id("users")), // the one browser that won the race
+    acknowledgedAt: v.optional(v.number()),
     urgency,
     score: v.number(), // 0..100
     confidence: v.number(), // 0..1; self_reported links weigh more than dns_inferred
@@ -163,11 +166,12 @@ export default defineSchema({
     kind: alertKind,
     status: alertStatus,
     body: v.string(),
+    readyAt: v.optional(v.number()), // when the final text was written (timeline)
   })
     .index("by_incidentId_and_kind", ["incidentId", "kind"])
     .index("by_exposureId", ["exposureId"])
     .index("by_companyId", ["companyId"])
-    .index("by_paymentId", ["paymentId"]),
+    .index("by_paymentId_and_kind", ["paymentId", "kind"]),
 
   // ---- Money layer ----
 
@@ -204,11 +208,14 @@ export default defineSchema({
     holdReasons: v.optional(v.array(v.string())),
     verificationNote: v.optional(v.string()),
     decidedAt: v.optional(v.number()),
+    dueDate: v.optional(v.number()), // copied from the bill; drives escalation
+    escalatedAt: v.optional(v.number()),
     seedRef: v.optional(v.string()), // stable key for data/answer_key.json
   })
     .index("by_assetId_and_status", ["assetId", "status"])
     .index("by_companyId_and_status", ["companyId", "status"])
-    .index("by_heldByIncidentId", ["heldByIncidentId"]),
+    .index("by_heldByIncidentId", ["heldByIncidentId"])
+    .index("by_status_and_dueDate", ["status", "dueDate"]),
 
   // Double-entry. Bill booked: Dr expense / Cr accounts_payable.
   // Payment released: Dr accounts_payable / Cr cash. Held payments never touch cash.

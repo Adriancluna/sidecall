@@ -167,6 +167,7 @@ export const acknowledgeExposure = mutation({
     await ctx.db.patch("exposures", exposure._id, {
       status: "acknowledged",
       acknowledgedBy: viewer.user._id,
+      acknowledgedAt: Date.now(),
     });
     return { ok: true };
   },
