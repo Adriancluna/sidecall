@@ -44,6 +44,12 @@ const BEATS: Beat[] = [
     as: JAMIE,
   },
   {
+    title: "New requests are caught too",
+    say: "Jamie requests the $38K November bill to the same vendor. It's held and flagged the moment it's requested, not just what was already in flight.",
+    as: JAMIE,
+    tip: "Bills to pay → Request payment on the $38,000 bill.",
+  },
+  {
     title: "Requester refused, controller verifies",
     say: "Jamie requested it, so Jamie can't release it. Rosa calls the number on file, notes what the vendor said, then releases or rejects. Cash moves only on release.",
     as: ROSA,
@@ -76,6 +82,12 @@ const BEATS: Beat[] = [
     say: "Replay the webhook: nothing duplicates. Two people acknowledge at once: exactly one wins.",
     as: JAMIE,
     tip: `Open a second tab with ?stage, sign in there as ${KWAME.name}, click Acknowledge in both tabs.`,
+  },
+  {
+    title: "Contained",
+    say: "The vendor fixed it and confirmed by phone. The firm marks the incident contained, with a note, and it's on the record.",
+    as: JORDAN,
+    tip: "Containment card: say what was fixed and how it was confirmed, then Mark contained.",
   },
   {
     title: "Scorecard",

@@ -1,0 +1,138 @@
+// Bills to pay (company view): the AP clerk requests a payment; the backend decides whether it's
+// held (vendor under an active incident) and flagged (paying recently changed bank details).
+import { useMutation, useQuery } from "convex/react";
+import { useState } from "react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+import { friendlyError } from "../layout/errors";
+import { money } from "./format";
+import { Card, Chip, Empty } from "./ui";
+
+const STATUS_TONE = {
+  pending: "muted",
+  held: "amber",
+  paid: "ok",
+  released: "ok",
+  rejected: "danger",
+} as const;
+
+const shortDate = (ms: number) =>
+  new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+export function BillsPanel() {
+  const bills = useQuery(api.payments.getMyBills, {});
+  return (
+    <Card title="Bills to pay">
+      {bills === undefined ? (
+        <Empty>Loading…</Empty>
+      ) : bills.length === 0 ? (
+        <Empty>No bills.</Empty>
+      ) : (
+        <ul className="divide-y divide-line">
+          {bills.map((b) => (
+            <BillRow
+              key={b.bill._id}
+              billId={b.bill._id}
+              description={b.bill.description}
+              vendorName={b.vendorName}
+              amountCents={b.bill.amountCents}
+              dueDate={b.bill.dueDate}
+              status={b.payment?.status}
+            />
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+type RowProps = {
+  billId: Id<"bills">;
+  description: string;
+  vendorName: string;
+  amountCents: number;
+  dueDate: number;
+  status?: keyof typeof STATUS_TONE;
+};
+
+function BillRow({
+  billId,
+  description,
+  vendorName,
+  amountCents,
+  dueDate,
+  status,
+}: RowProps) {
+  const requestPayment = useMutation(api.payments.requestPayment);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{
+    tone: "amber" | "danger" | "ok";
+    text: string;
+  }>();
+
+  const request = async () => {
+    setBusy(true);
+    setResult(undefined);
+    try {
+      const res = await requestPayment({ billId });
+      if (!res.ok) {
+        setResult({ tone: "danger", text: res.reason });
+      } else if (res.held) {
+        setResult({
+          tone: "amber",
+          text: `Held until verified: ${vendorName} is under an active incident${
+            res.flagged
+              ? ", and this payment goes to an account changed by email"
+              : ""
+          }.`,
+        });
+      } else {
+        setResult({ tone: "ok", text: "Payment requested." });
+      }
+    } catch (err) {
+      setResult({ tone: "danger", text: friendlyError(err) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const textTone = {
+    amber: "text-amber",
+    danger: "text-danger",
+    ok: "text-ok",
+  };
+  return (
+    <li className="py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-medium">{description}</p>
+          <p className="text-xs text-ash">
+            {vendorName} · due {shortDate(dueDate)}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="font-semibold tabular-nums">
+            {money(amountCents)}
+          </span>
+          {status ? (
+            <Chip tone={STATUS_TONE[status]}>{status}</Chip>
+          ) : (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void request()}
+              className="rounded-md bg-amber px-3 py-1 text-sm font-semibold text-graphite hover:bg-amber/90 disabled:opacity-50"
+            >
+              Request payment
+            </button>
+          )}
+        </div>
+      </div>
+      {result && (
+        <p role="status" className={`mt-2 text-sm ${textTone[result.tone]}`}>
+          {result.text}
+        </p>
+      )}
+    </li>
+  );
+}

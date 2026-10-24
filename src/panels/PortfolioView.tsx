@@ -7,6 +7,7 @@ import { BlastRadiusMap } from "../map/BlastRadiusMap";
 import { EvidencePanel } from "../map/EvidencePanel";
 import { dateTime, money } from "./format";
 import { ExposureAcknowledgedBy } from "./AcknowledgedBy";
+import { ContainPanel } from "./ContainPanel";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
 import { ProofPanel } from "./ProofPanel";
@@ -49,6 +50,7 @@ export function PortfolioView() {
   if (!blast) return <Empty>Loading…</Empty>;
 
   const { incident, totals } = blast;
+  const current = incidents.find((i) => i._id === incident._id);
   const selectedNode = blast.nodes.find((n) => n.companyId === selected);
   const selectedHeld = held?.filter((r) => r.payment.companyId === selected);
   // The headline counts money still held; show what controllers have released since.
@@ -80,12 +82,18 @@ export function PortfolioView() {
               {incidents.map((i) => (
                 <option key={i._id} value={i._id}>
                   {i.assetName} · {dateTime(i.createdAt)}
+                  {i.containedAt !== null && " · contained"}
                 </option>
               ))}
             </select>
           </label>
         )}
         <p className="text-sm text-ash">
+          {current?.containedAt != null && (
+            <span className="mr-2 inline-block align-middle">
+              <Chip tone="ok">Contained</Chip>
+            </span>
+          )}
           {blast.asset.name} ({blast.asset.kind}) ·{" "}
           {dateTime(incident.createdAt)}
           {incident.reportedByName &&
@@ -212,6 +220,12 @@ export function PortfolioView() {
           </p>
         </Card>
       )}
+
+      <ContainPanel
+        key={incident._id}
+        incidentId={incident._id}
+        containedAt={current?.containedAt ?? null}
+      />
 
       <ProofPanel />
     </div>
