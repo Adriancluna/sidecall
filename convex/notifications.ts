@@ -14,7 +14,7 @@ type NotifyKind = Infer<typeof notifyKind>;
 
 // ---- Enqueue (called from the mutations that create the thing being announced) ----
 
-export type Enqueue = {
+type Enqueue = {
   event: NotifyEvent;
   scope: "company" | "firm";
   companyId?: Id<"companies">;
@@ -24,8 +24,8 @@ export type Enqueue = {
 };
 
 // Queues one outbox row per enabled, subscribed channel, skipping rows that already exist
-// (a replayed webhook or a re-saved alert never notifies twice). Returns how many were queued;
-// the caller then calls scheduleDispatchIfQueued once.
+// (a replayed webhook or a re-saved alert never notifies twice). Returns how many were queued.
+// Dispatch is scheduled by queueRow, so callers have nothing else to remember.
 export async function enqueue(ctx: MutationCtx, item: Enqueue): Promise<number> {
   const channels =
     item.scope === "company"
@@ -47,54 +47,53 @@ export async function enqueue(ctx: MutationCtx, item: Enqueue): Promise<number> 
       .withIndex("by_channelId_and_refId", (q) => q.eq("channelId", channel._id).eq("refId", item.refId))
       .first();
     if (existing) continue;
-    await ctx.db.insert("notifications", {
+    await queueRow(ctx, {
       channelId: channel._id,
       companyId: item.companyId,
       incidentId: item.incidentId,
       event: item.event,
       refId: item.refId,
-      status: "queued",
       text: item.text,
-      createdAt: Date.now(),
     });
     queued += 1;
   }
   return queued;
 }
 
-// Call once at the end of any mutation that may have queued rows: schedules a single dispatch.
-export async function scheduleDispatchIfQueued(ctx: MutationCtx) {
-  const any = await ctx.db
+// Inserts one queued outbox row. If nothing was queued before it, schedules a dispatch: any
+// earlier queued row already has one coming, and that run claims this row too. Convex runs
+// mutations serializably, so this check can't race with a dispatch claiming rows.
+async function queueRow(
+  ctx: MutationCtx,
+  row: Omit<Doc<"notifications">, "_id" | "_creationTime" | "status" | "createdAt">,
+) {
+  const alreadyQueued = await ctx.db
     .query("notifications")
     .withIndex("by_status", (q) => q.eq("status", "queued"))
     .first();
-  if (any) await ctx.scheduler.runAfter(0, internal.notify.dispatch, {});
+  await ctx.db.insert("notifications", { ...row, status: "queued", createdAt: Date.now() });
+  if (!alreadyQueued) await ctx.scheduler.runAfter(0, internal.notify.dispatch, {});
 }
 
 // Company-scoped message for a ready alert. Never mentions the reporting company: the alert
 // text it reuses is already written for the company's own view.
-export function alertMessage(alert: Pick<Doc<"alerts">, "_id" | "kind" | "body" | "incidentId" | "companyId">) {
-  const event: NotifyEvent | null =
-    alert.kind === "company_alert" ? "alert" : alert.kind === "hold_notice" ? "hold" : alert.kind === "escalation" ? "escalation" : null;
-  if (!event || !alert.companyId) return null;
-  const header =
-    event === "alert" ? "Sidecall alert" : event === "hold" ? "Sidecall: payment held until verified" : "Sidecall: decision needed";
-  return {
-    event,
-    scope: "company" as const,
-    companyId: alert.companyId,
-    incidentId: alert.incidentId,
-    refId: `${event}:${alert._id}`,
-    text: `${header}\n${alert.body}`,
-  } satisfies Enqueue;
-}
-
 export async function enqueueAlert(
   ctx: MutationCtx,
   alert: Pick<Doc<"alerts">, "_id" | "kind" | "body" | "incidentId" | "companyId">,
 ) {
-  const message = alertMessage(alert);
-  return message ? await enqueue(ctx, message) : 0;
+  const event: NotifyEvent | null =
+    alert.kind === "company_alert" ? "alert" : alert.kind === "hold_notice" ? "hold" : alert.kind === "escalation" ? "escalation" : null;
+  if (!event || !alert.companyId) return 0;
+  const header =
+    event === "alert" ? "Sidecall alert" : event === "hold" ? "Sidecall: payment held until verified" : "Sidecall: decision needed";
+  return await enqueue(ctx, {
+    event,
+    scope: "company",
+    companyId: alert.companyId,
+    incidentId: alert.incidentId,
+    refId: `${event}:${alert._id}`,
+    text: `${header}\n${alert.body}`,
+  });
 }
 
 // ---- Channel configuration ----
@@ -107,7 +106,7 @@ const ALLOWED_HOSTS: Record<NotifyKind, string[] | null> = {
 
 // SSRF guard: only https, only the provider's webhook host for Slack/Discord, never localhost,
 // private names or raw IPs.
-export function checkWebhookUrl(kind: NotifyKind, raw: string): string | null {
+function checkWebhookUrl(kind: NotifyKind, raw: string): string | null {
   let url: URL;
   try {
     url = new URL(raw.trim());
@@ -217,17 +216,13 @@ export const sendTest = mutation({
     const viewer = await getViewer(ctx);
     const channel = await ownChannel(ctx, viewer, args.channelId);
     if (!channel) return await refuse(ctx, viewer, "not your channel to test");
-    const now = Date.now();
-    await ctx.db.insert("notifications", {
+    await queueRow(ctx, {
       channelId: channel._id,
       companyId: channel.companyId,
       event: "test",
-      refId: `test:${now}`,
-      status: "queued",
+      refId: `test:${Date.now()}`,
       text: `Sidecall test message for "${channel.label}". If you can read this, notifications reach this channel.`,
-      createdAt: now,
     });
-    await scheduleDispatchIfQueued(ctx);
     return { ok: true as const };
   },
 });

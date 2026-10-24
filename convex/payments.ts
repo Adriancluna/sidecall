@@ -5,7 +5,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { HeldSummary } from "./scoring";
 import { canSeeCompany, getViewer, type Viewer } from "./access";
-import { enqueueAlert, scheduleDispatchIfQueued } from "./notifications";
+import { insertReadyAlert } from "./alerts";
 import { DAY_MS, formatUsd, MAX_FANOUT } from "./shared";
 
 export const BANK_CHANGE_WINDOW_MS = 30 * DAY_MS;
@@ -36,16 +36,13 @@ async function escalateIfDue(ctx: MutationCtx, payment: Doc<"payments">, now: nu
   const body = `Decision needed: the ${formatUsd(payment.amountCents)} payment to ${vendor} ${when} and is still held. ${controllers.join(" or ") || "A controller"}: call ${vendor} at the number on file${asset ? ` (${asset.phoneOnFile})` : ""}, then release or reject it.`;
 
   await ctx.db.patch("payments", payment._id, { escalatedAt: now });
-  const escalationId = await ctx.db.insert("alerts", {
+  await insertReadyAlert(ctx, {
     incidentId: payment.heldByIncidentId!,
     companyId: payment.companyId,
     paymentId: payment._id,
     kind: "escalation",
-    status: "ready",
     body,
-    readyAt: now,
   });
-  await enqueueAlert(ctx, { _id: escalationId, kind: "escalation", body, incidentId: payment.heldByIncidentId!, companyId: payment.companyId });
   await ctx.db.insert("auditLog", {
     at: now,
     actor: "system",
@@ -74,13 +71,10 @@ export const escalateDueHolds = internalMutation({
     for (const payment of due) {
       if (await escalateIfDue(ctx, payment, now)) escalated += 1;
     }
-    await scheduleDispatchIfQueued(ctx);
     return { escalated };
   },
 });
 
-// Runs inside recordIncident's transaction. Holds every pending payment to the
-// compromised asset at companies that opted in. Never cancels anything.
 // Bank-detail changes to this vendor within 30 days of the incident.
 export async function recentBankChanges(ctx: MutationCtx, assetId: Id<"assets">, incidentAt: number) {
   return await ctx.db
@@ -95,20 +89,23 @@ export async function recentBankChanges(ctx: MutationCtx, assetId: Id<"assets">,
 }
 
 // Holds one payment for an incident: reasons, flag, audit rows, escalation if due soon.
-// Shared by the incident fan-out and by payments requested while the incident is active.
-export async function holdPayment(
+// Shared by the incident fan-out, payment requests and AP imports.
+async function holdPayment(
   ctx: MutationCtx,
-  payment: Doc<"payments">,
-  incident: Doc<"incidents">,
-  asset: Doc<"assets">,
-  changes: Doc<"bankDetailChanges">[],
-  at: number,
-  rule: string,
-  firstReason: string,
+  hold: {
+    payment: Doc<"payments">;
+    incident: Doc<"incidents">;
+    asset: Doc<"assets">;
+    changes: Doc<"bankDetailChanges">[];
+    at: number;
+    rule: string;
+    reason: string;
+  },
 ): Promise<{ flagged: boolean }> {
+  const { payment, incident, asset, at } = hold;
   // Flag only if this payment is going to an account that changed recently.
-  const change = changes.find((c) => c.accountLast4 === payment.accountLast4);
-  const holdReasons = [firstReason];
+  const change = hold.changes.find((c) => c.accountLast4 === payment.accountLast4);
+  const holdReasons = [hold.reason];
   if (change) {
     const days = Math.round((incident.createdAt - change.changedAt) / DAY_MS);
     holdReasons.push(
@@ -124,7 +121,7 @@ export async function holdPayment(
     flaggedBankChangeId: change?._id,
   });
   const audit = { at, actor: "system" as const, companyId: payment.companyId, paymentId: payment._id, incidentId: incident._id };
-  await ctx.db.insert("auditLog", { ...audit, action: "hold", rule, reason: holdReasons[0] });
+  await ctx.db.insert("auditLog", { ...audit, action: "hold", rule: hold.rule, reason: holdReasons[0] });
   if (change) {
     await ctx.db.insert("auditLog", { ...audit, action: "flag", rule: "bank_change_within_30_days", reason: holdReasons[1] });
   }
@@ -134,14 +131,40 @@ export async function holdPayment(
   return { flagged: change !== undefined };
 }
 
+// The hold notice a company reads for one of its payments (ready at once, unlike the fan-out's
+// AI-written ones). Never "fraud": held until verified, call the number on file.
+function holdNoticeBody(asset: Doc<"assets">, payment: Doc<"payments">, flagged: boolean) {
+  return `Your ${formatUsd(payment.amountCents)} payment to ${asset.vendorName} is held until verified.${flagged ? ` The account ending ${payment.accountLast4} was added recently.` : ""} Call ${asset.vendorName} at the number on file, ${asset.phoneOnFile}, not a number from a recent email. A controller other than the requester can then release or reject it.`;
+}
+
+// Holds a payment created while its vendor's incident is active (a new request or an imported
+// bill) and writes its hold notice. Returns whether the payment was flagged.
+export async function holdNewPayment(
+  ctx: MutationCtx,
+  hold: Omit<Parameters<typeof holdPayment>[1], "changes"> & { changes?: Doc<"bankDetailChanges">[] },
+) {
+  const changes = hold.changes ?? (await recentBankChanges(ctx, hold.asset._id, hold.incident.createdAt));
+  const { flagged } = await holdPayment(ctx, { ...hold, changes });
+  const payment = (await ctx.db.get("payments", hold.payment._id))!;
+  await insertReadyAlert(ctx, {
+    incidentId: hold.incident._id,
+    companyId: payment.companyId,
+    paymentId: payment._id,
+    kind: "hold_notice",
+    body: holdNoticeBody(hold.asset, payment, flagged),
+  });
+  return flagged;
+}
+
 // Runs inside recordIncident's transaction. Holds every pending payment to the
 // compromised asset at companies that opted in. Never cancels anything.
 export async function holdPaymentsForIncident(
   ctx: MutationCtx,
   incident: Doc<"incidents">,
   asset: Doc<"assets">,
-): Promise<Map<Id<"companies">, HeldSummary>> {
+): Promise<{ byCompany: Map<Id<"companies">, HeldSummary>; held: Doc<"payments">[] }> {
   const byCompany = new Map<Id<"companies">, HeldSummary>();
+  const held: Doc<"payments">[] = [];
   const changes = await recentBankChanges(ctx, asset._id, incident.createdAt);
   const pending = await ctx.db
     .query("payments")
@@ -155,23 +178,23 @@ export async function holdPaymentsForIncident(
     }
     if (!companyCache.get(payment.companyId)?.holdRuleEnabled) continue;
 
-    const { flagged } = await holdPayment(
-      ctx,
+    const { flagged } = await holdPayment(ctx, {
       payment,
       incident,
       asset,
       changes,
-      incident.createdAt,
-      "hold_payments_to_compromised_vendor",
-      `${asset.vendorName} is under an active security incident. Payment held until verified.`,
-    );
+      at: incident.createdAt,
+      rule: "hold_payments_to_compromised_vendor",
+      reason: `${asset.vendorName} is under an active security incident. Payment held until verified.`,
+    });
+    held.push(payment);
     const summary = byCompany.get(payment.companyId) ?? { count: 0, cents: 0, flagged: 0 };
     summary.count += 1;
     summary.cents += payment.amountCents;
     if (flagged) summary.flagged += 1;
     byCompany.set(payment.companyId, summary);
   }
-  return byCompany;
+  return { byCompany, held };
 }
 
 const ACTIVE_INCIDENT_MS = 30 * DAY_MS;
@@ -187,15 +210,11 @@ export async function activeIncidentFor(ctx: MutationCtx, assetId: Id<"assets">,
   return incident;
 }
 
-// AP clerk requests payment of a bill. Pays the vendor's current bank details on file
-// (the latest change). If the vendor had an incident in the last 30 days, the new payment
-// is held on creation, like the ones the incident caught.
-// Request payment of a bill as `viewer` (an AP clerk at the bill's company). Shared by the UI
-// mutation and the MCP agent, so an agent's request is held, flagged and notified exactly like a
-// clerk's.
+// An AP clerk requests payment of a bill, to the vendor's current bank details on file (the
+// latest change). If the vendor's incident is active, the payment is held on creation like the
+// ones the incident caught. Shared by the UI mutation and the MCP agent.
 export async function requestPaymentFor(ctx: MutationCtx, viewer: Viewer, billId: Id<"bills">) {
-  const args = { billId };
-  const bill = await ctx.db.get("bills", args.billId);
+  const bill = await ctx.db.get("bills", billId);
   if (!bill || viewer.firm || viewer.companyId !== bill.companyId) {
     return { ok: false as const, reason: "That bill isn't your company's." };
   }
@@ -237,29 +256,14 @@ export async function requestPaymentFor(ctx: MutationCtx, viewer: Viewer, billId
     return { ok: true as const, paymentId, held: false, flagged: false };
   }
 
-  const payment = (await ctx.db.get("payments", paymentId))!;
-  const { flagged } = await holdPayment(
-    ctx,
-    payment,
+  const flagged = await holdNewPayment(ctx, {
+    payment: (await ctx.db.get("payments", paymentId))!,
     incident,
     asset,
-    await recentBankChanges(ctx, asset._id, incident.createdAt),
-    now,
-    "hold_payments_requested_during_incident",
-    `Requested while ${asset.vendorName} is under an active security incident. Payment held until verified.`,
-  );
-  const noticeBody = `Your ${formatUsd(bill.amountCents)} payment to ${asset.vendorName} is held until verified. Call ${asset.vendorName} at the number on file, ${asset.phoneOnFile}, not a number from a recent email. A controller other than the requester can then release or reject it.`;
-  const noticeId = await ctx.db.insert("alerts", {
-    incidentId: incident._id,
-    companyId: bill.companyId,
-    paymentId,
-    kind: "hold_notice",
-    status: "ready",
-    readyAt: now,
-    body: noticeBody,
+    at: now,
+    rule: "hold_payments_requested_during_incident",
+    reason: `Requested while ${asset.vendorName} is under an active security incident. Payment held until verified.`,
   });
-  await enqueueAlert(ctx, { _id: noticeId, kind: "hold_notice", body: noticeBody, incidentId: incident._id, companyId: bill.companyId });
-  await scheduleDispatchIfQueued(ctx);
   return { ok: true as const, paymentId, held: true, flagged };
 }
 

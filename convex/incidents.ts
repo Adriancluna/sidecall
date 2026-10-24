@@ -6,9 +6,10 @@ import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { holdPaymentsForIncident } from "./payments";
-import { scoreExposure } from "./scoring";
+import { scoreExposure, type HeldSummary } from "./scoring";
 import { getViewer } from "./access";
-import { enqueue, scheduleDispatchIfQueued } from "./notifications";
+import { enqueue } from "./notifications";
+import { insertReadyAlert } from "./alerts";
 import { formatUsd, MAX_FANOUT } from "./shared";
 
 export type RecordIncidentResult =
@@ -61,7 +62,7 @@ export async function recordIncidentImpl(
   const incident = (await ctx.db.get("incidents", incidentId))!;
 
   // Holds first, so scoring can see which companies have flagged payments.
-  const heldByCompany = await holdPaymentsForIncident(ctx, incident, asset);
+  const { byCompany: heldByCompany, held: heldPayments } = await holdPaymentsForIncident(ctx, incident, asset);
 
   // One exposure per company linked to the compromised asset, keeping the most
   // dangerous link if a company has several. The reporter already knows.
@@ -76,26 +77,19 @@ export async function recordIncidentImpl(
     if (!current || rank(link) > rank(current)) strongest.set(link.companyId, link);
   }
 
-  let peopleExposed = 0;
-  for (const link of strongest.values()) {
-    peopleExposed += (await ctx.db.get("companies", link.companyId))?.headcount ?? 0;
-    const held = heldByCompany.get(link.companyId) ?? { count: 0, cents: 0, flagged: 0 };
-    const scored = scoreExposure(link, asset, held);
-    const exposureId = await ctx.db.insert("exposures", {
-      incidentId,
-      companyId: link.companyId,
-      status: "open",
-      ...scored,
-    });
-    await ctx.db.insert("alerts", {
-      incidentId,
-      exposureId,
-      companyId: link.companyId,
-      kind: "company_alert",
-      status: "pending",
-      body: `${scored.urgency === "urgent" ? "URGENT" : "Advisory"}: ${asset.vendorName} (${asset.name}) is under an active security incident. ${scored.reasons.join(" ")}`,
-    });
-  }
+  const exposedCompanies = await Promise.all(
+    [...strongest.values()].map(async (link) => {
+      await openExposure(ctx, {
+        incidentId,
+        link,
+        asset,
+        held: heldByCompany.get(link.companyId) ?? { count: 0, cents: 0, flagged: 0 },
+        ready: false, // the AI writer rewrites it once per incident
+      });
+      return await ctx.db.get("companies", link.companyId);
+    }),
+  );
+  const peopleExposed = exposedCompanies.reduce((sum, c) => sum + (c?.headcount ?? 0), 0);
 
   await ctx.db.insert("alerts", {
     incidentId,
@@ -104,10 +98,6 @@ export async function recordIncidentImpl(
     body: `Draft letter to ${asset.vendorName} about ${asset.name} is being written.`,
   });
 
-  const heldPayments = await ctx.db
-    .query("payments")
-    .withIndex("by_heldByIncidentId", (q) => q.eq("heldByIncidentId", incidentId))
-    .take(MAX_FANOUT);
   for (const payment of heldPayments) {
     await ctx.db.insert("alerts", {
       incidentId,
@@ -132,7 +122,6 @@ export async function recordIncidentImpl(
       `${formatUsd(heldCents)} in payments held until verified.` +
       (reporter ? ` Reported by ${reporter.name}.` : ""),
   });
-  await scheduleDispatchIfQueued(ctx);
 
   // AI writes once per incident and loops inside the action (scheduler cap is per transaction).
   await ctx.scheduler.runAfter(0, internal.ai.generateAlert, { incidentId });
@@ -142,6 +131,28 @@ export async function recordIncidentImpl(
   }
 
   return { ok: true, incidentId, duplicate: false };
+}
+
+// Scores a company's exposure to an incident and writes the exposure plus its company alert.
+// `ready: false` leaves the alert pending for the AI writer; `ready: true` (an AP import mid-
+// incident) writes it ready and notifies at once. Shared so both paths use the same template.
+export async function openExposure(
+  ctx: MutationCtx,
+  args: { incidentId: Id<"incidents">; link: Doc<"links">; asset: Doc<"assets">; held: HeldSummary; ready: boolean },
+) {
+  const { incidentId, link, asset } = args;
+  const scored = scoreExposure(link, asset, args.held);
+  const exposureId = await ctx.db.insert("exposures", { incidentId, companyId: link.companyId, status: "open", ...scored });
+  const alert = {
+    incidentId,
+    exposureId,
+    companyId: link.companyId,
+    kind: "company_alert" as const,
+    body: `${scored.urgency === "urgent" ? "Urgent: act today." : "Advisory: review this week."} ${asset.vendorName} is under an active security incident. ${scored.reasons.join(" ")} Rotate any credentials you share with ${asset.vendorName} and review recent access.`,
+  };
+  if (args.ready) await insertReadyAlert(ctx, alert);
+  else await ctx.db.insert("alerts", { ...alert, status: "pending" });
+  return exposureId;
 }
 
 function rank(link: Doc<"links">): number {
@@ -259,7 +270,6 @@ export const containIncident = mutation({
       refId: `contained:${incident._id}`,
       text: `Sidecall: the ${asset?.vendorName ?? "vendor"} incident is marked contained by ${viewer.user.name}. ${note} New payments to this vendor are no longer held; payments already held still need a controller's decision.`,
     });
-    await scheduleDispatchIfQueued(ctx);
     return { ok: true as const };
   },
 });

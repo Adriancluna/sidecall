@@ -8,10 +8,9 @@ import { mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getViewer } from "./access";
-import { activeIncidentFor, holdPayment, recentBankChanges } from "./payments";
-import { scoreExposure } from "./scoring";
-import { enqueueAlert, scheduleDispatchIfQueued } from "./notifications";
-import { DAY_MS, demoEmail, formatUsd } from "./shared";
+import { activeIncidentFor, holdNewPayment, recentBankChanges } from "./payments";
+import { openExposure } from "./incidents";
+import { DAY_MS, demoEmail } from "./shared";
 
 const MAX_VENDORS = 200;
 const MAX_BILLS = 500;
@@ -170,23 +169,32 @@ function parseFiles(vendorsCsv: string, billsCsv: string) {
 
 async function matchVendors(ctx: QueryCtx, vendors: ParsedVendor[]) {
   const assets = await ctx.db.query("assets").take(200);
-  const bankHistory = new Map<Id<"assets">, Doc<"bankDetailChanges">[]>();
-  for (const a of assets) {
-    bankHistory.set(
-      a._id,
-      await ctx.db
-        .query("bankDetailChanges")
-        .withIndex("by_assetId_and_changedAt", (q) => q.eq("assetId", a._id))
-        .order("desc")
-        .take(20),
-    );
-  }
-  return vendors.map((vendor) => {
+  const candidatesFor = vendors.map((vendor) => {
     const n = normalizeName(vendor.name);
-    const candidates = assets.filter((a) => {
+    return assets.filter((a) => {
       const names = [normalizeName(a.vendorName), normalizeName(a.name)];
       return names.some((x) => x === n || (n.length >= 6 && (x.startsWith(n) || n.startsWith(x))));
     });
+  });
+  // Bank history only for assets some vendor actually matched, fetched in parallel.
+  const matchedIds = [...new Set(candidatesFor.flat().map((a) => a._id))];
+  const bankHistory = new Map<Id<"assets">, Doc<"bankDetailChanges">[]>(
+    await Promise.all(
+      matchedIds.map(
+        async (id) =>
+          [
+            id,
+            await ctx.db
+              .query("bankDetailChanges")
+              .withIndex("by_assetId_and_changedAt", (q) => q.eq("assetId", id))
+              .order("desc")
+              .take(20),
+          ] as const,
+      ),
+    ),
+  );
+  return vendors.map((vendor, i) => {
+    const candidates = candidatesFor[i];
     // A vendor can have several tracked assets (e.g. its MSP service and a shared admin login):
     // payments go to the one with bank history, i.e. the payee.
     const asset =
@@ -200,7 +208,7 @@ async function matchVendors(ctx: QueryCtx, vendors: ParsedVendor[]) {
         ? `Your AP system pays ${asset.vendorName} at ••${vendor.bankLast4}, set by ${fileChange.requestChannel.replace("_", " ")} ${Math.max(0, Math.round((Date.now() - fileChange.changedAt) / DAY_MS))} days ago. The last account confirmed by phone is ••${verified.accountLast4}.`
         : `Your AP system pays ${asset.vendorName} at ••${vendor.bankLast4}; the last account confirmed by phone is ••${verified.accountLast4}.`;
     }
-    return { vendor, asset, warning };
+    return { vendor, asset, warning, latestChange: history[0] ?? null };
   });
 }
 
@@ -326,6 +334,18 @@ export const importPortfolioCompany = mutation({
     let flagged = 0;
     let heldCents = 0;
     const heldByIncident = new Map<Id<"incidents">, { asset: Doc<"assets">; count: number; cents: number; flagged: number }>();
+    // Per-vendor lookups, computed once rather than for every bill.
+    const latestByAsset = new Map(matches.flatMap((m) => (m.asset && m.latestChange ? [[m.asset._id, m.latestChange] as const] : [])));
+    const incidents = new Map<Id<"assets">, Doc<"incidents"> | null>();
+    const incidentFor = async (assetId: Id<"assets">) => {
+      if (!incidents.has(assetId)) incidents.set(assetId, await activeIncidentFor(ctx, assetId, now));
+      return incidents.get(assetId)!;
+    };
+    const changes = new Map<Id<"assets">, Doc<"bankDetailChanges">[]>();
+    const changesFor = async (assetId: Id<"assets">, incident: Doc<"incidents">) => {
+      if (!changes.has(assetId)) changes.set(assetId, await recentBankChanges(ctx, assetId, incident.createdAt));
+      return changes.get(assetId)!;
+    };
     for (const b of bills) {
       const asset = assetByRef.get(b.vendorRef)!;
       const billId = await ctx.db.insert("bills", {
@@ -345,72 +365,42 @@ export const importPortfolioCompany = mutation({
           { account: "accounts_payable", debitCents: 0, creditCents: b.amountCents },
         ],
       });
-      const [latest] = await ctx.db
-        .query("bankDetailChanges")
-        .withIndex("by_assetId_and_changedAt", (q) => q.eq("assetId", asset._id))
-        .order("desc")
-        .take(1);
       const paymentId = await ctx.db.insert("payments", {
         billId,
         companyId,
         assetId: asset._id,
         amountCents: b.amountCents,
-        accountLast4: bankByRef.get(b.vendorRef) ?? latest?.accountLast4 ?? "0000",
+        accountLast4: bankByRef.get(b.vendorRef) ?? latestByAsset.get(asset._id)?.accountLast4 ?? "0000",
         status: "pending",
         requestedBy: clerkId,
         dueDate: b.dueDate,
       });
 
-      const incident = await activeIncidentFor(ctx, asset._id, now);
+      const incident = await incidentFor(asset._id);
       if (!incident) continue;
-      const payment = (await ctx.db.get("payments", paymentId))!;
-      const result = await holdPayment(
-        ctx,
-        payment,
+      const isFlagged = await holdNewPayment(ctx, {
+        payment: (await ctx.db.get("payments", paymentId))!,
         incident,
         asset,
-        await recentBankChanges(ctx, asset._id, incident.createdAt),
-        now,
-        "hold_payments_imported_during_incident",
-        `Imported while ${asset.vendorName} is under an active security incident. Payment held until verified.`,
-      );
-      const noticeBody = `Your ${formatUsd(b.amountCents)} payment to ${asset.vendorName} is held until verified.${result.flagged ? ` The account ending ${payment.accountLast4} was added recently.` : ""} Call ${asset.vendorName} at the number on file, ${asset.phoneOnFile}, not a number from a recent email. A controller other than the requester can then release or reject it.`;
-      const noticeId = await ctx.db.insert("alerts", {
-        incidentId: incident._id,
-        companyId,
-        paymentId,
-        kind: "hold_notice",
-        status: "ready",
-        readyAt: now,
-        body: noticeBody,
+        changes: await changesFor(asset._id, incident),
+        at: now,
+        rule: "hold_payments_imported_during_incident",
+        reason: `Imported while ${asset.vendorName} is under an active security incident. Payment held until verified.`,
       });
-      await enqueueAlert(ctx, { _id: noticeId, kind: "hold_notice", body: noticeBody, incidentId: incident._id, companyId });
       held += 1;
       heldCents += b.amountCents;
-      if (result.flagged) flagged += 1;
+      if (isFlagged) flagged += 1;
       const s = heldByIncident.get(incident._id) ?? { asset, count: 0, cents: 0, flagged: 0 };
       s.count += 1;
       s.cents += b.amountCents;
-      if (result.flagged) s.flagged += 1;
+      if (isFlagged) s.flagged += 1;
       heldByIncident.set(incident._id, s);
     }
 
     // The new company is now exposed to each active incident on a vendor it pays.
     const exposedTo: string[] = [];
     for (const [incidentId, s] of heldByIncident) {
-      const scored = scoreExposure(linkByAsset.get(s.asset._id)!, s.asset, { count: s.count, cents: s.cents, flagged: s.flagged });
-      const exposureId = await ctx.db.insert("exposures", { incidentId, companyId, status: "open", ...scored });
-      const body = `${scored.urgency === "urgent" ? "Urgent: act today." : "Advisory: review this week."} ${s.asset.vendorName} is under an active security incident. ${scored.reasons.join(" ")} Rotate any credentials you share with ${s.asset.vendorName} and review recent access.`;
-      const alertId = await ctx.db.insert("alerts", {
-        incidentId,
-        exposureId,
-        companyId,
-        kind: "company_alert",
-        status: "ready",
-        readyAt: now,
-        body,
-      });
-      await enqueueAlert(ctx, { _id: alertId, kind: "company_alert", body, incidentId, companyId });
+      await openExposure(ctx, { incidentId, link: linkByAsset.get(s.asset._id)!, asset: s.asset, held: s, ready: true });
       exposedTo.push(s.asset.vendorName);
     }
 
@@ -422,8 +412,6 @@ export const importPortfolioCompany = mutation({
       rule: "ap_import",
       reason: `Onboarded ${name} from its AP export: ${vendors.length} vendors (${vendors.length - newVendors} already tracked), ${bills.length} open bills, ${held} held on import.`,
     });
-    await scheduleDispatchIfQueued(ctx);
-
     return {
       companyId,
       vendors: matches.map((m) => ({ name: m.vendor.name, matchedTo: m.asset?.vendorName ?? null, warning: m.warning })),
