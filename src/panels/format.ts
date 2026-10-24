@@ -12,3 +12,6 @@ export const dateTime = (ms: number) =>
     hour: "numeric",
     minute: "2-digit",
   });
+
+// Backend codes ("phone_call", "same_vendor_only") as words.
+export const humanize = (code: string) => code.replace(/_/g, " ");

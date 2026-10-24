@@ -2,7 +2,7 @@
 // planted answer key. Copy follows CLAUDE.md "Real vs. simulated".
 import aiCacheRaw from "../../data/ai_cache.json?raw";
 import { dnsFindings } from "./dnsFindings";
-import { dateTime } from "./format";
+import { dateTime, humanize } from "./format";
 import { scorecard, type ScorecardScenario } from "./scorecard";
 import { Card, Chip, Empty } from "./ui";
 
@@ -141,11 +141,11 @@ function ScenarioBlock({ scenario: s }: { scenario: ScorecardScenario }) {
             {s.cases.map((c) => (
               <tr key={c.ref} className="border-t border-line align-top">
                 <td className="py-1.5 pr-3 font-mono text-xs">{c.ref}</td>
-                <td className="py-1.5 pr-3">{c.expected.replace(/_/g, " ")}</td>
-                <td className="py-1.5 pr-3">{c.actual.replace(/_/g, " ")}</td>
+                <td className="py-1.5 pr-3">{humanize(c.expected)}</td>
+                <td className="py-1.5 pr-3">{humanize(c.actual)}</td>
                 <td className="py-1.5 pr-3">
                   <Chip tone={RESULT_TONE[c.result] ?? "muted"}>
-                    {c.result.replace(/_/g, " ")}
+                    {humanize(c.result)}
                   </Chip>
                 </td>
                 <td className="py-1.5">{c.why}</td>

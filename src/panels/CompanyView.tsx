@@ -13,6 +13,7 @@ import { LedgerPanel } from "./LedgerPanel";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { Card, Chip, Empty } from "./ui";
+import { humanize } from "./format";
 
 type Props = {
   companyId: Id<"companies">;
@@ -128,7 +129,7 @@ function AlertItem({ exposure, alert }: AlertItemProps) {
       setMessage(
         res.ok
           ? undefined
-          : `Not ${action === "acknowledge" ? "acknowledged" : "closed"}: ${res.reason.replace(/_/g, " ")}`,
+          : `Not ${action === "acknowledge" ? "acknowledged" : "closed"}: ${humanize(res.reason)}`,
       );
     } catch (err) {
       setMessage(friendlyError(err));

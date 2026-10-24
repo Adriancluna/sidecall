@@ -5,7 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useState, type FormEvent } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { friendlyError } from "../layout/errors";
+import { friendlyError, refusalOf } from "../layout/errors";
 import { dateTime } from "./format";
 import { Card, Chip, Empty } from "./ui";
 
@@ -42,12 +42,7 @@ export function NotificationsPanel({ scope, canManage, incidentId }: Props) {
     run: () => Promise<{ ok: boolean; reason?: string }>,
     done: string,
   ) => {
-    try {
-      const res = await run();
-      setMessage(res.ok ? done : (res.reason ?? "Refused."));
-    } catch (err) {
-      setMessage(friendlyError(err));
-    }
+    setMessage((await refusalOf(run)) ?? done);
   };
 
   const mine = channels?.filter((c) => c.scope === scope);

@@ -4,7 +4,7 @@ import { useMutation } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { friendlyError } from "../layout/errors";
+import { refusalOf } from "../layout/errors";
 import { dateTime } from "./format";
 import { Card } from "./ui";
 
@@ -30,14 +30,10 @@ export function ContainPanel({ incidentId, containedAt }: Props) {
   const submit = async () => {
     setBusy(true);
     setRefusal(undefined);
-    try {
-      const res = await contain({ incidentId, note: note.trim() });
-      if (!res.ok) setRefusal(res.reason);
-    } catch (err) {
-      setRefusal(friendlyError(err));
-    } finally {
-      setBusy(false);
-    }
+    setRefusal(
+      await refusalOf(() => contain({ incidentId, note: note.trim() })),
+    );
+    setBusy(false);
   };
 
   return (

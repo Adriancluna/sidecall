@@ -4,9 +4,9 @@
 import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
-import { friendlyError } from "../layout/errors";
+import { refusalOf } from "../layout/errors";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
-import { dateTime, money } from "./format";
+import { dateTime, humanize, money } from "./format";
 import { PAYMENT_STATUS } from "./labels";
 import type { HeldPaymentRow } from "./types";
 import { Chip } from "./ui";
@@ -45,7 +45,7 @@ export function PaymentCard({ row, canDecide, escalation, viewer }: Props) {
   const decide = async (action: "release" | "reject") => {
     // Both decisions are final and go on the record: confirm, naming where the money would go.
     const changed = row.bankChange
-      ? `, an account changed by ${row.bankChange.requestChannel.replace("_", " ")} ${row.bankChange.daysBeforeIncident} days before the incident`
+      ? `, an account changed by ${humanize(row.bankChange.requestChannel)} ${row.bankChange.daysBeforeIncident} days before the incident`
       : "";
     const question =
       action === "release"
@@ -58,19 +58,16 @@ export function PaymentCard({ row, canDecide, escalation, viewer }: Props) {
     if (canActuallyDecide && !window.confirm(question)) return;
     setBusy(action);
     setRefusal(undefined);
-    try {
-      const args = { paymentId: payment._id };
-      const trimmed = note.trim();
-      const res =
+    const args = { paymentId: payment._id };
+    const trimmed = note.trim();
+    setRefusal(
+      await refusalOf(() =>
         action === "release"
-          ? await release({ ...args, verificationNote: trimmed })
-          : await reject(trimmed ? { ...args, note: trimmed } : args);
-      if (!res.ok) setRefusal(res.reason);
-    } catch (err) {
-      setRefusal(friendlyError(err));
-    } finally {
-      setBusy(undefined);
-    }
+          ? release({ ...args, verificationNote: trimmed })
+          : reject(trimmed ? { ...args, note: trimmed } : args),
+      ),
+    );
+    setBusy(undefined);
   };
 
   const isHeld = payment.status === "held";
@@ -166,7 +163,7 @@ export function PaymentCard({ row, canDecide, escalation, viewer }: Props) {
           <p className="mt-1">
             Vendor bank details changed {row.bankChange.daysBeforeIncident} days
             before the incident, requested by{" "}
-            {row.bankChange.requestChannel.replace("_", " ")}.
+            {humanize(row.bankChange.requestChannel)}.
             {row.bankChange.lastVerifiedAccountLast4 &&
               ` ••${row.bankChange.lastVerifiedAccountLast4} is the last account confirmed by phone.`}{" "}
             This payment goes to ••{payment.accountLast4}.

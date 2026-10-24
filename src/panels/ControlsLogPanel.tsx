@@ -85,7 +85,11 @@ export function ControlsLogPanel({ incidentId, fileLabel }: Props) {
                   <td className="py-1.5 pr-3 font-mono text-xs text-ash">
                     {r.rule.split("_").map((part, i) => (
                       <Fragment key={i}>
-                        {i > 0 && <>_<wbr /></>}
+                        {i > 0 && (
+                          <>
+                            _<wbr />
+                          </>
+                        )}
                         {part}
                       </Fragment>
                     ))}
