@@ -6,7 +6,9 @@
       "txt": [
         "v=spf1 include:spf.relaymail.example include:spf.ledgerly.example ~all"
       ],
-      "cname": { "sso": "alderfreight.keystone-sso.example." }
+      "cname": {
+        "sso": "alderfreight.keystone-sso.example."
+      }
     },
     "cedarridge.example": {
       "mx": ["cedarridge-example.mail.protection.outlook.com."],
@@ -14,7 +16,9 @@
         "v=spf1 include:spf.protection.outlook.com include:spf.ledgerly.example -all",
         "ledgerly-domain-verification=4f1c9e"
       ],
-      "cname": { "autodiscover": "autodiscover.outlook.com." }
+      "cname": {
+        "autodiscover": "autodiscover.outlook.com."
+      }
     },
     "summithomehealth.example": {
       "mx": ["mx.relaymail.example."],
@@ -36,22 +40,92 @@
         "v=spf1 include:_spf.google.com ~all",
         "keystone-site-verification=88ab02"
       ],
-      "cname": { "login": "granitepeak.keystone-sso.example." }
+      "cname": {
+        "login": "granitepeak.keystone-sso.example."
+      }
     },
     "harborlinefoods.example": {
       "mx": ["mx.relaymail.example."],
       "txt": ["v=spf1 include:spf.relaymail.example ~all"],
-      "cname": { "sso": "harborline.keystone-sso.example." }
+      "cname": {
+        "sso": "harborline.keystone-sso.example."
+      }
     },
     "meridiandental.example": {
       "mx": ["mx1.relaymail.example."],
-      "txt": ["v=spf1 include:spf.relaymail.example ~all"],
-      "cname": { "sso": "meridian.keystone-sso.example." }
+      "txt": [
+        "v=spf1 include:spf.relaymail.example ~all",
+        "fleetline-site-verification=c71e0a"
+      ],
+      "cname": {
+        "sso": "meridian.keystone-sso.example."
+      }
     },
     "pinecreststaffing.example": {
       "mx": ["mx.relaymail.example."],
       "txt": ["v=spf1 include:spf.relaymail.example ~all"],
       "cname": {}
+    },
+    "ridgewaycomfort.example": {
+      "mx": ["mx1.relaymail.example.", "mx2.relaymail.example."],
+      "txt": [
+        "v=spf1 include:spf.relaymail.example include:spf.bramble-erp.example ~all",
+        "fleetline-site-verification=0be4d2"
+      ],
+      "cname": {
+        "support": "ridgeway.tether-remote.example."
+      }
+    },
+    "oakmontrx.example": {
+      "mx": ["oakmontrx-example.mail.protection.outlook.com."],
+      "txt": [
+        "v=spf1 include:spf.protection.outlook.com include:spf.bramble-erp.example -all",
+        "inkwell-domain-verification=5d20f3"
+      ],
+      "cname": {
+        "autodiscover": "autodiscover.outlook.com."
+      }
+    },
+    "fairhavenpt.example": {
+      "mx": ["aspmx.l.google.com.", "alt1.aspmx.l.google.com."],
+      "txt": [
+        "v=spf1 include:_spf.google.com ~all",
+        "fleetline-site-verification=93aa17"
+      ],
+      "cname": {
+        "help": "fairhaven.helmsman-desk.example.",
+        "sso": "fairhaven.keystone-sso.example."
+      }
+    },
+    "kestrelins.example": {
+      "mx": ["kestrelins-example.mail.protection.outlook.com."],
+      "txt": [
+        "v=spf1 include:spf.protection.outlook.com include:spf.ledgerly.example include:spf.bramble-erp.example -all",
+        "vaultline-verification=e8c411"
+      ],
+      "cname": {
+        "autodiscover": "autodiscover.outlook.com."
+      }
+    },
+    "wrenfield.example": {
+      "mx": ["aspmx.l.google.com."],
+      "txt": [
+        "v=spf1 include:_spf.google.com ~all",
+        "fleetline-site-verification=41f7b9"
+      ],
+      "cname": {
+        "help": "wrenfield.helmsman-desk.example."
+      }
+    },
+    "saltmarshpool.example": {
+      "mx": ["mx.relaymail.example."],
+      "txt": [
+        "v=spf1 include:spf.relaymail.example include:spf.bramble-erp.example ~all",
+        "inkwell-domain-verification=a0d93c"
+      ],
+      "cname": {
+        "it": "saltmarsh.tether-remote.example."
+      }
     }
   }
 }

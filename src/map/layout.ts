@@ -24,7 +24,7 @@ const CY = 320;
 const RING = { rx: 290, ry: 230 }; // where the companies sit around the parent
 const PARENT_R = 52;
 const SIBLING_R = 28;
-const DENSE_AT = 14; // above this many companies, unrelated ones collapse into one line of text
+const DENSE_AT = 24; // above this many companies, unrelated ones collapse into one line of text
 const PAD = 16;
 
 export type LabelLine =
@@ -53,6 +53,8 @@ export type MapTile = {
   initials: string;
   order: number;
   labelX: number;
+  labelDx: number; // text offset from the circle's centre: 0 for labels above or below it
+  labelAnchor: "middle" | "end";
   lines: LabelLine[]; // above the circle on the top half of the tree, below it elsewhere
 };
 
@@ -185,6 +187,82 @@ function assetLines(name: string, size: number) {
   return { lines, r };
 }
 
+type Spot = { x: number; y: number; angle: number; side: boolean };
+
+// Where each company sits. Up to 8 (or once there are too many labelled companies to fan out), every company is
+// evenly spaced round the ring, the exposed block centred on the vendor. Past 8, the ring grows and splits: the
+// labelled companies (exposed, reporter, separate access) fan out on the right at up to an 8-company spacing, and
+// the unrelated ones stack in a column down the left with their label beside them, so no two labels collide.
+function placeOnRing(
+  order: MapNode[],
+  exposedCount: number,
+): Spot[] & { grow: number } {
+  const unrelated = order.filter((n) => n.relation === "unrelated");
+  const labelled = order.length - unrelated.length;
+  const split = order.length > 8 && labelled <= 16;
+  const grow = split ? RING.rx * (Math.sqrt(order.length / 8) - 1) : 0;
+  const spots = new Map<MapNode, Spot>();
+
+  if (!split) {
+    const step = (2 * Math.PI) / Math.max(order.length, 1);
+    const first = (-(Math.max(exposedCount, 1) - 1) / 2) * step; // centres the exposed block on angle 0
+    order.forEach((n, i) =>
+      spots.set(n, {
+        ...onRing(first + i * step, grow),
+        angle: first + i * step,
+        side: false,
+      }),
+    );
+  } else {
+    // Exposed block centred on angle 0; separate access continues clockwise (below), the reporter and any
+    // linked-but-not-exposed company counter-clockwise (above), the reporter nearest the block.
+    const exposed = order.slice(0, exposedCount);
+    const below = order.filter(
+      (n) => n.relation === "same_vendor_separate_access",
+    );
+    const above = [
+      ...order.filter((n) => n.relation === "reporter"),
+      ...order.filter((n) => n.relation === "linked_not_exposed"),
+    ];
+    const half = (Math.max(exposed.length, 1) - 1) / 2;
+    const reach = half + Math.max(below.length, above.length, 0);
+    const step = Math.min(
+      Math.PI / 4,
+      reach > 0 ? ((100 / 180) * Math.PI) / reach : Math.PI / 4,
+    );
+    const put = (n: MapNode, angle: number) =>
+      spots.set(n, { ...onRing(angle, grow), angle, side: false });
+    exposed.forEach((n, j) => put(n, (j - half) * step));
+    below.forEach((n, m) => put(n, (half + 1 + m) * step));
+    above.forEach((n, m) => put(n, -(half + 1 + m) * step));
+
+    // The column is at least 62px a row (a three-line label), stretching the ring's left side if it must.
+    const spanY = Math.max(
+      (RING.ry + grow * 0.7) * 0.85,
+      (unrelated.length - 1) * 31,
+    );
+    const ry = Math.max(RING.ry + grow * 0.7, spanY / 0.9);
+    const rx = RING.rx + grow;
+    unrelated.forEach((n, i) => {
+      const dy =
+        unrelated.length === 1
+          ? 0
+          : -spanY + (i * 2 * spanY) / (unrelated.length - 1);
+      const x = CX - rx * Math.sqrt(1 - (dy / ry) ** 2);
+      spots.set(n, {
+        x,
+        y: CY + dy,
+        angle: Math.atan2(dy / ry, (x - CX) / rx),
+        side: true,
+      });
+    });
+  }
+  return Object.assign(
+    order.map((n) => spots.get(n)!),
+    { grow },
+  );
+}
+
 export function layoutBlast(
   blast: BlastRadius,
   assetNames: Map<Id<"assets">, string>,
@@ -196,13 +274,11 @@ export function layoutBlast(
     : blast.nodes;
   const compact = shownNodes.length > DENSE_AT;
   const { order, exposedCount } = ringOrder(shownNodes);
-  const step = (2 * Math.PI) / Math.max(order.length, 1);
-  const first = (-(Math.max(exposedCount, 1) - 1) / 2) * step; // centres the exposed block on angle 0
+  const spots = placeOnRing(order, exposedCount);
   const bounds = new Bounds();
 
   const tiles = order.map((node, i): MapTile => {
-    const angle = first + i * step;
-    const { x, y } = onRing(angle);
+    const { x, y, angle, side } = spots[i];
     const r = compact ? 14 : nodeRadius(node.headcount);
     const edge = mainEdge(blast.edges, node.companyId);
     const facts = factsFor(node.companyId);
@@ -248,14 +324,22 @@ export function layoutBlast(
       ),
     );
     // Branches come in from the parent, so labels go outward: above on the top half, below everywhere else.
-    const top = Math.sin(angle) < -0.25 ? y - r - 8 - blockH : y + r + 8;
+    // In the split layout unrelated companies sit in a column on the left with their label beside the circle.
+    const labelAnchor: MapTile["labelAnchor"] = side ? "end" : "middle";
+    const labelDx = side ? -(r + 8) : 0;
+    const top = side
+      ? y - blockH / 2
+      : Math.sin(angle) < -0.25
+        ? y - r - 8 - blockH
+        : y + r + 8;
     let cursor = top;
     const lines = texts.map((l, k) => {
       const line = { ...l, y: round(cursor + heights[k] / 2) };
       cursor += heights[k];
       return line;
     });
-    bounds.add(x - blockW / 2, top, x + blockW / 2, top + blockH);
+    const left = side ? x + labelDx - blockW : x - blockW / 2;
+    bounds.add(left, top, left + blockW, top + blockH);
     bounds.add(x - r, y - r, x + r, y + r);
 
     return {
@@ -269,6 +353,8 @@ export function layoutBlast(
       initials: initialsOf(node.name),
       order: i,
       labelX: round(x),
+      labelDx,
+      labelAnchor,
       lines,
     };
   });
@@ -283,7 +369,7 @@ export function layoutBlast(
 
   // The breached vendor hangs off the right, facing the exposed block.
   const v = assetLines(blast.asset.name, 15);
-  const vendorAt = onRing(0, 230);
+  const vendorAt = onRing(0, 230 + spots.grow);
   const vendor: MapAsset = {
     assetId: blast.asset._id,
     x: round(vendorAt.x),
@@ -355,7 +441,7 @@ export function layoutBlast(
       users.reduce((s, t) => s + (t.y - CY) / RING.ry, 0),
       users.reduce((s, t) => s + (t.x - CX) / RING.rx, 0),
     );
-    const at = onRing(mean, 190);
+    const at = onRing(mean, 190 + spots.grow);
     const sibling: MapAsset = {
       assetId,
       x: round(at.x),

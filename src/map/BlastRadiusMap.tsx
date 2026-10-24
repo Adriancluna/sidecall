@@ -523,9 +523,10 @@ function CompanyNode({
           return (
             <text
               key={i}
+              x={tile.labelDx}
               y={ly}
               dominantBaseline="central"
-              textAnchor="middle"
+              textAnchor={tile.labelAnchor}
               className={`${FILL[l.tone]} stroke-panel`}
               strokeWidth={4}
               paintOrder="stroke"
