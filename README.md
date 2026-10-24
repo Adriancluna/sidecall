@@ -12,3 +12,23 @@ npm run dev      # Convex + Vite together
 ```
 
 Ask Adrian for a Convex team invite if `npx convex dev` doesn't show the sidecall project.
+
+## Deploy (Vercel + Convex production)
+
+`vercel.json` makes every Vercel build deploy the Convex functions to production first, then build the site against it.
+
+Vercel project → Settings → Environment Variables (Production):
+
+| Name | Value |
+|---|---|
+| `CONVEX_DEPLOY_KEY` | Convex dashboard → sidecall → Production → Settings → Generate production deploy key |
+| `VITE_CONVEX_SITE_URL` | `https://<prod-deployment>.convex.site` (the Fire incident button posts here) |
+
+`VITE_CONVEX_URL` is set automatically by `convex deploy` during the build.
+
+After the first deploy, once:
+
+```
+npx convex env set DEMO_MODE true --prod   # enables the Reset button (demo data only)
+npx convex run seed:run --prod             # load the demo portfolio
+```
