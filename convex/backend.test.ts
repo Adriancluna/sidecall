@@ -167,7 +167,7 @@ describe("payment release", () => {
     const { as, paymentId } = await heldPayment();
     const controller = await as("Rosa Alvarez");
     const ledger = () => controller.query(api.payments.getLedger, {});
-    const cashBefore = (await ledger())!.balances.cash;
+    const { cash: cashBefore, accounts_payable: apBefore } = (await ledger())!.balances;
 
     expect(
       await controller.mutation(api.payments.releasePayment, { paymentId, verificationNote: "  " }),
@@ -191,7 +191,7 @@ describe("payment release", () => {
 
     const after = (await ledger())!.balances;
     expect(cashBefore - after.cash).toBe(48_000_000);
-    expect(after.accounts_payable).toBe(0);
+    expect(apBefore - after.accounts_payable).toBe(48_000_000);
   });
 
   test("reject leaves cash and the bill untouched", async () => {
@@ -258,6 +258,40 @@ describe("timeline", () => {
     const names = new Set(summit!.events.map((e) => e.companyName).filter(Boolean));
     expect(names).toEqual(new Set(["Summit Home Health"]));
     expect(JSON.stringify(summit)).not.toContain("Pinecrest");
+  });
+});
+
+describe("payment requests", () => {
+  test("a payment requested after the incident is held and flagged on creation", async () => {
+    const { as, fire } = await seeded();
+    const clerk = await as("Jamie Chen");
+    const unpaid = (await clerk.query(api.payments.getMyBills, {})).find((b) => b.payment === null)!;
+    expect(unpaid.bill.description).toBe("November payroll processing");
+
+    await fire();
+    const result = await clerk.mutation(api.payments.requestPayment, { billId: unpaid.bill._id });
+    expect(result).toMatchObject({ ok: true, held: true, flagged: true }); // pays the email-changed 7731
+    if (!result.ok) throw new Error(result.reason);
+
+    const audit = await clerk.query(api.payments.getPaymentAudit, { paymentId: result.paymentId });
+    expect(audit.map((a) => a.rule)).toEqual(
+      expect.arrayContaining(["hold_payments_requested_during_incident", "bank_change_within_30_days"]),
+    );
+    expect(await clerk.mutation(api.payments.requestPayment, { billId: unpaid.bill._id })).toMatchObject({ ok: false });
+  });
+
+  test("before any incident a request stays pending; only an AP clerk may request", async () => {
+    const { as } = await seeded();
+    const unpaid = (await (await as("Jamie Chen")).query(api.payments.getMyBills, {})).find((b) => b.payment === null)!;
+    expect(
+      await (await as("Rosa Alvarez")).mutation(api.payments.requestPayment, { billId: unpaid.bill._id }),
+    ).toMatchObject({ ok: false });
+    expect(
+      await (await as("Tom Becker")).mutation(api.payments.requestPayment, { billId: unpaid.bill._id }),
+    ).toMatchObject({ ok: false }); // another company's bill
+    expect(
+      await (await as("Jamie Chen")).mutation(api.payments.requestPayment, { billId: unpaid.bill._id }),
+    ).toMatchObject({ ok: true, held: false });
   });
 });
 
