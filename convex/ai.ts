@@ -6,7 +6,10 @@
 //      passes the copy rules;
 //   3. the canned text below.
 // Rules for every text live in prompts/writing.ts: never name the reporting company; hold
-// notices say "held until verified", never "fraud", and point to the number on file.
+// notices say "held until verified", never "fraud", and point to the number on file. With a
+// red-team finding, a sister company's alert carries the sister-safe path sentence and the
+// concrete check ("validated" only ever next to "not tested"), and the vendor letter names the
+// technique; the facts behind the three older scenarios are unchanged, so their cache still hits.
 import { v } from "convex/values";
 import { env, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
@@ -23,6 +26,7 @@ import {
   holdNoticeFacts,
   holdNoticePrompt,
   letterKey,
+  techniqueLabel,
   vendorLetterFacts,
   vendorLetterPrompt,
   type AiCache,
@@ -86,11 +90,18 @@ export const generateAlert = internalAction({
   handler: async (ctx, args) => {
     const context = await ctx.runQuery(internal.alerts.getWritingContext, args);
     if (!context) return null;
+    const finding = context.technique !== null;
     const alerts = await mapLimited(context.companyAlerts, 5, async (item) => {
       const opener =
         item.urgency === "urgent"
           ? `Urgent: act today.`
           : `Advisory: review this week.`;
+      // With a finding: the sister-safe path sentence, then the concrete check, which replaces
+      // the generic "rotate and review" line because it already says what to do.
+      const path = item.pathSummary ? ` ${item.pathSummary}` : "";
+      const nextStep = item.whatToCheck
+        ? ` ${item.whatToCheck}`
+        : ` Rotate any credentials you share with ${context.asset.vendorName} and review recent access.`;
       const body = await write({
         kind: "company_alert",
         key: alertKey(context.externalId, item),
@@ -100,11 +111,13 @@ export const generateAlert = internalAction({
           checkCopy("company_alert", text, {
             phoneOnFile: context.asset.phoneOnFile,
             urgency: item.urgency,
+            finding,
+            readerName: item.companyName,
             otherCompanies: context.companyAlerts
               .map((a) => a.companyName)
               .filter((name) => name !== item.companyName),
           }),
-        canned: `${opener} ${context.asset.vendorName} (${context.asset.name}) is under an active security incident. ${item.reasons.join(" ")} Rotate any credentials you share with ${context.asset.vendorName} and review recent access.`,
+        canned: `${opener} ${context.asset.vendorName} (${context.asset.name}) is under an active security incident. ${item.reasons.join(" ")}${path}${nextStep}`,
       });
       return {
         incidentId: args.incidentId,
@@ -125,6 +138,21 @@ export const generateVendorLetter = internalAction({
   handler: async (ctx, args) => {
     const context = await ctx.runQuery(internal.alerts.getWritingContext, args);
     if (!context) return null;
+    const { asset, technique } = context;
+    // Spec A4: with a finding, name the technique and ask for tenant-wide rotation, isolation
+    // and logs; without one, the plain coordinated-rotation ask.
+    const tested = technique
+      ? ` An authorized test validated use of ${techniqueLabel(technique)} against ${asset.name} held by a Northpass portfolio company.`
+      : "";
+    const asks = technique
+      ? "rotate every admin credential issued to Northpass portfolio tenants, confirm tenant isolation, send 30 days of admin-console access logs"
+      : "rotate every shared and admin credential across all of our accounts at once";
+    // Say payments are held only when some are: the credential scenarios hold nothing.
+    const flagged = context.heldPayments.some((p) => p.bankChangeFlag);
+    const money =
+      context.heldPayments.length > 0
+        ? ` Pending payments to you are held until verified${flagged ? ", and any bank-detail change requested by email in the last 30 days is treated as unverified" : ""}. We will call the number on file, ${asset.phoneOnFile}, not a number from a recent email.`
+        : ` Before paying you, our companies will confirm remittance details by calling the number on file, ${asset.phoneOnFile}, not a number from a recent email.`;
     const body = await write({
       kind: "vendor_letter",
       key: letterKey(context.externalId),
@@ -132,10 +160,11 @@ export const generateVendorLetter = internalAction({
       prompt: () => vendorLetterPrompt(context),
       check: (text) =>
         checkCopy("vendor_letter", text, {
-          phoneOnFile: context.asset.phoneOnFile,
+          phoneOnFile: asset.phoneOnFile,
+          finding: technique !== null,
           otherCompanies: context.companyAlerts.map((a) => a.companyName),
         }),
-      canned: `To ${context.asset.vendorName}: several companies in our portfolio rely on ${context.asset.name}. Please confirm the scope of the incident, rotate every shared and admin credential across all of our accounts at once, and confirm your bank details by phone. Any bank-detail change requested by email in the last 30 days is on hold until verified.`,
+      canned: `To ${asset.vendorName}: several companies in our portfolio rely on ${asset.name}.${tested} Please confirm the scope of the incident, ${asks}, and confirm your bank details by phone.${money}`,
     });
     await ctx.runMutation(internal.alerts.saveAlert, {
       incidentId: args.incidentId,
