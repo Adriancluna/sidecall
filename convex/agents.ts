@@ -9,7 +9,7 @@ import type { QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { viewerForUser } from "./access";
-import { heldPaymentsFor, paymentAuditFor, type HeldPaymentRow } from "./payments";
+import { billsFor, heldPaymentsFor, paymentAuditFor, requestPaymentFor, type HeldPaymentRow } from "./payments";
 
 export async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
@@ -207,5 +207,51 @@ export const explainHold = internalQuery({
       incidentId: row.payment.heldByIncidentId ?? null,
       nextStep,
     };
+  },
+});
+
+export const listBills = internalQuery({
+  args: { agentId: v.id("agents") },
+  handler: async (ctx, args) => {
+    const viewer = await agentViewer(ctx, args.agentId);
+    const bills = await billsFor(ctx, viewer);
+    return bills.map((b) => ({
+      billId: b.bill._id,
+      vendorName: b.vendorName,
+      amount: usd(b.bill.amountCents),
+      dueDate: b.bill.dueDate,
+      description: b.bill.description,
+      payment: b.payment ? { paymentId: b.payment._id, status: b.payment.status } : null,
+    }));
+  },
+});
+
+// Requests a payment as the clerk the agent acts for, through the same code as the UI, and writes
+// the agent_call audit row in the same transaction (the HTTP handler doesn't log this tool again).
+export const requestPayment = internalMutation({
+  args: { agentId: v.id("agents"), billId: v.string() },
+  handler: async (ctx, args) => {
+    const viewer = await agentViewer(ctx, args.agentId);
+    const agent = (await ctx.db.get("agents", args.agentId))!;
+    const billId = ctx.db.normalizeId("bills", args.billId);
+    const result = billId
+      ? await requestPaymentFor(ctx, viewer, billId)
+      : { ok: false as const, reason: "That bill isn't your company's." };
+    const payment = result.ok ? await ctx.db.get("payments", result.paymentId) : null;
+    await ctx.db.insert("auditLog", {
+      at: Date.now(),
+      actor: agent._id,
+      action: "agent_call",
+      companyId: viewer.firm ? undefined : viewer.companyId,
+      paymentId: payment?._id,
+      incidentId: payment?.heldByIncidentId,
+      rule: "mcp_tool:request_payment",
+      reason: `${agent.name} called request_payment: ${result.ok ? "ok" : "refused"}. ${
+        result.ok
+          ? `Requested ${usd(payment!.amountCents)}${result.held ? `, held until verified${result.flagged ? " and flagged" : ""}` : ""}.`
+          : result.reason
+      }`,
+    });
+    return result;
   },
 });

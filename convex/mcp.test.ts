@@ -155,3 +155,59 @@ describe("POST /mcp", () => {
     expect((await count()) - before).toBe(3);
   });
 });
+
+describe("agent requests a payment", () => {
+  const ALL = ["list_held_payments", "explain_hold", "list_bills", "request_payment"];
+  type T = Awaited<ReturnType<typeof seeded>>["t"];
+  const call = async (t: T, name: string, args: Record<string, unknown> = {}) => {
+    const res = await t.fetch("/mcp", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }),
+    });
+    const { result } = (await res.json()) as { result: { content: { text: string }[]; isError?: boolean } };
+    return JSON.parse(result.content[0].text);
+  };
+  async function requested() {
+    const s = await seeded(ALL);
+    await s.fire();
+    const bills = (await call(s.t, "list_bills")) as { billId: string; description: string; payment: unknown }[];
+    const november = bills.find((b) => b.description === "November payroll processing")!;
+    expect(november.payment).toBeNull();
+    const result = await call(s.t, "request_payment", { billId: november.billId });
+    return { ...s, result };
+  }
+
+  test("an agent-requested payment to a compromised vendor is held and flagged", async () => {
+    const { result } = await requested();
+    expect(result).toMatchObject({ ok: true, held: true, flagged: true });
+  });
+
+  test("the clerk the agent acts for cannot release it; the controller can", async () => {
+    const { t, as, result } = await requested();
+    const jamie = await (await as("Jamie Chen")).mutation(api.payments.releasePayment, {
+      paymentId: result.paymentId,
+      verificationNote: "Called Brightline at number on file, confirmed account",
+    });
+    expect(jamie.ok).toBe(false);
+    const rules = await t.run(async (ctx) =>
+      (await ctx.db.query("auditLog").take(500)).filter((a) => a.paymentId === result.paymentId).map((a) => a.rule),
+    );
+    expect(rules).toContain("segregation_of_duties");
+    const rosa = await (await as("Rosa Alvarez")).mutation(api.payments.releasePayment, {
+      paymentId: result.paymentId,
+      verificationNote: "Called Brightline at number on file, confirmed account",
+    });
+    expect(rosa).toEqual({ ok: true });
+  });
+
+  test("request_payment writes exactly one agent_call row, linked to the payment", async () => {
+    const { t, result } = await requested();
+    const rows = await t.run(async (ctx) =>
+      (await ctx.db.query("auditLog").take(500)).filter((a) => a.rule === "mcp_tool:request_payment"),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].paymentId).toBe(result.paymentId);
+    expect(rows[0].reason).toMatch(/held until verified and flagged/);
+  });
+});

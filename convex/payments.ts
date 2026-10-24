@@ -191,111 +191,118 @@ export async function activeIncidentFor(ctx: MutationCtx, assetId: Id<"assets">,
 // AP clerk requests payment of a bill. Pays the vendor's current bank details on file
 // (the latest change). If the vendor had an incident in the last 30 days, the new payment
 // is held on creation, like the ones the incident caught.
+// Request payment of a bill as `viewer` (an AP clerk at the bill's company). Shared by the UI
+// mutation and the MCP agent, so an agent's request is held, flagged and notified exactly like a
+// clerk's.
+export async function requestPaymentFor(ctx: MutationCtx, viewer: Viewer, billId: Id<"bills">) {
+  const args = { billId };
+  const bill = await ctx.db.get("bills", args.billId);
+  if (!bill || viewer.firm || viewer.companyId !== bill.companyId) {
+    return { ok: false as const, reason: "That bill isn't your company's." };
+  }
+  if (viewer.user.role !== "ap_clerk") {
+    return { ok: false as const, reason: "Only an AP clerk requests payments; a controller approves them." };
+  }
+  const existing = await ctx.db
+    .query("payments")
+    .withIndex("by_billId", (q) => q.eq("billId", bill._id))
+    .take(10);
+  if (existing.some((p) => p.status !== "rejected")) {
+    return { ok: false as const, reason: "This bill already has a payment." };
+  }
+
+  const asset = await ctx.db.get("assets", bill.assetId);
+  if (!asset) return { ok: false as const, reason: "Unknown vendor." };
+  const [latestChange] = await ctx.db
+    .query("bankDetailChanges")
+    .withIndex("by_assetId_and_changedAt", (q) => q.eq("assetId", asset._id))
+    .order("desc")
+    .take(1);
+  if (!latestChange) return { ok: false as const, reason: "No bank details on file for this vendor." };
+
+  const now = Date.now();
+  const paymentId = await ctx.db.insert("payments", {
+    billId: bill._id,
+    companyId: bill.companyId,
+    assetId: asset._id,
+    amountCents: bill.amountCents,
+    accountLast4: latestChange.accountLast4,
+    status: "pending",
+    requestedBy: viewer.user._id,
+    dueDate: bill.dueDate,
+  });
+
+  const incident = await activeIncidentFor(ctx, asset._id, now);
+  const company = await ctx.db.get("companies", bill.companyId);
+  if (!incident || !company?.holdRuleEnabled) {
+    return { ok: true as const, paymentId, held: false, flagged: false };
+  }
+
+  const payment = (await ctx.db.get("payments", paymentId))!;
+  const { flagged } = await holdPayment(
+    ctx,
+    payment,
+    incident,
+    asset,
+    await recentBankChanges(ctx, asset._id, incident.createdAt),
+    now,
+    "hold_payments_requested_during_incident",
+    `Requested while ${asset.vendorName} is under an active security incident. Payment held until verified.`,
+  );
+  const noticeBody = `Your ${dollars(bill.amountCents)} payment to ${asset.vendorName} is held until verified. Call ${asset.vendorName} at the number on file, ${asset.phoneOnFile}, not a number from a recent email. A controller other than the requester can then release or reject it.`;
+  const noticeId = await ctx.db.insert("alerts", {
+    incidentId: incident._id,
+    companyId: bill.companyId,
+    paymentId,
+    kind: "hold_notice",
+    status: "ready",
+    readyAt: now,
+    body: noticeBody,
+  });
+  await enqueueAlert(ctx, { _id: noticeId, kind: "hold_notice", body: noticeBody, incidentId: incident._id, companyId: bill.companyId });
+  await scheduleDispatchIfQueued(ctx);
+  return { ok: true as const, paymentId, held: true, flagged };
+}
+
 export const requestPayment = mutation({
   args: { billId: v.id("bills") },
   returns: v.union(
     v.object({ ok: v.literal(true), paymentId: v.id("payments"), held: v.boolean(), flagged: v.boolean() }),
     v.object({ ok: v.literal(false), reason: v.string() }),
   ),
-  handler: async (ctx, args) => {
-    const viewer = await getViewer(ctx);
-    const bill = await ctx.db.get("bills", args.billId);
-    if (!bill || viewer.firm || viewer.companyId !== bill.companyId) {
-      return { ok: false as const, reason: "That bill isn't your company's." };
-    }
-    if (viewer.user.role !== "ap_clerk") {
-      return { ok: false as const, reason: "Only an AP clerk requests payments; a controller approves them." };
-    }
-    const existing = await ctx.db
-      .query("payments")
-      .withIndex("by_billId", (q) => q.eq("billId", bill._id))
-      .take(10);
-    if (existing.some((p) => p.status !== "rejected")) {
-      return { ok: false as const, reason: "This bill already has a payment." };
-    }
-
-    const asset = await ctx.db.get("assets", bill.assetId);
-    if (!asset) return { ok: false as const, reason: "Unknown vendor." };
-    const [latestChange] = await ctx.db
-      .query("bankDetailChanges")
-      .withIndex("by_assetId_and_changedAt", (q) => q.eq("assetId", asset._id))
-      .order("desc")
-      .take(1);
-    if (!latestChange) return { ok: false as const, reason: "No bank details on file for this vendor." };
-
-    const now = Date.now();
-    const paymentId = await ctx.db.insert("payments", {
-      billId: bill._id,
-      companyId: bill.companyId,
-      assetId: asset._id,
-      amountCents: bill.amountCents,
-      accountLast4: latestChange.accountLast4,
-      status: "pending",
-      requestedBy: viewer.user._id,
-      dueDate: bill.dueDate,
-    });
-
-    const incident = await activeIncidentFor(ctx, asset._id, now);
-    const company = await ctx.db.get("companies", bill.companyId);
-    if (!incident || !company?.holdRuleEnabled) {
-      return { ok: true as const, paymentId, held: false, flagged: false };
-    }
-
-    const payment = (await ctx.db.get("payments", paymentId))!;
-    const { flagged } = await holdPayment(
-      ctx,
-      payment,
-      incident,
-      asset,
-      await recentBankChanges(ctx, asset._id, incident.createdAt),
-      now,
-      "hold_payments_requested_during_incident",
-      `Requested while ${asset.vendorName} is under an active security incident. Payment held until verified.`,
-    );
-    const noticeBody = `Your ${dollars(bill.amountCents)} payment to ${asset.vendorName} is held until verified. Call ${asset.vendorName} at the number on file, ${asset.phoneOnFile}, not a number from a recent email. A controller other than the requester can then release or reject it.`;
-    const noticeId = await ctx.db.insert("alerts", {
-      incidentId: incident._id,
-      companyId: bill.companyId,
-      paymentId,
-      kind: "hold_notice",
-      status: "ready",
-      readyAt: now,
-      body: noticeBody,
-    });
-    await enqueueAlert(ctx, { _id: noticeId, kind: "hold_notice", body: noticeBody, incidentId: incident._id, companyId: bill.companyId });
-    await scheduleDispatchIfQueued(ctx);
-    return { ok: true as const, paymentId, held: true, flagged };
-  },
+  handler: async (ctx, args) => await requestPaymentFor(ctx, await getViewer(ctx), args.billId),
 });
 
 // A company's bills and whether each has a payment yet (AP clerk's "Bills to pay").
+// A company's bills and whether each has a payment yet, for one viewer.
+export async function billsFor(ctx: QueryCtx, viewer: Viewer) {
+  if (viewer.firm) return [];
+  const bills = await ctx.db
+    .query("bills")
+    .withIndex("by_companyId", (q) => q.eq("companyId", viewer.companyId))
+    .take(100);
+  return await Promise.all(
+    bills.map(async (bill) => {
+      const [asset, payments] = await Promise.all([
+        ctx.db.get("assets", bill.assetId),
+        ctx.db
+          .query("payments")
+          .withIndex("by_billId", (q) => q.eq("billId", bill._id))
+          .take(10),
+      ]);
+      const payment = payments.find((p) => p.status !== "rejected") ?? null;
+      return {
+        bill,
+        vendorName: asset?.vendorName ?? "",
+        payment: payment ? { _id: payment._id, status: payment.status } : null,
+      };
+    }),
+  );
+}
+
 export const getMyBills = query({
   args: {},
-  handler: async (ctx) => {
-    const viewer = await getViewer(ctx);
-    if (viewer.firm) return [];
-    const bills = await ctx.db
-      .query("bills")
-      .withIndex("by_companyId", (q) => q.eq("companyId", viewer.companyId))
-      .take(100);
-    return await Promise.all(
-      bills.map(async (bill) => {
-        const [asset, payments] = await Promise.all([
-          ctx.db.get("assets", bill.assetId),
-          ctx.db
-            .query("payments")
-            .withIndex("by_billId", (q) => q.eq("billId", bill._id))
-            .take(10),
-        ]);
-        const payment = payments.find((p) => p.status !== "rejected") ?? null;
-        return {
-          bill,
-          vendorName: asset?.vendorName ?? "",
-          payment: payment ? { _id: payment._id, status: payment.status } : null,
-        };
-      }),
-    );
-  },
+  handler: async (ctx) => await billsFor(ctx, await getViewer(ctx)),
 });
 
 type Decision = { ok: true } | { ok: false; reason: string };

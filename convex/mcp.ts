@@ -14,7 +14,7 @@ const DEFAULT_VERSION = "2025-06-18";
 const MAX_BODY_BYTES = 64 * 1024;
 
 const INSTRUCTIONS =
-  "Sidecall holds payments to vendors under an active security incident until a person verifies them. You can list and explain held payments for your company. You cannot release or reject payments: a controller other than the requester must call the vendor at the number on file and decide in Sidecall.";
+  "Sidecall holds payments to vendors under an active security incident until a person verifies them. You can list and explain held payments for your company, list its bills, and request payment of a bill as its AP clerk (a request to a vendor under an incident is held). You cannot release or reject payments: a controller other than the requester must call the vendor at the number on file and decide in Sidecall.";
 
 const TOOLS = [
   {
@@ -35,6 +35,22 @@ const TOOLS = [
       type: "object",
       properties: { paymentId: { type: "string" } },
       required: ["paymentId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "list_bills",
+    description: "List your company's bills and whether each already has a payment.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "request_payment",
+    description:
+      "Request payment of one bill, as the AP clerk you act for. If the vendor is under an active security incident the payment is held until a controller verifies it.",
+    inputSchema: {
+      type: "object",
+      properties: { billId: { type: "string" } },
+      required: ["billId"],
       additionalProperties: false,
     },
   },
@@ -62,6 +78,16 @@ async function callTool(ctx: ActionCtx, agent: Agent, name: string, args: Record
       ok: true,
       summary: `${rows.length} payment(s) listed.`,
     };
+  }
+  if (name === "list_bills") {
+    const bills = await ctx.runQuery(internal.agents.listBills, { agentId: agent.agentId });
+    return { result: textContent(JSON.stringify(bills, null, 2)), ok: true, summary: `${bills.length} bill(s) listed.` };
+  }
+  if (name === "request_payment") {
+    const billId = typeof args.billId === "string" ? args.billId : "";
+    // Audited inside the mutation, in the same transaction as the request.
+    const out = await ctx.runMutation(internal.agents.requestPayment, { agentId: agent.agentId, billId });
+    return { result: textContent(JSON.stringify(out, null, 2), !out.ok), ok: out.ok, summary: "", logged: true };
   }
   // explain_hold
   const paymentId = typeof args.paymentId === "string" ? args.paymentId : "";
@@ -139,6 +165,7 @@ export const mcpHandler = httpAction(async (ctx, req) => {
         return rpcError(200, id, -32602, `Unknown tool: ${name}`);
       }
       const out = await callTool(ctx, agent, name, args);
+      if ("logged" in out) return rpcResult(id, out.result);
       await ctx.runMutation(internal.agents.logCall, {
         agentId: agent.agentId,
         tool: name,
