@@ -6,6 +6,14 @@ import { query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { canSeeCompany, getViewer } from "./access";
 
+// Why a company appears on the map. Exported so the frontend can switch on it exhaustively.
+export type NodeRelation =
+  | "reporter"
+  | "exposed"
+  | "linked_not_exposed"
+  | "same_vendor_separate_access"
+  | "unrelated";
+
 // Firm: every incident, newest first. Company: only incidents that touch it, with the
 // reporter and the free-text summary removed (the summary can identify who was hit).
 export const listIncidents = query({
@@ -98,7 +106,7 @@ export const getBlastRadius = query({
 
     const nodes = companies.map((c) => {
       const exposure = exposureByCompany.get(c._id);
-      const relation =
+      const relation: NodeRelation =
         c._id === incident.reportedByCompanyId
           ? "reporter"
           : exposure
