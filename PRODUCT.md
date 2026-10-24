@@ -8,19 +8,20 @@ web
 
 ## Users
 
-**Primary: Cal Hacks 13.0 judges watching a live, projected demo.** Under 3 minutes, roles switched on stage (`docs/demo-script.md`), plus a recorded video and Devpost. Every screen must read from the back of a room and land its point in one beat. When stage legibility and in-world realism conflict, stage legibility wins.
-
-**In-world personas** (simulated, they shape content and permissions):
+Sidecall is a dashboard for a PE firm and its portfolio companies. Primary users:
 - **AP clerk** at a portfolio company (Jamie Chen, Summit Home Health): requests payments; cannot release their own.
 - **Controller** at a portfolio company (Rosa Alvarez): verifies by phone with the number on file, then releases or rejects held payments.
-- **IT / security contact** at a portfolio company (Kwame Mensah): acknowledges tailored alerts.
 - **PE firm partner** (Jordan Ames): sees the portfolio-wide blast radius, evidence, holds, vendor letter, containment. Sees holds but never releases.
+
+Also present: **IT / security contact** at a portfolio company (Kwame Mensah), who acknowledges tailored alerts.
+
+**Demo context:** all people and companies are simulated. The product is shown to Cal Hacks 13.0 judges in a live, projected demo under 3 minutes with roles switched on stage (`docs/demo-script.md`), plus a recorded video and Devpost, so screens must also read from the back of a room.
 
 ## Product Purpose
 
 Companies owned by one PE firm quietly share vendors (IT contractors, payroll, login systems). When one company or a shared vendor is compromised, Sidecall works out which siblings *genuinely* share the compromised thing, warns each at the right urgency, shows the firm a live blast-radius map, drafts one coordinated vendor letter, and holds pending payments to a compromised vendor until a different person verifies by phone.
 
-Success for the hackathon: judges see the $480K hold, the segregation-of-duties refusal, the firm-wide zoom-out, evidence over noise, and Convex guarantees (idempotent replay, race-safe acknowledge), and believe every number.
+Success: a user understands a held payment (why it's held, what changed, who must act) and acts fast.
 
 Seat it fills (Hyphenate track): AP payment controls across a private equity portfolio.
 
@@ -71,7 +72,7 @@ Same vendor is not the same weakness. Exposure is decided by link `shareType` (s
 2. **Hold, don't block.** Money waits for a person to verify; every hold, flag, refusal and release is on the record.
 3. **Never reveal who was hit** outside the PE firm view.
 4. **Honest about what's real.** Inferred links are candidates; simulated data is labelled; numbers on screen match the backend.
-5. **One beat, one point.** Each screen in the demo path must make its point to a judge in seconds.
+5. **Understand, then act.** A held payment shows why it's held and the next action at a glance.
 
 ## Accessibility & Inclusion
 
