@@ -15,7 +15,10 @@ const EMAIL = {
   rosa: "rosa.alvarez@summithomehealth.example", // Summit controller
   kwame: "kwame.mensah@summithomehealth.example", // Summit IT
   jordan: "jordan.ames@northpasscapital.example", // PE partner
+  sam: "sam.kowalski@cedarridge.example", // Cedar Ridge IT (shares the Ironclad admin login)
 };
+// The stage button "Red-team finding (Ironclad login)": id and asset only; the server supplies the finding.
+const RED_TEAM = { externalId: "demo-armadin-004", assetName: "Ironclad shared admin account" };
 const BRIGHTLINE = {
   externalId: "demo-brightline-001",
   assetName: "Brightline Payroll",
@@ -63,11 +66,11 @@ async function signIn(email) {
   throw new Error(`could not sign in as ${email}`);
 }
 
-async function postIncident() {
+async function postIncident(body = BRIGHTLINE) {
   const res = await fetch(`${site}/incident`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(BRIGHTLINE),
+    body: JSON.stringify(body),
   });
   return { status: res.status, body: await res.json() };
 }
@@ -91,7 +94,8 @@ const jamie = await signIn(EMAIL.jamie);
 const rosa = await signIn(EMAIL.rosa);
 const kwame = await signIn(EMAIL.kwame);
 const jordan = await signIn(EMAIL.jordan);
-check("0 reset + four people signed in", true);
+const sam = await signIn(EMAIL.sam);
+check("0 reset + five people signed in", true);
 
 // 1. Fire the incident through the real webhook; replay it.
 const fired = await postIncident();
@@ -211,6 +215,41 @@ const contained = await mutation(
 check("8 PE marks contained", contained.ok === true, contained.reason);
 held = await query("payments:getHeldPayments", { incidentId }, jordan);
 check("  earlier holds still held", held.filter((r) => r.payment.status === "held").length === 6);
+
+// 9. Red-team finding, one step ahead: proven at Pinecrest, carried to the sisters sharing the login.
+const redTeam = await postIncident(RED_TEAM);
+check("9 Red-team finding (stage button body)", redTeam.status === 200 && redTeam.body.duplicate === false, `HTTP ${redTeam.status}`);
+const rtId = redTeam.body.incidentId;
+const rtMap = await query("blastRadius:getBlastRadius", { incidentId: rtId }, jordan);
+const nodeId = (name) => rtMap?.nodes.find((n) => n.name === name)?.companyId;
+const edgePath = (name) => rtMap?.edges.find((e) => e.compromised && e.companyId === nodeId(name))?.path;
+check(
+  "  same 3 exposed, nothing held",
+  rtMap?.totals.companiesExposed === 3 && rtMap?.totals.heldCents === 0,
+  rtMap ? `${rtMap.totals.companiesExposed} companies · ${dollars(rtMap.totals.heldCents)} held` : "no map",
+);
+check("  firm sees the finding", rtMap?.incident.finding?.findingId === "ARM-2026-0412");
+check(
+  "  map: validated at Pinecrest, reachable at Cedar Ridge",
+  edgePath("Pinecrest Staffing") === "validated_at_source" && edgePath("Cedar Ridge Manufacturing") === "reachable_not_tested",
+);
+const samExposure = (await query("blastRadius:getMyExposures", {}, sam)).find((e) => e.incidentId === rtId);
+const samEvidence = samExposure ? await query("blastRadius:getExposureEvidence", { exposureId: samExposure._id }, sam) : null;
+check(
+  "  Cedar IT gets a concrete 'what to check'",
+  samEvidence?.path?.whatToCheck?.startsWith("What to check: sign-ins to Ironclad shared admin account") === true,
+  samEvidence?.path?.whatToCheck?.slice(0, 70),
+);
+const samViews = JSON.stringify([
+  samEvidence,
+  await query("alerts:getMyAlerts", {}, sam),
+  await query("blastRadius:listIncidents", {}, sam),
+  await query("blastRadius:getIncidentTimeline", { incidentId: rtId }, sam),
+]);
+const leaks = ["Pinecrest", "PC-OPS-12", "jump01", "ironclad-svc", "ARM-2026", "ENG-PINECREST"].filter((x) => samViews.includes(x));
+check("  sister never sees who was tested or how", leaks.length === 0, leaks.join(", "));
+const kwameExposures = await query("blastRadius:getMyExposures", {}, kwame);
+check("  Summit (own Ironclad login) not alerted", !kwameExposures.some((e) => e.incidentId === rtId));
 
 await reset();
 console.log(`\n${failures === 0 ? "PASS: every beat works. Deployment reset to a clean slate." : `FAIL: ${failures} beat(s) failed. Deployment reset.`}`);
