@@ -1,7 +1,7 @@
 // Double-entry ledger for one company. Optional for the demo: if Hyphenate is lukewarm, stop rendering this.
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import type { Doc, Id } from "../../convex/_generated/dataModel";
+import type { Doc } from "../../convex/_generated/dataModel";
 import { dateTime, money } from "./format";
 import { Card, Empty } from "./ui";
 
@@ -16,8 +16,8 @@ const ACCOUNT_LABEL: Record<
 };
 
 // Company users always get their own ledger; the firm would pass companyId.
-export function LedgerPanel({ actingUserId }: { actingUserId: Id<"users"> }) {
-  const ledger = useQuery(api.payments.getLedger, { actingUserId });
+export function LedgerPanel() {
+  const ledger = useQuery(api.payments.getLedger, {});
 
   return (
     <Card

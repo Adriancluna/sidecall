@@ -3,21 +3,19 @@ import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
-import type { CurrentUser } from "../auth/currentUser";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
 import { LedgerPanel } from "./LedgerPanel";
 import { Card, Chip, Empty } from "./ui";
 
-type Props = { companyId: Id<"companies">; actingUser: CurrentUser };
+type Props = { companyId: Id<"companies"> };
 
-export function CompanyView({ companyId, actingUser }: Props) {
-  const actingUserId = actingUser._id;
+export function CompanyView({ companyId }: Props) {
   const company = useQuery(api.blastRadius.listCompanies, {})?.find(
     (c) => c._id === companyId,
   );
-  const exposures = useQuery(api.blastRadius.getMyExposures, { actingUserId });
-  const alerts = useQuery(api.alerts.getMyAlerts, { actingUserId });
-  const held = useQuery(api.payments.getHeldPayments, { actingUserId });
+  const exposures = useQuery(api.blastRadius.getMyExposures, {});
+  const alerts = useQuery(api.alerts.getMyAlerts, {});
+  const held = useQuery(api.payments.getHeldPayments, {});
 
   return (
     <div className="space-y-6">
@@ -48,7 +46,6 @@ export function CompanyView({ companyId, actingUser }: Props) {
                   (a) =>
                     a.kind === "company_alert" && a.exposureId === exposure._id,
                 )}
-                actingUserId={actingUserId}
               />
             ))}
           </div>
@@ -59,12 +56,11 @@ export function CompanyView({ companyId, actingUser }: Props) {
         <HeldPaymentsPanel
           title="Payments held until verified"
           rows={held}
-          actingUser={actingUser}
           canDecide
         />
       )}
 
-      <LedgerPanel actingUserId={actingUserId} />
+      <LedgerPanel />
     </div>
   );
 }
@@ -72,10 +68,9 @@ export function CompanyView({ companyId, actingUser }: Props) {
 type AlertItemProps = {
   exposure: Doc<"exposures">;
   alert?: Doc<"alerts">;
-  actingUserId: Id<"users">;
 };
 
-function AlertItem({ exposure, alert, actingUserId }: AlertItemProps) {
+function AlertItem({ exposure, alert }: AlertItemProps) {
   const acknowledge = useMutation(api.incidents.acknowledgeExposure);
   const close = useMutation(api.incidents.closeExposure);
   const [busy, setBusy] = useState(false);
@@ -85,7 +80,7 @@ function AlertItem({ exposure, alert, actingUserId }: AlertItemProps) {
   const change = async (action: "acknowledge" | "close") => {
     setBusy(true);
     try {
-      const args = { exposureId: exposure._id, actingUserId };
+      const args = { exposureId: exposure._id };
       const res =
         action === "acknowledge" ? await acknowledge(args) : await close(args);
       setMessage(

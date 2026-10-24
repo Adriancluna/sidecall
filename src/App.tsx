@@ -29,10 +29,10 @@ function SignedIn() {
     <CurrentUserContext.Provider value={me}>
       <AppShell>
         {me.role === "pe_partner" || !me.companyId ? (
-          <PortfolioView actingUserId={me._id} />
+          <PortfolioView />
         ) : (
           // key: switching people starts with clean local state (no stale refusal or note)
-          <CompanyView key={me._id} companyId={me.companyId} actingUser={me} />
+          <CompanyView key={me._id} companyId={me.companyId} />
         )}
       </AppShell>
     </CurrentUserContext.Provider>

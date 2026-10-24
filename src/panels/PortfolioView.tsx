@@ -9,20 +9,20 @@ import { dateTime, money } from "./format";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
 import { Card, Chip, Empty } from "./ui";
 
-export function PortfolioView({ actingUserId }: { actingUserId: Id<"users"> }) {
-  const incidents = useQuery(api.blastRadius.listIncidents, { actingUserId });
+export function PortfolioView() {
+  const incidents = useQuery(api.blastRadius.listIncidents, {});
   const incidentId = incidents?.[0]?._id; // newest first
   const blast = useQuery(
     api.blastRadius.getBlastRadius,
-    incidentId ? { incidentId, actingUserId } : "skip",
+    incidentId ? { incidentId } : "skip",
   );
   const held = useQuery(
     api.payments.getHeldPayments,
-    incidentId ? { incidentId, actingUserId } : "skip",
+    incidentId ? { incidentId } : "skip",
   );
   const alerts = useQuery(
     api.alerts.getIncidentAlerts,
-    incidentId ? { incidentId, actingUserId } : "skip",
+    incidentId ? { incidentId } : "skip",
   );
   const letter = alerts?.find((a) => a.kind === "vendor_letter");
   const [selected, setSelected] = useState<Id<"companies">>();
@@ -82,7 +82,6 @@ export function PortfolioView({ actingUserId }: { actingUserId: Id<"users"> }) {
           <EvidencePanel
             exposureId={selectedNode?.exposureId ?? undefined}
             companyName={selectedNode?.name}
-            actingUserId={actingUserId}
           />
           {selectedNode && (
             <Card title={`Payments held · ${selectedNode.name}`}>

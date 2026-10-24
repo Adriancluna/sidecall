@@ -8,15 +8,13 @@ import { Card, Empty } from "../panels/ui";
 export function EvidencePanel({
   exposureId,
   companyName,
-  actingUserId,
 }: {
   exposureId?: Id<"exposures">;
   companyName?: string;
-  actingUserId: Id<"users">;
 }) {
   const evidence = useQuery(
     api.blastRadius.getExposureEvidence,
-    exposureId ? { exposureId, actingUserId } : "skip",
+    exposureId ? { exposureId } : "skip",
   );
   if (!exposureId || !evidence) {
     return (
