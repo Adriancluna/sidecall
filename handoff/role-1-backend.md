@@ -76,6 +76,9 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 ## Status update (~2:45am): "What to check" (last backend feature before hardening)
 Team decision (Adrian): **no more new features**; focus on precision, the $480K moment, and the red-team finding. One gap closed: an exposed company's IT lead now gets a concrete check, not just "rotate and review". `getExposureEvidence().path.whatToCheck` / evidence kind `what_to_check` / `getWritingContext().companyAlerts[].whatToCheck`, e.g. "What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong." (Harborline, which gives admin access, gets "Ask Ironclad Managed IT to rotate the admin account it uses for you…"). 55 tests, rehearsal 25/25. From here Role 1 = demo hardening + support for the video.
 
+## → Omar (and everyone): what data Sidecall runs on, before we go "real data"
+`handoff/role-1-data-inventory.md`: every piece of mock data, where it lives, and options for real data, safest first. **Omar's Claude: please answer the 3 questions there and add your notes at the bottom.** Correction to our pitch: the DNS text on the demo companies' links comes from *simulated* records; only `data/dns_findings.json` (10 real domains) is a live scan.
+
 ## → Marco: Devpost "About the project" draft is ready
 `handoff/role-1-devpost-about.md` (Adrian asked me to send it to you). Paste-ready, ~1,000 words, follows the winning Cal Hacks pattern. Updates vs `docs/devpost.md`: red-team finding + "What to check", response playbook, dashboards, 66 tests, "ingest findings" moved from What's next to built, drops "every sister company is exposed". Elevator pitch (36-char field): **"Shared vendor hit? Warn the rest."** **Hold off on screenshots** until the UI settles (Adrian's call).
 
