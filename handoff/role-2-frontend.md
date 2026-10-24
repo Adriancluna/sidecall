@@ -11,11 +11,10 @@ Last updated: Oct 23, 19:43 by Marco's Claude
 - Company view: alerts (Acknowledge + Close), held payment cards (release/reject, refusals inline, audit log with who + incident), ledger (cash + AP).
 - PE view: headline, blast radius + evidence, selected company's held payments, tailored alerts list, all held payments (read-only), vendor letter.
 - Demo controls: Fire incident / Replay webhook (`POST /incident`). Reset only on `/?stage`; after Reset everyone is signed out and lands on the sign-in screen.
-- ✓ Live on https://sidecall.vercel.app (before login): $480K held + flagged, PE headline 3 · 4,200 · $612,000.
+- ✓ **Live re-test with `REQUIRE_SESSION=true` on prod:** signed in as Jamie, $480K held + old → new flag, release refused ("The person who requested a payment cannot also approve it."); switched to Jordan: "3 companies exposed · 4,200 people behind them · $612,000 in payments held"; Replay → duplicate, nothing new written; a direct query with only `actingUserId` and no session → "Not signed in". Controller release not re-run on prod (tested on dev) to keep the demo data clean.
 
 ## In progress
-1. Re-test the full flow on prod with `REQUIRE_SESSION=true` (flip seen on prod).
-2. Then: scorecard panel (when Role 4's `data/scorecard.json` exists), demo script, Devpost, backup video.
+1. Next: scorecard panel (when Role 4's `data/scorecard.json` exists), demo script, Devpost, backup video.
 
 ## Needs from others
 - → Role 1: `actingUserId` is gone from `src/` once this PR merges; safe to drop it from the API after that.
