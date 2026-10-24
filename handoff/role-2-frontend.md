@@ -50,7 +50,7 @@ Last updated: Oct 24, 04:00 by Marco's Claude
 - ✓ **Live-site run-through after #80** (Reset first, left clean): every beat passed, incl. AP import (4 · 4,650 · $716,400) and Proof listing AI under Real. One regression fixed here: the released $480K chip said "Paid" after #80; now "Released" when the payment went through a hold, "Paid" only without one (card, PE list and bills list).
 
 ## In progress
-1. Devpost and demo video (top priority per #76). Recording waits for Marco's go.
+1. Devpost: final draft in `docs/devpost.md` (paste-ready; one `[map]` line to re-check). Demo video waits for Marco's go.
 2. MCP Task 8 (agent clip): on hold until we record.
 3. Live-site run-through after this merges.
 
