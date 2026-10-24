@@ -11,7 +11,7 @@ import { dateTime, humanize, money } from "./format";
 import { actionLabel, paymentLook, ruleLabel } from "./labels";
 import type { HeldPaymentRow } from "./types";
 import { LookChip } from "./ui";
-import { BUTTON_PRIMARY, BUTTON_PRIMARY_LG, BUTTON_SECONDARY, BUTTON_SECONDARY_LG } from "./styles";
+import { BUTTON_PRIMARY, BUTTON_PRIMARY_LG, BUTTON_SECONDARY, BUTTON_SECONDARY_LG, FIELD } from "./styles";
 import { dueIn, usePaymentDecision, type Viewer } from "./usePaymentDecision";
 
 type Decision = ReturnType<typeof usePaymentDecision>;
@@ -226,7 +226,7 @@ export function DecisionForm({
         onChange={(e) => setNote(e.target.value)}
         rows={large ? 3 : 2}
         placeholder="e.g. Called the number on file, spoke to …"
-        className="w-full resize-y rounded-chip border border-line bg-graphite px-3 py-2 text-sm leading-relaxed placeholder:text-ash/70 hover:border-ash/60 focus:border-ash"
+        className={`w-full resize-y leading-relaxed ${FIELD}`}
       />
       <div className="flex flex-wrap gap-2">
         <button

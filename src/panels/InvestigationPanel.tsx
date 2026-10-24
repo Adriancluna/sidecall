@@ -59,6 +59,8 @@ export function InvestigationPanel({ firm = false }: { firm?: boolean }) {
           Invoice / email text
           <textarea
             className={`${FIELD} mt-2 min-h-48 w-full`}
+            name="sourceText"
+            autoComplete="off"
             maxLength={32000}
             value={sourceText}
             onChange={(e) => setSourceText(e.target.value)}
@@ -201,7 +203,7 @@ export function ResponseSafetyPanel() {
       </p>
       <ul className="space-y-4">
         {reports?.map((r) => (
-          <li key={r.incidentId} className="rounded-lg border border-line p-4">
+          <li key={r.incidentId} className="rounded-tile border border-line bg-panel p-4">
             <p className="font-semibold">{r.assetName}</p>
             <p className="mt-1 text-sm">
               {r.responseClass === "observation"
@@ -246,7 +248,9 @@ export function ResponseSafetyPanel() {
                   <label className="block text-sm">
                     Independent evidence checked
                     <textarea
-                    className={`${FIELD} mt-1 w-full`}
+                      name="evidenceNote"
+                      autoComplete="off"
+                      className={`${FIELD} mt-1 w-full`}
                     value={notes[r.incidentId] ?? ""}
                     onChange={(e) =>
                       setNotes({ ...notes, [r.incidentId]: e.target.value })

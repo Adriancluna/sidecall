@@ -47,7 +47,7 @@ export function PlanSteps({ incidentId }: { incidentId: Id<"incidents"> }) {
   };
 
   return (
-    <div className="mt-6 rounded-xl border border-line bg-graphite p-4">
+    <div className="mt-6 rounded-tile border border-line bg-panel p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-sm font-medium">Your pre-approved steps</h2>
         <span className="text-xs text-ash">From your company's response playbook</span>

@@ -502,10 +502,10 @@ function PortfolioHero({
           : "no payments held"}
       </h1>
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-12">
+      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] lg:gap-10">
         <div className="min-w-0">
           {/* The zoom-out line as three metric blocks in one card, label over figure. */}
-          <div aria-hidden className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1.5fr)] divide-x divide-line rounded-tile border border-line bg-panel">
+          <div aria-hidden className="grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.1fr)_minmax(0,1.45fr)] divide-x divide-line rounded-tile border border-line bg-panel">
             <Stat
               value={String(totals.companiesExposed)}
               label={
@@ -683,7 +683,7 @@ function Stat({
   tone?: string;
 }) {
   return (
-    <div className="min-w-0 px-4 py-3.5">
+    <div className="min-w-0 px-3 py-3">
       <span className="block text-sm text-[#7d7d7d]">{label}</span>
       <span
         className={`mt-1 block text-[clamp(1.25rem,0.9rem+0.9vw,1.75rem)] whitespace-nowrap leading-tight font-semibold tracking-[-0.04em] tabular-nums ${tone}`}

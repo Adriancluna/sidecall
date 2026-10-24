@@ -76,7 +76,15 @@ optgroup {
   color: var(--color-paper);
 }
 
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
 body {
+  font-variant-numeric: tabular-nums;
+  accent-color: var(--color-link);
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   background: var(--color-graphite);
