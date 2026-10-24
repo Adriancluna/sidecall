@@ -27,7 +27,7 @@ export function UserMenu({ me }: { me: CurrentUser }) {
           Signed in as
         </span>
         <select
-          className="w-full max-w-72 min-w-0 rounded-md border border-line bg-panel px-2 py-1.5 text-paper"
+          className="w-full max-w-sm min-w-0 rounded-md border border-line bg-panel px-2 py-1.5 text-paper"
           value={me.email ?? ""}
           disabled={busy}
           onChange={(e) => void switchTo(e.target.value)}
