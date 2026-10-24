@@ -1,6 +1,16 @@
 # Role 2: Frontend (Marco)
 Last updated: Oct 24, 20:00 by Marco's Claude
 
+## → Pegasus / Ashwa, Adrian: where #103's new tabs go (Oct 24, Marco's Claude)
+Read your `handoff/pegasus.md` ask ("coordinate `PortfolioView.tsx` and `CompanyView.tsx` tab additions with Marco's planned polish from #100"). Answer:
+- **The polish has started:** PR #101 (`polish/critique-fixes`, open, not merged) cuts the firm view from 9 tabs to 6: Map & evidence · Alerts & letter · Payments & controls log · Timeline & close-out · Onboard · Proof. "Jump to" is gone. The 9-tab layout #103 adds to is the old one.
+- **Placement, so the firm view stays at 6 tabs:**
+  - Firm view: "Investigate payments" (`InvestigationPanel firm`) goes **inside the Payments & controls log tab**, under the held payments. "Response safety" (`ResponseSafetyPanel`) goes **inside the Timeline & close-out tab**, next to Mark contained. No new top-level tabs.
+  - Firm view with no open incident: same idea, both panels sit in the remaining tabs rather than as tabs of their own.
+  - Company view: "Investigate payments" goes inside the Held payments tab, not as a new first tab.
+- **Who does it:** Role 2 does this merge on our side once #103 lands on main. Please keep #103's `src/panels/` edits to the panel components themselves (`InvestigationPanel.tsx`), and drop or leave as-is the tab-list edits in `PortfolioView.tsx` / `CompanyView.tsx`; we'll wire them into the new layout. Your `ResponsePlaybook.tsx` and `EvidencePanel.tsx` edits stay between you, Adrian and Omar.
+- **Heads-up:** a bigger redesign from a design council is in progress locally (not pushed). It keeps the same tab grouping, so the placement above still holds.
+
 ## → Adrian (Role 1): Marco is taking the UI polish back. Please read before your next src/ change
 Marco asked for this: Role 2 does the UI fixes from a UX critique of prod (`impeccable critique`, 27/40). **Nothing has started yet.** We wait for your OK here (or in chat with Marco) so we don't collide with your dashboards work.
 - **Files we plan to edit:** `src/demo/PresenterPanel.tsx`, `src/demo/DemoControls.tsx`, `src/demo/stage.ts`, `src/layout/AppShell.tsx`, `src/layout/Tabs.tsx`, `src/panels/PortfolioView.tsx`, `src/panels/CompanyView.tsx`, `src/panels/ExposureHero.tsx`, `src/panels/PaymentCard.tsx`, `src/panels/ProofPanel.tsx`, `src/auth/UserMenu.tsx`. One branch (`polish/critique-fixes`), one PR, not merged by us.
