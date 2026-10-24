@@ -1,10 +1,11 @@
 // Demo portfolio. Everything here is simulated. Re-runnable: clears every table first.
 //   npx convex run seed:run
+//   UI: api.seed.resetDemo (needs DEMO_MODE=true on the deployment)
 //   npx convex run seed:fireDemoIncident '{"scenario":"brightline"}'
 //
 // The planted cases (seedRef) are listed in data/answer_key.json, which nothing in convex/ reads.
-import { v } from "convex/values";
-import { internalMutation } from "./_generated/server";
+import { ConvexError, v } from "convex/values";
+import { env, internalMutation, mutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id, TableNames } from "./_generated/dataModel";
 import { recordIncidentImpl } from "./incidents";
@@ -152,107 +153,121 @@ async function clearAll(ctx: MutationCtx) {
   }
 }
 
+async function seedAll(ctx: MutationCtx) {
+  await clearAll(ctx);
+  const now = Date.now();
+
+  const companyIds = {} as Record<CompanyKey, Id<"companies">>;
+  for (const [key, company] of Object.entries(COMPANIES) as [CompanyKey, (typeof COMPANIES)[CompanyKey]][]) {
+    companyIds[key] = await ctx.db.insert("companies", company);
+    await ctx.db.insert("ledgerEntries", {
+      companyId: companyIds[key],
+      date: now - 180 * DAY,
+      memo: "Opening balance",
+      lines: [
+        { account: "cash", debitCents: OPENING_CASH, creditCents: 0 },
+        { account: "equity", debitCents: 0, creditCents: OPENING_CASH },
+      ],
+    });
+  }
+
+  const assetIds = {} as Record<AssetKey, Id<"assets">>;
+  for (const [key, asset] of Object.entries(ASSETS) as [AssetKey, (typeof ASSETS)[AssetKey]][]) {
+    assetIds[key] = await ctx.db.insert("assets", asset);
+  }
+
+  for (const [company, asset, shareType, source] of LINKS) {
+    await ctx.db.insert("links", { companyId: companyIds[company], assetId: assetIds[asset], shareType, source });
+  }
+
+  const clerkIds = {} as Record<CompanyKey, Id<"users">>;
+  for (const [key, people] of Object.entries(USERS) as [CompanyKey, (typeof USERS)[CompanyKey]][]) {
+    clerkIds[key] = await ctx.db.insert("users", { companyId: companyIds[key], name: people.clerk, role: "ap_clerk" });
+    await ctx.db.insert("users", { companyId: companyIds[key], name: people.controller, role: "controller" });
+    if (people.it) await ctx.db.insert("users", { companyId: companyIds[key], name: people.it, role: "it" });
+  }
+  await ctx.db.insert("users", { name: "Jordan Ames (Northpass Capital)", role: "pe_partner" });
+
+  for (const change of BANK_CHANGES) {
+    await ctx.db.insert("bankDetailChanges", {
+      assetId: assetIds[change.asset],
+      changedAt: now - change.daysAgo * DAY,
+      accountLast4: change.last4,
+      requestChannel: change.channel,
+      seedRef: change.ref,
+    });
+  }
+
+  for (const p of PAYMENTS) {
+    const amountCents = usd(p.dollars);
+    const companyId = companyIds[p.company];
+    const booked = now - (p.status === "paid" ? 35 : 6) * DAY;
+    const billId = await ctx.db.insert("bills", {
+      companyId,
+      assetId: assetIds[p.asset],
+      amountCents,
+      dueDate: p.status === "paid" ? now - 30 * DAY : now + 3 * DAY,
+      description: p.description,
+    });
+    await ctx.db.insert("ledgerEntries", {
+      companyId,
+      date: booked,
+      memo: `Bill booked: ${ASSETS[p.asset].vendorName}, ${p.description}`,
+      billId,
+      lines: [
+        { account: "expense", debitCents: amountCents, creditCents: 0 },
+        { account: "accounts_payable", debitCents: 0, creditCents: amountCents },
+      ],
+    });
+    const paymentId = await ctx.db.insert("payments", {
+      billId,
+      companyId,
+      assetId: assetIds[p.asset],
+      amountCents,
+      accountLast4: p.last4,
+      status: p.status,
+      requestedBy: clerkIds[p.company],
+      seedRef: p.ref,
+      decidedAt: p.status === "paid" ? now - 30 * DAY : undefined,
+    });
+    if (p.status === "paid") {
+      await ctx.db.insert("ledgerEntries", {
+        companyId,
+        date: now - 30 * DAY,
+        memo: `Payment: ${ASSETS[p.asset].vendorName}, ${p.description}`,
+        paymentId,
+        billId,
+        lines: [
+          { account: "accounts_payable", debitCents: amountCents, creditCents: 0 },
+          { account: "cash", debitCents: 0, creditCents: amountCents },
+        ],
+      });
+    }
+  }
+
+  return {
+    companies: Object.keys(COMPANIES).length,
+    assets: Object.keys(ASSETS).length,
+    links: LINKS.length,
+    payments: PAYMENTS.length,
+    bankChanges: BANK_CHANGES.length,
+  };
+}
+
 export const run = internalMutation({
   args: {},
+  handler: async (ctx) => await seedAll(ctx),
+});
+
+// "Reset demo" button. Wipes and reseeds, so it only works where DEMO_MODE=true is set
+// on the deployment (`npx convex env set DEMO_MODE true`). Never set it on a real deployment.
+export const resetDemo = mutation({
+  args: {},
   handler: async (ctx) => {
-    await clearAll(ctx);
-    const now = Date.now();
-
-    const companyIds = {} as Record<CompanyKey, Id<"companies">>;
-    for (const [key, company] of Object.entries(COMPANIES) as [CompanyKey, (typeof COMPANIES)[CompanyKey]][]) {
-      companyIds[key] = await ctx.db.insert("companies", company);
-      await ctx.db.insert("ledgerEntries", {
-        companyId: companyIds[key],
-        date: now - 180 * DAY,
-        memo: "Opening balance",
-        lines: [
-          { account: "cash", debitCents: OPENING_CASH, creditCents: 0 },
-          { account: "equity", debitCents: 0, creditCents: OPENING_CASH },
-        ],
-      });
+    if (env.DEMO_MODE !== "true") {
+      throw new ConvexError("Demo reset is disabled on this deployment (DEMO_MODE is not true).");
     }
-
-    const assetIds = {} as Record<AssetKey, Id<"assets">>;
-    for (const [key, asset] of Object.entries(ASSETS) as [AssetKey, (typeof ASSETS)[AssetKey]][]) {
-      assetIds[key] = await ctx.db.insert("assets", asset);
-    }
-
-    for (const [company, asset, shareType, source] of LINKS) {
-      await ctx.db.insert("links", { companyId: companyIds[company], assetId: assetIds[asset], shareType, source });
-    }
-
-    const clerkIds = {} as Record<CompanyKey, Id<"users">>;
-    for (const [key, people] of Object.entries(USERS) as [CompanyKey, (typeof USERS)[CompanyKey]][]) {
-      clerkIds[key] = await ctx.db.insert("users", { companyId: companyIds[key], name: people.clerk, role: "ap_clerk" });
-      await ctx.db.insert("users", { companyId: companyIds[key], name: people.controller, role: "controller" });
-      if (people.it) await ctx.db.insert("users", { companyId: companyIds[key], name: people.it, role: "it" });
-    }
-    await ctx.db.insert("users", { name: "Jordan Ames (Northpass Capital)", role: "pe_partner" });
-
-    for (const change of BANK_CHANGES) {
-      await ctx.db.insert("bankDetailChanges", {
-        assetId: assetIds[change.asset],
-        changedAt: now - change.daysAgo * DAY,
-        accountLast4: change.last4,
-        requestChannel: change.channel,
-        seedRef: change.ref,
-      });
-    }
-
-    for (const p of PAYMENTS) {
-      const amountCents = usd(p.dollars);
-      const companyId = companyIds[p.company];
-      const booked = now - (p.status === "paid" ? 35 : 6) * DAY;
-      const billId = await ctx.db.insert("bills", {
-        companyId,
-        assetId: assetIds[p.asset],
-        amountCents,
-        dueDate: p.status === "paid" ? now - 30 * DAY : now + 3 * DAY,
-        description: p.description,
-      });
-      await ctx.db.insert("ledgerEntries", {
-        companyId,
-        date: booked,
-        memo: `Bill booked: ${ASSETS[p.asset].vendorName}, ${p.description}`,
-        billId,
-        lines: [
-          { account: "expense", debitCents: amountCents, creditCents: 0 },
-          { account: "accounts_payable", debitCents: 0, creditCents: amountCents },
-        ],
-      });
-      const paymentId = await ctx.db.insert("payments", {
-        billId,
-        companyId,
-        assetId: assetIds[p.asset],
-        amountCents,
-        accountLast4: p.last4,
-        status: p.status,
-        requestedBy: clerkIds[p.company],
-        seedRef: p.ref,
-        decidedAt: p.status === "paid" ? now - 30 * DAY : undefined,
-      });
-      if (p.status === "paid") {
-        await ctx.db.insert("ledgerEntries", {
-          companyId,
-          date: now - 30 * DAY,
-          memo: `Payment: ${ASSETS[p.asset].vendorName}, ${p.description}`,
-          paymentId,
-          billId,
-          lines: [
-            { account: "accounts_payable", debitCents: amountCents, creditCents: 0 },
-            { account: "cash", debitCents: 0, creditCents: amountCents },
-          ],
-        });
-      }
-    }
-
-    return {
-      companies: Object.keys(COMPANIES).length,
-      assets: Object.keys(ASSETS).length,
-      links: LINKS.length,
-      payments: PAYMENTS.length,
-      bankChanges: BANK_CHANGES.length,
-    };
+    return await seedAll(ctx);
   },
 });
 

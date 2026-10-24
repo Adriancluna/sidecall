@@ -7,7 +7,7 @@ If this conflicts with your role file on *what* to build, ask your human. On *wh
 
 | Role | Person | Owns |
 |---|---|---|
-| 1 Backend | Adrian | `convex/schema.ts`, `seed.ts`, `incidents.ts`, `blastRadius.ts`, `alerts.ts`, `payments.ts`, `scoring.ts`, `http.ts`, `data/answer_key.json`, `CONTRACT.md`, `CLAUDE.md` |
+| 1 Backend | Adrian | `convex/schema.ts`, `convex.config.ts`, `access.ts`, `seed.ts`, `incidents.ts`, `blastRadius.ts`, `alerts.ts`, `payments.ts`, `scoring.ts`, `http.ts`, `data/answer_key.json`, `CONTRACT.md`, `CLAUDE.md` |
 | 2 Frontend | Marco | `src/App.tsx`, `src/main.tsx`, `src/layout/`, `src/panels/`, `src/demo/`, `src/auth/`, styles |
 | 3 Map + evidence | Waterloo #1 | `src/map/` |
 | 4 AI + scorecard + DNS | Waterloo #2 | `convex/ai.ts`, `prompts/`, `scripts/dns/`, `scripts/scorecard/`, `data/dns_links.json`, `data/scorecard.json` |

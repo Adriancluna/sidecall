@@ -7,6 +7,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { holdPaymentsForIncident } from "./payments";
 import { scoreExposure } from "./scoring";
+import { getViewer } from "./access";
 
 export type RecordIncidentResult =
   | { ok: true; incidentId: Id<"incidents">; duplicate: boolean }
@@ -137,27 +138,45 @@ export const recordIncident = internalMutation({
   },
 });
 
-type StatusChange = { ok: true } | { ok: false; reason: "not_found" | "already_acknowledged" | "closed" };
+type StatusChange =
+  | { ok: true }
+  | { ok: false; reason: "not_found" | "not_your_company" | "already_acknowledged" | "closed" };
+
+// Only someone at the exposed company acts on its exposure. The PE firm watches.
+async function loadOwnExposure(
+  ctx: MutationCtx,
+  exposureId: Id<"exposures">,
+  actingUserId: Id<"users">,
+): Promise<Doc<"exposures"> | "not_found" | "not_your_company"> {
+  const viewer = await getViewer(ctx, actingUserId);
+  const exposure = await ctx.db.get("exposures", exposureId);
+  if (!exposure) return "not_found";
+  if (viewer.firm || viewer.companyId !== exposure.companyId) return "not_your_company";
+  return exposure;
+}
 
 // Two browsers clicking at once: Convex serializes the transactions, the second
 // one re-reads "acknowledged" and returns ok: false. Exactly one wins.
 export const acknowledgeExposure = mutation({
-  args: { exposureId: v.id("exposures") },
+  args: { exposureId: v.id("exposures"), actingUserId: v.id("users") },
   handler: async (ctx, args): Promise<StatusChange> => {
-    const exposure = await ctx.db.get("exposures", args.exposureId);
-    if (!exposure) return { ok: false, reason: "not_found" };
+    const exposure = await loadOwnExposure(ctx, args.exposureId, args.actingUserId);
+    if (typeof exposure === "string") return { ok: false, reason: exposure };
     if (exposure.status === "acknowledged") return { ok: false, reason: "already_acknowledged" };
     if (exposure.status === "closed") return { ok: false, reason: "closed" };
-    await ctx.db.patch("exposures", exposure._id, { status: "acknowledged" });
+    await ctx.db.patch("exposures", exposure._id, {
+      status: "acknowledged",
+      acknowledgedBy: args.actingUserId,
+    });
     return { ok: true };
   },
 });
 
 export const closeExposure = mutation({
-  args: { exposureId: v.id("exposures") },
+  args: { exposureId: v.id("exposures"), actingUserId: v.id("users") },
   handler: async (ctx, args): Promise<StatusChange> => {
-    const exposure = await ctx.db.get("exposures", args.exposureId);
-    if (!exposure) return { ok: false, reason: "not_found" };
+    const exposure = await loadOwnExposure(ctx, args.exposureId, args.actingUserId);
+    if (typeof exposure === "string") return { ok: false, reason: exposure };
     if (exposure.status === "closed") return { ok: false, reason: "closed" };
     await ctx.db.patch("exposures", exposure._id, { status: "closed" });
     return { ok: true };

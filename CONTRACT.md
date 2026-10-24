@@ -22,7 +22,7 @@ links:     { companyId, assetId,
 
 incidents: { externalId, assetId, reportedByCompanyId?, summary?, createdAt }
 
-exposures: { incidentId, companyId, status: "open" | "acknowledged" | "closed",
+exposures: { incidentId, companyId, status: "open" | "acknowledged" | "closed", acknowledgedBy?,
              urgency: "urgent" | "advisory",
              score,                              // 0..100
              confidence,                         // 0..1
@@ -85,10 +85,18 @@ All money is integer cents. All times are ms since epoch.
 
 Module prefix in brackets: `api.blastRadius.listIncidents`, etc. `null` means "none" (Convex has no `undefined`).
 
-```ts
-[blastRadius] listIncidents() -> (Incident & { assetName, vendorName })[]   // newest first
+**Every query and mutation takes `actingUserId`** (the demo user switcher's current user; pick from `listUsers`). The backend scopes to that viewer:
+- `pe_partner` (Jordan Ames, Northpass Capital) = PE firm view: sees every company, the map and who reported. Cannot acknowledge or release.
+- Anyone else sees only their own company. Passing another company's id returns your own data (or nothing), never theirs.
+- Once login lands, `actingUserId` comes from the session instead; the backend helper (`convex/access.ts`) is the only place that changes.
 
-[blastRadius] getBlastRadius({ incidentId }) -> null | {      // PE firm view only
+```ts
+[blastRadius] listIncidents({ actingUserId }) -> { _id, externalId, assetId, createdAt, assetName, vendorName,
+                                                  reportedByCompanyId | null, summary | null }[]
+                                                // firm: all, newest first. company: only incidents that touch it,
+                                                // reportedByCompanyId and summary always null
+
+[blastRadius] getBlastRadius({ incidentId, actingUserId }) -> null | {   // PE firm only; null for company users
   incident: Incident & { reportedByName: string | null },
   asset,
   nodes: { companyId, name, headcount, exposed,
@@ -99,31 +107,35 @@ Module prefix in brackets: `api.blastRadius.listIncidents`, etc. `null` means "n
   totals: { companiesExposed, peopleExposed, heldCents, paymentsHeld }
 }
 
-[blastRadius] getExposureEvidence({ exposureId }) -> null | { reasons, confidence, evidence, urgency, score, status }
-[blastRadius] listCompanies() · listUsers({ companyId? }) · listAssets()   // pickers / demo user switcher
+[blastRadius] getExposureEvidence({ exposureId, actingUserId }) -> null | { exposureId, incidentId, companyId,
+                                       reasons, confidence, evidence, urgency, score, status, acknowledgedBy | null }
+[blastRadius] getMyExposures({ actingUserId }) -> Exposure[]       // company user's home screen; [] for the firm
+[blastRadius] listCompanies() · listUsers({ companyId? }) · listAssets()   // pickers / demo user switcher (no actingUserId)
 
-[payments] getHeldPayments({ incidentId?, companyId? }) -> {   // every payment the incident held, incl. later paid/rejected
+[payments] getHeldPayments({ actingUserId, incidentId?, companyId? }) -> {   // every payment the incident held, incl. later paid/rejected
+                                                                         // companyId is a firm-only filter
   payment, companyName, vendorName, phoneOnFile,
   bankChange: null | { changedAt, accountLast4, requestChannel, daysBeforeIncident },
   holdReasons, notice: string | null
 }[]
 
-[payments] getPaymentAudit({ paymentId }) -> AuditLog[]
+[payments] getPaymentAudit({ paymentId, actingUserId }) -> AuditLog[]
 
-[payments] getLedger({ companyId }) -> {
+[payments] getLedger({ actingUserId, companyId? }) -> null | {      // company users: own ledger; firm: pass companyId
   entries: LedgerEntry[],                                    // newest first
   balances: { cash, accounts_payable, expense, equity }      // cents, natural sign
 }
 
 [alerts] getMyAlerts({ actingUserId }) -> Alert[]            // only that user's company
-[alerts] getIncidentAlerts({ incidentId }) -> Alert[]        // PE view, includes vendor_letter
+[alerts] getIncidentAlerts({ incidentId, actingUserId }) -> Alert[]   // PE firm only, includes vendor_letter
 ```
 
 ## Mutations (UI)
 
 ```ts
-[incidents] acknowledgeExposure({ exposureId }) -> { ok: true } | { ok: false, reason: "not_found" | "already_acknowledged" | "closed" }
-[incidents] closeExposure({ exposureId })       -> same shape
+[incidents] acknowledgeExposure({ exposureId, actingUserId }) -> { ok: true } | { ok: false, reason: "not_found" | "not_your_company" | "already_acknowledged" | "closed" }
+[incidents] closeExposure({ exposureId, actingUserId })       -> same shape
+[seed]      resetDemo({}) -> counts                          // "Reset demo" button; throws unless DEMO_MODE=true on the deployment
 
 [payments] releasePayment({ paymentId, actingUserId, verificationNote }) -> { ok: true } | { ok: false, reason: string }
 [payments] rejectPayment({ paymentId, actingUserId, note? })             -> same shape
@@ -158,6 +170,7 @@ internal.scoring.exportOutcomes({ externalId }) -> { incidentId, payments: { see
 ## Demo data commands
 
 ```
+npx convex env set DEMO_MODE true                                  # once per dev deployment, enables resetDemo
 npx convex run seed:run                                            # wipe + reseed
 npx convex run seed:fireDemoIncident '{"scenario":"brightline"}'   # the main demo (also: ironcladCredential, ironcladMsp)
 curl -X POST https://<deployment>.convex.site/incident -H 'Content-Type: application/json' \
