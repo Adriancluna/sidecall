@@ -27,7 +27,7 @@ type Beat = { title: string; say: string; as: Person; tip?: string };
 const BEATS: Beat[] = [
   {
     title: "The portfolio",
-    say: "A PE firm owns 8 companies. Several share a payroll vendor and an IT contractor, and nobody connects the dots.",
+    say: "A PE firm owns 14 companies. Several share a payroll vendor and an IT contractor, and nobody connects the dots.",
     as: JAMIE,
     tip: "Reset first so the bank-change dates are fresh.",
   },
