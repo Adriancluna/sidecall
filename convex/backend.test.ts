@@ -478,6 +478,53 @@ describe("AP import", () => {
   });
 });
 
+describe("notification sender (NOTIFY_LIVE)", () => {
+  /* eslint-disable @convex-dev/no-process-env */
+  afterEach(() => {
+    delete process.env.NOTIFY_LIVE;
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  async function fireLive(respond: (url: string) => Response) {
+    vi.useFakeTimers();
+    process.env.NOTIFY_LIVE = "true";
+    const calls: { url: string; body: unknown }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: { body: string }) => {
+        calls.push({ url, body: JSON.parse(init.body) });
+        return respond(url);
+      }),
+    );
+    const s = await seeded();
+    await s.fire();
+    await s.t.finishAllScheduledFunctions(vi.runAllTimers);
+    const rows = await s.t.run((ctx) => ctx.db.query("notifications").take(50));
+    return { ...s, calls, rows };
+  }
+
+  test("live: Slack gets { text } and every row ends sent", async () => {
+    const { calls, rows } = await fireLive(() => new Response("ok", { status: 200 }));
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((r) => r.status === "sent" && r.sentAt !== undefined)).toBe(true);
+    expect(calls.every((c) => c.url.startsWith("https://hooks.slack.com/services/"))).toBe(true);
+    expect(calls.every((c) => typeof (c.body as { text: unknown }).text === "string")).toBe(true);
+  });
+
+  test("live: a 5xx is retried once then marked failed; a 4xx isn't retried; the URL never leaks", async () => {
+    const server = await fireLive(() => new Response("down", { status: 503 }));
+    expect(server.rows.every((r) => r.status === "failed" && r.error === "HTTP 503")).toBe(true);
+    expect(server.calls.length).toBe(server.rows.length * 2); // one retry each
+
+    vi.unstubAllGlobals();
+    const bad = await fireLive(() => new Response("gone", { status: 404 }));
+    expect(bad.calls.length).toBe(bad.rows.length); // no retry
+    for (const r of bad.rows) expect(r.error).not.toContain("hooks.slack.com");
+  });
+  /* eslint-enable @convex-dev/no-process-env */
+});
+
 describe("demo readiness", () => {
   test("fresh seed is ready; after firing it says to Reset", async () => {
     const { t, fire } = await seeded();

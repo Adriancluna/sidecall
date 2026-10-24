@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 24, 02:10 by Adrian's Claude
+Last updated: Oct 24, 02:20 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -49,6 +49,9 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 - **Marco (Role 2):** `src/` except the map, plus `docs/`: **demo video + Devpost are the top priority**, then the MCP clip and UI polish.
 - **Omar (Roles 3 + 4):** **the node-graph map** (`src/map/`, plan in `docs/specs/blast-radius-map-plan.md`) + his AI/scorecard/DNS files.
 - **Everyone optimizes their own code before adding more** (Role 1 already did: #75).
+
+## Status update (02:20)
+- **`convex/notify.ts` real sending done** (now Role 1's): Slack/Discord/generic webhook, 5 s timeout, one retry on 5xx/429/network, never throws, `sent`/`failed` with a URL-free error. Off by default (`simulated`). 45 tests (2 new with a stubbed `fetch`); rehearsal 25/25. ✓ closes Role 2's and Role 4's notify asks. Video recipe in CONTRACT.md → "Notifications".
 
 ## Needs from others
 - → **Role 2 (Marco): optimize first, then pitch.** (1) Run `/simplify` on your `src/` files (not `src/map/`, that's Omar's now) and `PRODUCT.md`-level duplication; behavior unchanged, `npm run build` + `npm run rehearse` green; one PR. (2) Then the **video and Devpost** (they decide judging; numbers are in `docs/devpost.md` and `data/scorecard.json`). (3) MCP clip, then remaining audit polish. Hand the map placeholder to Omar: don't edit `src/map/` from here on.
