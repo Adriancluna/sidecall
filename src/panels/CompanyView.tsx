@@ -8,6 +8,7 @@ import { AcknowledgedBy } from "./AcknowledgedBy";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
 import { LedgerPanel } from "./LedgerPanel";
+import { TimelinePanel } from "./TimelinePanel";
 import { Card, Chip, Empty } from "./ui";
 
 type Props = { companyId: Id<"companies"> };
@@ -18,6 +19,14 @@ export function CompanyView({ companyId }: Props) {
   );
   const exposures = useQuery(api.blastRadius.getMyExposures, {});
   const alerts = useQuery(api.alerts.getMyAlerts, {});
+  // Undecided holds near their due date (Role 1's escalation), keyed by payment.
+  const escalations = new Map(
+    (alerts ?? []).flatMap((a) =>
+      a.kind === "escalation" && a.paymentId
+        ? [[a.paymentId, a.body] as const]
+        : [],
+    ),
+  );
   const held = useQuery(api.payments.getHeldPayments, {});
   const latestIncident = useQuery(api.blastRadius.listIncidents, {})?.[0];
 
@@ -60,9 +69,12 @@ export function CompanyView({ companyId }: Props) {
         <HeldPaymentsPanel
           title="Payments held until verified"
           rows={held}
+          escalations={escalations}
           canDecide
         />
       )}
+
+      {latestIncident && <TimelinePanel incidentId={latestIncident._id} />}
 
       {latestIncident && (
         <ControlsLogPanel
