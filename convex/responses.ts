@@ -251,8 +251,11 @@ export async function expireWaitingSteps(ctx: MutationCtx, incidentId: Id<"incid
 // Turning a step down takes one person. Turning it up to "act" takes two different people: the
 // first call proposes, a second person at the same company confirms (like requester ≠ approver).
 // Holds keep their existing single controller switch (companies.holdRuleEnabled).
+// Raising a step to "act" needs a written reason from both people; it's stored and audited.
+const MIN_REASON = 20;
+const MAX_REASON = 500;
 export const setPlaybookMode = mutation({
-  args: { action: playbookAction, mode: responseMode },
+  args: { action: playbookAction, mode: responseMode, note: v.optional(v.string()) },
   returns: v.union(
     v.object({ ok: v.literal(true), applied: v.boolean(), awaitingSecondPerson: v.boolean() }),
     v.object({ ok: v.literal(false), reason: v.string() }),
@@ -288,16 +291,30 @@ export const setPlaybookMode = mutation({
     const policy = await policyFor(ctx, viewer.companyId, action);
     const current: ResponseMode = policy?.mode ?? "notify";
     const version = (policy?.version ?? 0) + 1;
-    const apply = async (setBy: Id<"users">, confirmedBy?: Id<"users">) => {
+    const note = args.note?.trim() || undefined;
+    if (note && note.length > MAX_REASON) return { ok: false as const, reason: `Keep the reason under ${MAX_REASON} characters.` };
+    if (raisesMode(current, args.mode) && args.mode === "act" && (note?.length ?? 0) < MIN_REASON)
+      return {
+        ok: false as const,
+        reason:
+          policy?.proposedMode === "act" && policy.proposedBy !== viewer.user._id
+            ? "Write why you agree Sidecall may run this without asking (a sentence or more)."
+            : "Write why Sidecall may run this without asking first (a sentence or more).",
+      };
+    const quoted = note ? ` Reason: "${note}"` : "";
+    const apply = async (setBy: Id<"users">, reason: string | undefined, confirmedBy?: Id<"users">, confirmNote?: string) => {
       const fields = {
         mode: args.mode,
         version,
         setBy,
         confirmedBy,
         setAt: now,
+        reason,
+        confirmNote,
         proposedMode: undefined,
         proposedBy: undefined,
         proposedAt: undefined,
+        proposedReason: undefined,
       };
       if (policy) await ctx.db.patch("responsePolicies", policy._id, fields);
       else await ctx.db.insert("responsePolicies", { companyId: viewer.companyId, action, ...fields });
@@ -305,21 +322,27 @@ export const setPlaybookMode = mutation({
 
     if (!raisesMode(current, args.mode)) {
       if (args.mode === current && !policy?.proposedMode) return { ok: true as const, applied: false, awaitingSecondPerson: false };
-      await apply(viewer.user._id);
-      await log(`${viewer.user.name} set "${STEP_INFO[action].label}" to ${args.mode} (v${version}).`, `playbook:${action}:${args.mode}:v${version}`);
+      await apply(viewer.user._id, note);
+      await log(`${viewer.user.name} set "${STEP_INFO[action].label}" to ${args.mode} (v${version}).${quoted}`, `playbook:${action}:${args.mode}:v${version}`);
       return { ok: true as const, applied: true, awaitingSecondPerson: false };
     }
     // Raising: confirm someone else's matching proposal, or propose.
     if (policy?.proposedMode === args.mode && policy.proposedBy && policy.proposedBy !== viewer.user._id) {
       const proposer = await ctx.db.get("users", policy.proposedBy);
-      await apply(policy.proposedBy, viewer.user._id);
+      await apply(policy.proposedBy, policy.proposedReason, viewer.user._id, note);
       await log(
-        `${viewer.user.name} confirmed ${proposer?.name ?? "a teammate"}'s change: "${STEP_INFO[action].label}" is now ${args.mode} (v${version}).`,
+        `${viewer.user.name} confirmed ${proposer?.name ?? "a teammate"}'s change: "${STEP_INFO[action].label}" is now ${args.mode} (v${version}).${policy.proposedReason ? ` Reason: "${policy.proposedReason}"` : ""}${note ? ` Confirmed because: "${note}"` : ""}`,
         `playbook:${action}:${args.mode}:v${version}`,
       );
       return { ok: true as const, applied: true, awaitingSecondPerson: false };
     }
-    if (policy) await ctx.db.patch("responsePolicies", policy._id, { proposedMode: args.mode, proposedBy: viewer.user._id, proposedAt: now });
+    if (policy)
+      await ctx.db.patch("responsePolicies", policy._id, {
+        proposedMode: args.mode,
+        proposedBy: viewer.user._id,
+        proposedAt: now,
+        proposedReason: note,
+      });
     else
       await ctx.db.insert("responsePolicies", {
         companyId: viewer.companyId,
@@ -331,9 +354,10 @@ export const setPlaybookMode = mutation({
         proposedMode: args.mode,
         proposedBy: viewer.user._id,
         proposedAt: now,
+        proposedReason: note,
       });
     await log(
-      `${viewer.user.name} proposed "${STEP_INFO[action].label}" → ${args.mode}; a second person must confirm.`,
+      `${viewer.user.name} proposed "${STEP_INFO[action].label}" → ${args.mode}; a second person must confirm.${quoted}`,
       `playbook:${action}:proposed:${args.mode}`,
     );
     return { ok: true as const, applied: false, awaitingSecondPerson: true };
@@ -361,8 +385,11 @@ export const getMyPlaybook = query({
       setByName: string | null;
       confirmedByName: string | null;
       setAt: number | null;
+      reason: string | null;
+      confirmNote: string | null;
       proposedMode: ResponseMode | null;
       proposedByName: string | null;
+      proposedReason: string | null;
       canEdit: boolean;
     };
     const rows: Row[] = [
@@ -374,8 +401,11 @@ export const getMyPlaybook = query({
         setByName: null,
         confirmedByName: null,
         setAt: null,
+        reason: null,
+        confirmNote: null,
         proposedMode: null,
         proposedByName: null,
+        proposedReason: null,
         canEdit: viewer.user.role === "controller",
       },
     ];
@@ -389,8 +419,11 @@ export const getMyPlaybook = query({
         setByName: p && p.setBy !== "seed" ? await name(p.setBy) : null,
         confirmedByName: p?.confirmedBy ? await name(p.confirmedBy) : null,
         setAt: p?.setAt ?? null,
+        reason: p?.reason ?? null,
+        confirmNote: p?.confirmNote ?? null,
         proposedMode: p?.proposedMode ?? null,
         proposedByName: p?.proposedBy ? await name(p.proposedBy) : null,
+        proposedReason: p?.proposedReason ?? null,
         canEdit,
       });
     }
@@ -441,6 +474,9 @@ export const getMyResponsePlan = query({
         )
         .unique();
       const info = STEP_INFO[rule.action];
+      const policy = step?.mode === "act" ? await policyFor(ctx, viewer.companyId, rule.action) : null;
+      const approvalReason =
+        policy && step?.policyRule === `playbook:${rule.action}:act:v${policy.version}` ? (policy.reason ?? null) : null;
       plan.push({
         stepId: step?._id ?? null,
         action: rule.action,
@@ -453,6 +489,7 @@ export const getMyResponsePlan = query({
         capNote: step?.capNote ?? (rule.cap === "notify" ? (rule.capNote ?? null) : null),
         policyRule: step?.policyRule ?? null,
         approvedByName: step?.approvedBy ? await name(step.approvedBy) : null,
+        approvalReason,
         undoneByName: step?.undoneBy ? await name(step.undoneBy) : null,
         executedAt: step?.executedAt ?? null,
         msAfterReport: step?.executedAt !== undefined ? step.executedAt - incident.createdAt : null,

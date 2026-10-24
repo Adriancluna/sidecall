@@ -75,6 +75,11 @@ export function PlanSteps({ incidentId }: { incidentId: Id<"incidents"> }) {
                 {p.status === "done" &&
                   (p.approvedByName ? ` Run by ${p.approvedByName}.` : " Your company pre-approved this.")}
               </p>
+              {p.approvalReason && (
+                <p className="mt-0.5 text-sm text-ash">
+                  Why your company pre-approved it: <q className="text-paper">{p.approvalReason}</q>
+                </p>
+              )}
               {p.capNote && <p className="mt-0.5 text-xs text-amber">{p.capNote}</p>}
               <p className="mt-0.5 text-xs text-ash/80">Stands for: {p.wouldCall}</p>
             </div>
@@ -112,18 +117,28 @@ export function PlanSteps({ incidentId }: { incidentId: Id<"incidents"> }) {
   );
 }
 
-// The switches. Set in advance, per step; raising a step to Pre-approved takes two people.
+const MIN_REASON = 20; // the backend enforces the same minimum
+
+// The switches. Set in advance, per step; raising a step to Pre-approved takes two people,
+// and each of them writes down why.
 export function PlaybookPanel() {
   const rows = useQuery(api.responses.getMyPlaybook, {});
   const setMode = useMutation(api.responses.setPlaybookMode);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>();
+  type Action = (typeof rows & object)[number]["action"];
+  const [draft, setDraft] = useState<{ action: Action; confirming: boolean }>();
+  const [note, setNote] = useState("");
 
-  const change = async (action: (typeof rows & object)[number]["action"], mode: Mode) => {
+  const change = async (action: Action, mode: Mode, reason?: string) => {
     setBusy(true);
     setMessage(undefined);
     try {
-      const res = await setMode({ action, mode });
+      const res = await setMode({ action, mode, note: reason });
+      if (res.ok) {
+        setDraft(undefined);
+        setNote("");
+      }
       setMessage(
         !res.ok
           ? res.reason
@@ -167,10 +182,81 @@ export function PlaybookPanel() {
                     : "Not set yet: Notify only"}
                   {r.mode !== r.recommendedMode && ` · firm recommends ${MODE_LABEL[r.recommendedMode]}`}
                 </p>
+                {r.reason && (
+                  <p className="mt-1 text-sm text-ash">
+                    Why: <q className="text-paper">{r.reason}</q>
+                    {r.setByName && ` (${r.setByName})`}
+                  </p>
+                )}
+                {r.confirmNote && (
+                  <p className="mt-0.5 text-sm text-ash">
+                    Confirmed because: <q className="text-paper">{r.confirmNote}</q>
+                    {r.confirmedByName && ` (${r.confirmedByName})`}
+                  </p>
+                )}
                 {r.proposedMode && (
                   <p className="mt-1 text-sm text-amber">
                     {r.proposedByName} proposed {MODE_LABEL[r.proposedMode]}: waiting for a second person.
+                    {r.proposedReason && (
+                      <>
+                        {" "}
+                        Reason: <q className="text-paper">{r.proposedReason}</q>
+                      </>
+                    )}
                   </p>
+                )}
+                {draft?.action === r.action && (
+                  <form
+                    className="mt-3 max-w-2xl"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void change(r.action, "act", note);
+                    }}
+                  >
+                    <label htmlFor={`reason-${r.action}`} className="text-sm font-medium">
+                      {draft.confirming
+                        ? `Why do you agree Sidecall may ${r.label.toLowerCase()} without asking?`
+                        : `Why may Sidecall ${r.label.toLowerCase()} without asking first?`}
+                    </label>
+                    <textarea
+                      id={`reason-${r.action}`}
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      rows={3}
+                      maxLength={500}
+                      autoFocus
+                      placeholder={
+                        draft.confirming
+                          ? "e.g. Agreed: the vendor can still reach us through our own break-glass account while it's paused."
+                          : "e.g. This login reaches our production systems; a paused login costs an hour, a night of access costs a shutdown."
+                      }
+                      className="mt-1 w-full rounded-md border border-line bg-graphite p-2 text-sm text-paper placeholder:text-ash/60 focus:border-amber focus:outline-none"
+                    />
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <button
+                        type="submit"
+                        disabled={busy || note.trim().length < MIN_REASON}
+                        className={BUTTON_PRIMARY}
+                      >
+                        {draft.confirming ? "Confirm Pre-approved" : "Propose Pre-approved"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDraft(undefined);
+                          setNote("");
+                        }}
+                        className={BUTTON_SECONDARY}
+                      >
+                        Cancel
+                      </button>
+                      <span className="text-xs text-ash">
+                        {note.trim().length < MIN_REASON
+                          ? `At least a sentence (${MIN_REASON - note.trim().length} more characters).`
+                          : "Saved with your name in the controls log."}
+                      </span>
+                    </div>
+                  </form>
                 )}
               </div>
               <div role="radiogroup" aria-label={r.label} className="flex flex-wrap gap-1 self-start">
@@ -185,7 +271,14 @@ export function PlaybookPanel() {
                       aria-checked={on}
                       title={MODE_HELP[m]}
                       disabled={busy || !r.canEdit}
-                      onClick={() => void change(r.action, m)}
+                      onClick={() => {
+                        // Raising a step to Pre-approved needs a written reason first.
+                        if (m === "act" && !on && r.action !== "hold_payments") {
+                          setMessage(undefined);
+                          setNote("");
+                          setDraft({ action: r.action, confirming: confirm });
+                        } else void change(r.action, m);
+                      }}
                       className={`rounded-md border px-3 py-1.5 text-sm disabled:cursor-not-allowed ${
                         on
                           ? "border-amber bg-amber/15 text-paper"

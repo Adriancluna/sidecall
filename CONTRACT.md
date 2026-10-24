@@ -7,6 +7,7 @@ The data shapes and function signatures every role builds against. Owned by Role
 
 ## Changelog
 
+- **Oct 24, ~10:30am.** Playbook reasons. `setPlaybookMode({ action, mode, note? })`: raising a step to `act` needs `note` (20–500 chars, trimmed) from the proposer **and** the confirmer, else `{ ok: false, reason }`. Lowering never needs one. New optional `responsePolicies` fields `reason`, `confirmNote`, `proposedReason`. `getMyPlaybook()` rows add `reason | null`, `confirmNote | null`, `proposedReason | null`; `getMyResponsePlan()` rows add `approvalReason | null` (only for an `act` step whose policy version is still current). `policy` audit rows quote the reasons. Seed: Cedar Ridge's pause carries a reason and confirm note.
 - **Oct 24, ~10am.** Response playbook (`docs/specs/response-playbook.md`). Tables `responsePolicies`, `responseSteps`; audit actions `respond`, `approve`, `undo`, `expire`, `policy` (also timeline event kinds). New `convex/responses.ts`: queries `getMyPlaybook()`, `getMyResponsePlan({ incidentId })`, `getResponseTracker({ incidentId })` (firm); mutations `setPlaybookMode({ action, mode })`, `approveStep({ stepId })`, `undoStep({ stepId })`. `containIncident` expires waiting steps. Seed: Cedar Ridge pause = act, tokens = prepare; Granite Peak pause = prepare; Harborline notify. Brightline numbers unchanged.
 - **Oct 24, ~9am.** Presenter lock (council A1): env `PRESENTER_KEY`. Where set (prod), `seed.resetDemo({ presenterKey? })` and unsigned demo `POST /incident` (header `X-Sidecall-Presenter`) need it; signed senders are unaffected. Unset = unchanged (dev, tests). Readiness gained "Presenter lock" (advisory) and stricter freshness (bank change < 2.5 days, $480K due in 18–20h). Lakeside sample due dates moved past Oct 30.
 - **Oct 24, ~2:45am.** "What to check" for sister companies' IT leads: `exposures.path.whatToCheck?`, `getExposureEvidence().path.whatToCheck`, evidence kind `what_to_check`, `getWritingContext().companyAlerts[].whatToCheck`. Built from the technique, our own asset row and the time the path was proven, e.g. "What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong." The action differs by link type.
@@ -399,16 +400,18 @@ Steps (`responseAction`): `pause_shared_login`, `revoke_vendor_tokens`; plus `ho
 
 ```
 [responses] getMyPlaybook() -> { action, label, mode, allowedModes, version | null, setByName | null, confirmedByName | null,
-                                 setAt | null, proposedMode | null, proposedByName | null, canEdit, undo, wouldCall, finding,
+                                 setAt | null, reason | null, confirmNote | null, proposedMode | null, proposedByName | null,
+                                 proposedReason | null, canEdit, undo, wouldCall, finding,
                                  recommendedMode }[]                // company users; [] for the firm
 [responses] getMyResponsePlan({ incidentId }) -> { stepId | null, action, label, effect, undo, wouldCall, mode,
                                  status: "awaiting_approval" | "queued" | "done" | "undone" | "expired" | "failed" | "recommended",
-                                 capNote | null, policyRule | null, approvedByName | null, undoneByName | null,
+                                 capNote | null, policyRule | null, approvedByName | null, approvalReason | null, undoneByName | null,
                                  executedAt | null, msAfterReport | null, canApprove, canUndo }[]   // never names the reporter
 [responses] getResponseTracker({ incidentId }) -> null | { companies: { companyId, done, ready, firstStepMs | null,
                                  notifyOnly, lowered: string[] }[], totals: { exposed, firstStepDone, ready, notifyOnly },
                                  simulated: true }               // PE firm only (throws for companies)
-[responses] setPlaybookMode({ action, mode }) -> { ok: true, applied, awaitingSecondPerson } | { ok: false, reason }
+[responses] setPlaybookMode({ action, mode, note? }) -> { ok: true, applied, awaitingSecondPerson } | { ok: false, reason }
+                                 // raising to "act": note required (20–500 chars) from proposer and confirmer
 [responses] approveStep({ stepId }) / undoStep({ stepId }) -> { ok: true } | { ok: false, reason }
 ```
 

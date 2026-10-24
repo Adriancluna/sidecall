@@ -170,8 +170,21 @@ const PINECREST_FINDING: Finding = {
   confidence: 0.92,
 };
 
-const PLAYBOOKS: { company: CompanyKey; action: "pause_shared_login" | "revoke_vendor_tokens"; mode: "notify" | "prepare" | "act" }[] = [
-  { company: "B", action: "pause_shared_login", mode: "act" },
+const PLAYBOOKS: {
+  company: CompanyKey;
+  action: "pause_shared_login" | "revoke_vendor_tokens";
+  mode: "notify" | "prepare" | "act";
+  reason?: string;
+  confirmNote?: string;
+}[] = [
+  {
+    company: "B",
+    action: "pause_shared_login",
+    mode: "act",
+    reason:
+      "Ironclad's shared admin login can reach our plant floor systems. A paused login costs us an hour; an attacker on it for a night costs a shutdown.",
+    confirmNote: "Agreed. Ironclad confirmed they can work through our own break-glass account while it's paused.",
+  },
   { company: "B", action: "revoke_vendor_tokens", mode: "prepare" },
   { company: "E", action: "pause_shared_login", mode: "prepare" },
   { company: "F", action: "pause_shared_login", mode: "notify" },
@@ -354,6 +367,8 @@ async function seedAll(ctx: MutationCtx) {
       setBy: itIds[p.company] ?? controllerIds[p.company],
       confirmedBy: p.mode === "act" ? controllerIds[p.company] : undefined,
       setAt: now - 30 * DAY_MS,
+      reason: p.reason,
+      confirmNote: p.confirmNote,
     });
   }
 
