@@ -5,7 +5,7 @@ Lines marked **[after 11pm]** depend on Role 3 (map) or Role 4 (AI text, scoreca
 
 ## Before you start (2 minutes, off camera)
 
-0. **Readiness check:** run `npx convex run ops:demoReadiness --prod` (needs the prod deploy key / Adrian). Fix anything it reports before going on stage.
+0. **Dress rehearsal (Adrian):** `npm run rehearse -- --url https://judicious-tiger-712.convex.cloud` plays every beat against prod with real sign-ins and checks every number (~11 s). Then **readiness check:** run `npx convex run ops:demoReadiness --prod` (needs the prod deploy key / Adrian). Fix anything it reports before going on stage.
 1. Open **https://sidecall.vercel.app/?stage** in tab A. Sign in as anyone, press **Reset** in the header. Everyone is signed out and the portfolio is reseeded, so the "changed 2 days before the breach" date is fresh.
 2. The **Presenter** panel (bottom right) has every beat below with a one-click "Sign in as".
 3. Open a second tab B on `/?stage` and leave it on the sign-in screen (for the race in beat 7).
@@ -26,7 +26,7 @@ Lines marked **[after 11pm]** depend on Role 3 (map) or Role 4 (AI text, scoreca
 | (opt.) | **6c. Discipline** | Jamie | Header menu → **Ironclad shared login leaked** → **Fire incident** | "A shared Ironclad login leaks. Summit uses Ironclad too, but with its own login, so Summit gets no alert. Same vendor isn't the same weakness." Then Jordan → **Incident** menu to flip between the two incidents. |
 | 2:15 | **7. Convex guarantees** | Tab A: Jamie · Tab B: Kwame Mensah (IT, Summit) | **Replay webhook**, then **Acknowledge** in both tabs at once | "Replay the same webhook: nothing duplicates, no second hold. Two people acknowledge the same alert at once: exactly one wins, and the app says who." |
 | (opt.) | **7b. Contained** | Jordan | **Containment** card → note → **Mark contained** | "Brightline fixed it and confirmed by phone. The firm marks it contained, with what was fixed on the record." |
-| 2:35 | **8. Proof** | Jordan | Scroll to **Controls log** → **Export CSV**, then **Proof** | "Every hold, flag, refusal and release is in the controls log, exportable for the auditor. What's real, what's simulated, and the scorecard against the planted answer key: caught, missed, false holds." **[after 11pm: Role 4's scorecard numbers]** |
+| 2:35 | **8. Proof** | Jordan | Scroll to **Controls log** → **Export CSV**, then **Proof** | "Every hold, flag, refusal and release is in the controls log, exportable for the auditor. What's real, what's simulated, and the scorecard against our planted answer key: 18 cases, everything caught, no false holds. And the same DNS vendor detection, run on real public domains." |
 | 2:55 | **Close** | | | "Sidecall fills the **AP payment-controls seat across a private equity portfolio**: it holds payments for a person to verify, and it knows when to ask." |
 
 ## If something goes wrong

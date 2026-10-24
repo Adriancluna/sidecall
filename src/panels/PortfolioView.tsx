@@ -215,7 +215,7 @@ export function PortfolioView() {
             )
           }
         >
-          <p className="max-w-3xl text-sm leading-relaxed whitespace-pre-line">
+          <p className="max-w-3xl text-sm leading-relaxed whitespace-pre-wrap">
             {letter.body}
           </p>
         </Card>

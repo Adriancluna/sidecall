@@ -21,7 +21,7 @@ Owner: Role 2. Record after the feature freeze, following `docs/demo-script.md`.
 | 6 | 1:25–1:50 | Click Cedar Ridge, then Bayview: evidence panel, "candidate" link, held payments for the selected company. | Beat 5. |
 | 7 | 1:50–2:10 | Tailored alerts list, vendor letter, click **Copy**. | Beat 6. **[after 11pm: Role 4's AI text]** |
 | 8 | 2:10–2:35 | Click **Replay webhook** → "duplicate, nothing new written". Split screen: tab A (Jamie) and tab B (Kwame) click **Acknowledge** together → one shows "Acknowledged by …", the other "Not acknowledged: already acknowledged". Optional cutaway: Convex dashboard. | Beat 7. |
-| 9 | 2:35–2:55 | Controls log, **Export CSV**, Proof panel (Real / Simulated, scorecard). **[after 11pm: scorecard numbers]** | Beat 8. |
+| 9 | 2:35–2:55 | Controls log, **Export CSV**, Proof panel (Real / Simulated, real-domain DNS findings, scorecard: 18 cases, 0 missed, 0 false holds). | Beat 8. |
 | 10 | 2:55–3:00 | Back to the held $480K card, or the logo. | "Sidecall fills the AP payment-controls seat across a private equity portfolio." |
 
 ## Checklist before export

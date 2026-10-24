@@ -31,6 +31,7 @@ Private equity firms own companies that quietly share the same payroll providers
 - **One webhook, one transaction:** `POST /incident` writes the incident, every exposure, every payment hold and bank-change flag, and the pending alerts atomically, then schedules the AI writer once per incident. Every browser sees the same snapshot, live, without polling.
 - **Idempotent:** replaying the same webhook (deduped on `externalId`) writes nothing new and holds nothing twice.
 - **Measured, on screen:** an incident timeline built from real timestamps shows the payments held in the same transaction as the report and alerts written within a few hundred milliseconds (about 200 ms in our dev run).
+- **Scales in one transaction:** in our test suite, one report fanned out to 303 companies and held 304 payments in a single atomic transaction in about 1.4 s on Convex. The demo shows 8.
 - **Race-safe:** two people acknowledging the same alert at once: Convex serializes the transactions and exactly one wins; the UI shows who.
 - **Controls inside the mutation, not the UI:** segregation of duties, controller-only, held-status and verification-note checks all run in `releasePayment` / `rejectPayment`, and refusals are written to the audit log too.
 - **Identity from the session:** Convex Auth (password, invite-only); every query is scoped to the signed-in person, so Company A can't read Company B's data. Unsigned webhook calls are refused except the built-in demo scenarios.
@@ -46,7 +47,15 @@ Private equity firms own companies that quietly share the same payroll providers
 
 The seed plants cases with a known answer (`data/answer_key.json`): payments that should be held and flagged, payments that should be held without a flag, and honest cases that must be left alone (a bank change verified by phone five months ago, a company that hasn't opted in, a payment already made). Nothing in the backend reads the answer key; a separate script compares what the system did against it.
 
-**[after 11pm: paste Role 4's caught / missed / false holds per scenario. Don't quote any number we haven't measured.]**
+Measured on a fresh seed across all three demo scenarios (`data/scorecard.json`, Oct 24):
+
+| Scenario | Caught | Missed | False holds | Correctly left alone |
+|---|---|---|---|---|
+| Brightline payroll breach | 6 | 0 | 0 | 4 |
+| Ironclad shared login leaked | 0 | 0 | 0 | 3 |
+| Ironclad MSP compromised | 4 | 0 | 0 | 1 |
+
+18 planted cases: every expected hold and flag caught, no false holds, and every honest case (a phone-verified bank change, a company that hasn't opted in, an already-paid bill) left alone. These are our own planted cases, not a benchmark.
 
 ## Challenges we ran into
 
