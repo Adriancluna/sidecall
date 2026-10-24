@@ -33,6 +33,7 @@ export function ApImportPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [result, setResult] = useState<Result>();
+  const [usingSample, setUsingSample] = useState(false);
   const importCompany = useMutation(api.imports.importPortfolioCompany);
   const ready = files.vendorsCsv !== undefined && files.billsCsv !== undefined;
   const preview = useQuery(
@@ -48,6 +49,7 @@ export function ApImportPanel() {
       if (!file) return;
       const text = await file.text();
       setFiles((f) => ({ ...f, [key]: text }));
+      setUsingSample(false);
       setResult(undefined);
     };
 
@@ -56,6 +58,7 @@ export function ApImportPanel() {
     if (!ready) return;
     setBusy(true);
     setError(undefined);
+    setResult(undefined);
     try {
       setResult(
         await importCompany({
@@ -118,12 +121,18 @@ export function ApImportPanel() {
             onClick={() => {
               setFiles({ vendorsCsv: sampleVendors, billsCsv: sampleBills });
               setCompany(SAMPLE_COMPANY);
+              setUsingSample(true);
               setResult(undefined);
             }}
             className="rounded-md border border-line px-3 py-1.5 text-sm hover:border-ash"
           >
             Use sample files
           </button>
+          {usingSample && (
+            <span className="text-xs text-ash">
+              Using the Lakeside Orthopedics sample files.
+            </span>
+          )}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
