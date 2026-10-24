@@ -367,8 +367,9 @@ POST https://<deployment>.convex.site/incident
 
 Header (real senders): X-Sidecall-Signature: sha256=<hex HMAC-SHA256 of the raw body, key = INCIDENT_WEBHOOK_SECRET>
 
-200 { "incidentId", "duplicate": false }   first time
-200 { "incidentId", "duplicate": true }    replay of the same externalId (nothing new written)
+200 { "incidentId", "duplicate": false, "correlated": false }   new episode
+200 { "incidentId", "duplicate": false, "correlated": true }    new externalId, existing active episode
+200 { "incidentId", "duplicate": true, "correlated": false }    replay of any previously accepted externalId (nothing new written)
 400 bad body · 401 missing/invalid signature, or "presenter-only" · 404 unknown_asset / unknown_reporter
 ```
 
@@ -419,13 +420,18 @@ Rules (enforced in Convex):
 - Only the company's `it` lead or `controller` approves, undoes or changes the playbook (holds: controller only); the firm and AP clerks are refused and logged. Raising a step to `act` takes two different people (propose, then confirm).
 
 
-## Pegasus extension (branch feat/pegasus-resilience; not deployed)
+## Pegasus extension and Role 1 review fixes
 
+- **Intake policy (Pegasus decision, Role 1 #112): warn immediately on signed unconfirmed reports; holds and pre-approved access steps wait for firm confirmation or an explicitly enrolled detector's confirmed report; the four built-in demo scenarios remain instant.**
 - `incidents` gains optional `responseClass` (observation/vendor/credential), server-derived `correlationKey`, bounded `correlatedReports` and `evidenceRefs`, `lastReportedAt`, fixed `reviewDueAt`, `reviewedAt`, and `reviewEscalatedAt`; new index `by_correlationKey`.
-- Signed HTTP intake defaults to observation. Confirmed automation requires `INCIDENT_AUTO_RESPONSE=true`, `assessment: "confirmed"`, and nonempty bounded `evidenceRefs`. Stage scenarios retain their confirmed behavior. Cross-ID repeats return the canonical incident with `duplicate: true` and increment its related-report count without repeating effects.
-- `incidents.getResponseSafety({})` is firm-only; `reviewReport({incidentId, decision: "confirm"|"dismiss", note})` requires the firm and an independent-evidence note. Reopening a contained episode does not authorize repeat identity actions without company approval.
-- Fixed review deadline escalates after 15 minutes; never auto-releases payment. Active confirmed incidents no longer age out automatically after 30 days.
+- Signed HTTP intake defaults to observation. It opens explicitly unconfirmed, notify-only exposures and company alerts, visible in `listIncidents` and `getBlastRadius`; no holds, response steps, vendor letter or AI alert rewrite. Observation map payloads have zero confirmed exposure totals, `compromised:false` and no validated paths; `totals.companiesNotified` counts notified companies. Company payloads still omit reporter identity and raw summary.
+- Confirmed automation requires `INCIDENT_AUTO_RESPONSE=true`, `assessment: "confirmed"`, and nonempty bounded `evidenceRefs`, as well as the existing `INCIDENT_WEBHOOK_SECRET` HMAC signature. Stage scenarios retain their confirmed behavior. Signing authenticates the sender, not the truth of its claims; these flags do not connect a real detector.
+- Correlation requires the same server-derived asset/class key, no containment, and a last report within 30 days. New IDs in that episode return `correlated:true`, add an `incidentReports` receipt, and increment the count without repeating effects. Every accepted ID, including a correlated one, remains an idempotent replay after containment. Old installations without receipts retain their original-ID lookup.
+- Firm report counts/receipts update on each correlated report; channel notices use the existing outbox dedupe to coalesce within fixed 15-minute intervals. The first additional report in an interval notifies immediately. No repeated company alerts or automation.
+- `incidents.getResponseSafety({})` is firm-only; `reviewReport({incidentId, decision: "confirm"|"dismiss", note})` requires an independent-evidence note. Reviewing an observation closes its notify-only exposures; confirmation evaluates the confirmed episode. Contained/idle episodes do not permanently downgrade future pre-approved actions; repeat-action safeguards apply only to the same active correlation key.
+- The fixed 15-minute deadline requests a routine "Scheduled review" once; it never releases payment or restores access. New payments are held only while an uncontained confirmed vendor incident is within 30 days of `createdAt`, even if reports keep arriving. Payments already held still require their controller decision.
 - `investigations.submit({companyId?, sourceText})` schedules source extraction and deterministic reconciliation; `list({companyId?})` returns up to 20 company-scoped packets; `paymentQueue({companyId?})` returns `{csv, truncated}` for up to 500 company payments. None of these functions can release money or alter vendor details. New `investigations` table is scoped by `companyId`.
 - AP import now rejects ambiguous/duplicate vendor identities and uses exact normalized matching, removing prefix matching.
-- `sandboxResources` is an owned-test authorization table, not external identity-provider state. `sandbox.provision` is internal and demo-gated; `/sandbox/resource` verifies a test bearer credential. `RESPONSE_SANDBOX=true` lets the response executor change only explicitly provisioned resources. `responseSteps.executionMode?` is `sandbox` or `simulated`; repeated actions on the same company/action/target require approval.
+- `sandboxResources` is an owned-test authorization table, not external identity-provider state. `sandbox.provision` is internal and demo-gated; `/sandbox/resource` verifies a test bearer credential. `RESPONSE_SANDBOX=true` lets the response executor change only explicitly provisioned resources. `responseSteps.executionMode?` is `sandbox` or `simulated`; `verification?` records owned resource access before/after and check time in the execution transaction. It is not an external HTTP/provider attestation. Undo preserves the historical check and records the undo separately.
+- `responseEvidence.getRecord({incidentId})` is a firm-only, read-only JSON record: report receipts, declared findings, relationship evidence, policy/version, approvals, execution modes/checks, payment state and audit events. It returns `null` to company users; no sandbox tokens/hashes or bank details are included. Each section is bounded to 500 rows with explicit truncation flags. The record is not cryptographically attested.
 - Detailed limits, deployment prerequisites and demo: `docs/pegasus-implementation.md` (Pegasus).

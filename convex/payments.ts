@@ -200,14 +200,14 @@ export async function holdPaymentsForIncident(
   return { byCompany, held };
 }
 
-// Observations never mask an active compromise. Age alone never clears a confirmed incident.
-export async function activeIncidentFor(ctx: MutationCtx, assetId: Id<"assets">, _now: number) {
+// Observations never mask a confirmed incident; only the original 30-day window holds new payments.
+export async function activeIncidentFor(ctx: MutationCtx, assetId: Id<"assets">, now: number) {
   const incidents = await ctx.db
     .query("incidents")
     .withIndex("by_assetId", (q) => q.eq("assetId", assetId))
     .order("desc")
     .take(100);
-  return incidents.find((incident) => incident.responseClass !== "observation" && incident.responseClass !== "credential" && incident.finding?.terminalKind !== "credential" && incident.containedAt === undefined) ?? null;
+  return incidents.find((incident) => incident.responseClass !== "observation" && incident.responseClass !== "credential" && incident.finding?.terminalKind !== "credential" && incident.containedAt === undefined && now - incident.createdAt <= 30 * DAY_MS) ?? null;
 }
 
 // An AP clerk requests payment of a bill, to the vendor's current bank details on file (the

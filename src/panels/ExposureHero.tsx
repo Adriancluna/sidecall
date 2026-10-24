@@ -5,7 +5,13 @@ import type { Doc } from "../../convex/_generated/dataModel";
 import { AcknowledgedBy } from "./AcknowledgedBy";
 import { dateTime, money } from "./format";
 import { URGENCY } from "./labels";
-import { exposureHeadline, isCandidate, nextSteps, SHARE_LABEL, shareTypeOf } from "./exposureCopy";
+import {
+  exposureHeadline,
+  isCandidate,
+  nextSteps,
+  SHARE_LABEL,
+  shareTypeOf,
+} from "./exposureCopy";
 import { BUTTON_PRIMARY_LG, BUTTON_SECONDARY } from "./styles";
 import { Chip, Fact, StatusLine } from "./ui";
 import { useExposureAction } from "./useExposureAction";
@@ -31,7 +37,18 @@ export function ExposureHero({
   const asset = incident?.assetName ?? "the shared account";
   const share = shareTypeOf(exposure);
   const candidate = isCandidate(exposure);
-  const steps = nextSteps({ share, vendor, asset, phone, whatToCheck: exposure.path?.whatToCheck });
+  const steps = exposure.observation
+    ? [
+        "Confirm whether your company uses this vendor or shared access.",
+        "Share independently verified evidence with the firm. This report has not authorized payment holds or access changes.",
+      ]
+    : nextSteps({
+        share,
+        vendor,
+        asset,
+        phone,
+        whatToCheck: exposure.path?.whatToCheck,
+      });
   const urgent = exposure.urgency === "urgent";
   const contained = incident?.containedAt !== null && incident?.containedAt !== undefined;
 
@@ -41,17 +58,32 @@ export function ExposureHero({
       className="grid items-start gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,1fr)_minmax(360px,460px)]"
     >
       <div className="min-w-0 lg:col-start-1 lg:row-start-1">
-        <StatusLine tone={URGENCY[exposure.urgency].tone} state={URGENCY[exposure.urgency].label}>
-          <span className="font-semibold text-paper">{urgent ? "Act today" : "Review this week"}</span>
+        <StatusLine
+          tone={URGENCY[exposure.urgency].tone}
+          state={
+            exposure.observation
+              ? "Unconfirmed report"
+              : URGENCY[exposure.urgency].label
+          }
+        >
+          <span className="font-semibold text-paper">
+            {exposure.observation
+              ? "Review evidence"
+              : urgent
+                ? "Act today"
+                : "Review this week"}
+          </span>
           <span>
-            Incident at {vendor}
+            {exposure.observation ? "Report involving" : "Incident at"} {vendor}
             {incident && `, ${dateTime(incident.createdAt)}`}
           </span>
           {contained && <Chip tone="ok">Vendor has contained it</Chip>}
         </StatusLine>
 
         <h1 id="hero-title" className="mt-5 max-w-3xl text-headline font-semibold text-balance">
-          {exposureHeadline(share, vendor, candidate)}
+          {exposure.observation
+            ? `Verify the report involving ${vendor}`
+            : exposureHeadline(share, vendor, candidate)}
         </h1>
 
         <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ash">
@@ -65,9 +97,17 @@ export function ExposureHero({
           <div className="mt-6 flex max-w-2xl flex-wrap items-center gap-x-3 gap-y-2">
             <Chip tone="amber">Path proven at another portfolio company</Chip>
             <p className="leading-relaxed">
-              The same path is <strong className="font-semibold">reachable here, not tested here</strong>
-              {exposure.path.techniqueName && <span className="text-ash"> ({exposure.path.techniqueName})</span>}. Nobody
-              touched your systems.
+              The same path is{" "}
+              <strong className="font-semibold">
+                reachable here, not tested here
+              </strong>
+              {exposure.path.techniqueName && (
+                <span className="text-ash">
+                  {" "}
+                  ({exposure.path.techniqueName})
+                </span>
+              )}
+              . Nobody touched your systems.
             </p>
           </div>
         )}
@@ -86,18 +126,25 @@ export function ExposureHero({
             </li>
           ))}
           <li className="grid grid-cols-[1.75rem_minmax(0,1fr)] gap-x-3 border-t border-line pt-5">
-            <StepNumber n={steps.length + 1} done={exposure.status !== "open"} />
+            <StepNumber
+              n={steps.length + 1}
+              done={exposure.status !== "open"}
+            />
             <div className="min-w-0 pt-0.5">
               {exposure.status === "open" ? (
                 <>
-                  <p className="leading-relaxed">Acknowledge, so the PE firm knows your team is on it.</p>
+                  <p className="leading-relaxed">
+                    Acknowledge, so the PE firm knows your team is on it.
+                  </p>
                   <button
                     type="button"
                     disabled={busy}
                     onClick={() => void run("acknowledge")}
                     className={`mt-3 w-full sm:w-auto ${BUTTON_PRIMARY_LG}`}
                   >
-                    {pending === "acknowledge" ? "Acknowledging…" : "Acknowledge"}
+                    {pending === "acknowledge"
+                      ? "Acknowledging…"
+                      : "Acknowledge"}
                   </button>
                 </>
               ) : (
@@ -105,10 +152,14 @@ export function ExposureHero({
                   <p className="leading-relaxed">
                     <AcknowledgedBy userId={exposure.acknowledgedBy} />
                     {exposure.acknowledgedAt !== undefined && (
-                      <span className="block text-sm text-ash">{dateTime(exposure.acknowledgedAt)}</span>
+                      <span className="block text-sm text-ash">
+                        {dateTime(exposure.acknowledgedAt)}
+                      </span>
                     )}
                   </p>
-                  <p className="mt-2 text-sm text-ash">When every step above is done, mark it resolved.</p>
+                  <p className="mt-2 text-sm text-ash">
+                    When every step above is done, mark it resolved.
+                  </p>
                   <button
                     type="button"
                     disabled={busy}
@@ -132,7 +183,9 @@ export function ExposureHero({
       <div className="min-w-0 lg:col-start-1 lg:row-start-2">
         <dl className="grid max-w-2xl grid-cols-2 gap-x-8 gap-y-4 border-t border-line pt-5 sm:grid-cols-3">
           <Fact label="How you're linked">{SHARE_LABEL[share]}</Fact>
-          <Fact label="How sure">{candidate ? "Candidate (public DNS)" : "Reported by your team"}</Fact>
+          <Fact label="How sure">
+            {candidate ? "Candidate (public DNS)" : "Reported by your team"}
+          </Fact>
           {heldForIncident.count > 0 && (
             <Fact label="Finance">
               <button
@@ -140,8 +193,9 @@ export function ExposureHero({
                 onClick={() => onOpenTab("payments")}
                 className="text-left font-medium text-paper underline decoration-ash/50 underline-offset-4 hover:decoration-paper"
               >
-                {heldForIncident.count} payment{heldForIncident.count === 1 ? "" : "s"} ({money(heldForIncident.cents)})
-                held until a controller verifies
+                {heldForIncident.count} payment
+                {heldForIncident.count === 1 ? "" : "s"} (
+                {money(heldForIncident.cents)}) held until a controller verifies
               </button>
             </Fact>
           )}

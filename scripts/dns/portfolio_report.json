@@ -1,0 +1,332 @@
+{
+  "_comment": "Totals only, from public DNS (MX, SPF, TXT, a few CNAMEs). Reachability: who these companies point at, never a shared credential or a weakness. Names no company or domain; rerun portfolio.mjs to reproduce.",
+  "source": "https://www.thomabravo.com/portfolio (company pages and press releases on thomabravo.com)",
+  "retrieved": "2026-10-24",
+  "scannedAt": "2026-10-24T20:05:08.367Z",
+  "companiesListed": 26,
+  "companiesWithRecords": 26,
+  "companiesSharingAVendor": 26,
+  "highTrust": [
+    {
+      "tool": "Jamf",
+      "kind": "device management",
+      "companies": 9
+    },
+    {
+      "tool": "1Password",
+      "kind": "password manager",
+      "companies": 3
+    },
+    {
+      "tool": "Auth0",
+      "kind": "login and MFA",
+      "companies": 3
+    },
+    {
+      "tool": "Duo",
+      "kind": "login and MFA",
+      "companies": 3
+    },
+    {
+      "tool": "LogMeIn",
+      "kind": "remote access",
+      "companies": 3
+    },
+    {
+      "tool": "NetSuite",
+      "kind": "finance and AP",
+      "companies": 2
+    },
+    {
+      "tool": "Okta",
+      "kind": "login and MFA",
+      "companies": 2
+    }
+  ],
+  "vendors": [
+    {
+      "vendor": "Microsoft 365",
+      "companies": 24
+    },
+    {
+      "vendor": "Atlassian",
+      "companies": 22
+    },
+    {
+      "vendor": "Apple",
+      "companies": 15
+    },
+    {
+      "vendor": "Salesforce",
+      "companies": 11
+    },
+    {
+      "vendor": "DocuSign",
+      "companies": 8
+    },
+    {
+      "vendor": "Google Workspace",
+      "companies": 8
+    },
+    {
+      "vendor": "Adobe",
+      "companies": 6
+    },
+    {
+      "vendor": "HubSpot",
+      "companies": 6
+    },
+    {
+      "vendor": "Miro",
+      "companies": 6
+    },
+    {
+      "vendor": "Zendesk",
+      "companies": 5
+    },
+    {
+      "vendor": "Mimecast",
+      "companies": 4
+    },
+    {
+      "vendor": "OneTrust",
+      "companies": 4
+    },
+    {
+      "vendor": "Proofpoint",
+      "companies": 4
+    },
+    {
+      "vendor": "SendGrid",
+      "companies": 4
+    },
+    {
+      "vendor": "Auth0",
+      "companies": 3
+    },
+    {
+      "vendor": "Cisco Webex",
+      "companies": 3
+    },
+    {
+      "vendor": "Mailchimp",
+      "companies": 3
+    },
+    {
+      "vendor": "Slack",
+      "companies": 3
+    },
+    {
+      "vendor": "Zoom",
+      "companies": 3
+    },
+    {
+      "vendor": "Amazon SES",
+      "companies": 2
+    },
+    {
+      "vendor": "KnowBe4",
+      "companies": 2
+    },
+    {
+      "vendor": "Mailgun",
+      "companies": 2
+    },
+    {
+      "vendor": "Okta",
+      "companies": 2
+    },
+    {
+      "vendor": "Stripe",
+      "companies": 1
+    }
+  ],
+  "sharedUnrecognized": [
+    {
+      "kind": "TXT token",
+      "host": "google-site-verification",
+      "companies": 21
+    },
+    {
+      "kind": "TXT token",
+      "host": "jamf-site-verification",
+      "companies": 9
+    },
+    {
+      "kind": "TXT token",
+      "host": "openai-domain-verification",
+      "companies": 8
+    },
+    {
+      "kind": "TXT token",
+      "host": "pendo-domain-verification",
+      "companies": 7
+    },
+    {
+      "kind": "TXT token",
+      "host": "docker-verification",
+      "companies": 6
+    },
+    {
+      "kind": "SPF include",
+      "host": "mktomail.com",
+      "companies": 5
+    },
+    {
+      "kind": "TXT token",
+      "host": "atlassian-sending-domain-verification",
+      "companies": 5
+    },
+    {
+      "kind": "SPF include",
+      "host": "_spf.psm.knowbe4.com",
+      "companies": 4
+    },
+    {
+      "kind": "SPF include",
+      "host": "aspmx.pardot.com",
+      "companies": 4
+    },
+    {
+      "kind": "SPF include",
+      "host": "spf.mailjet.com",
+      "companies": 3
+    },
+    {
+      "kind": "TXT token",
+      "host": "1password-site-verification",
+      "companies": 3
+    },
+    {
+      "kind": "TXT token",
+      "host": "canva-site-verification",
+      "companies": 3
+    },
+    {
+      "kind": "TXT token",
+      "host": "duo_sso_verification",
+      "companies": 3
+    },
+    {
+      "kind": "TXT token",
+      "host": "facebook-domain-verification",
+      "companies": 3
+    },
+    {
+      "kind": "TXT token",
+      "host": "figma-domain-verification",
+      "companies": 3
+    },
+    {
+      "kind": "TXT token",
+      "host": "have-i-been-pwned-verification",
+      "companies": 3
+    },
+    {
+      "kind": "TXT token",
+      "host": "hcp-domain-verification",
+      "companies": 3
+    },
+    {
+      "kind": "TXT token",
+      "host": "jetbrains-domain-verification",
+      "companies": 3
+    },
+    {
+      "kind": "TXT token",
+      "host": "logmein-verification-code",
+      "companies": 3
+    },
+    {
+      "kind": "TXT token",
+      "host": "twilio-domain-verification",
+      "companies": 3
+    },
+    {
+      "kind": "TXT token",
+      "host": "wiz-domain-verification",
+      "companies": 3
+    },
+    {
+      "kind": "TXT token",
+      "host": "zapier-domain-verification-challenge",
+      "companies": 3
+    },
+    {
+      "kind": "SPF include",
+      "host": "et._spf.pardot.com",
+      "companies": 2
+    },
+    {
+      "kind": "SPF include",
+      "host": "sent-via.netsuite.com",
+      "companies": 2
+    },
+    {
+      "kind": "SPF include",
+      "host": "stspg-customer.com",
+      "companies": 2
+    },
+    {
+      "kind": "TXT token",
+      "host": "_globalsign-domain-verification",
+      "companies": 2
+    },
+    {
+      "kind": "TXT token",
+      "host": "airtable-verification",
+      "companies": 2
+    },
+    {
+      "kind": "TXT token",
+      "host": "dell-technologies-domain-verification",
+      "companies": 2
+    },
+    {
+      "kind": "TXT token",
+      "host": "Dynatrace-site-verification",
+      "companies": 2
+    },
+    {
+      "kind": "TXT token",
+      "host": "globalsign-domain-verification",
+      "companies": 2
+    },
+    {
+      "kind": "TXT token",
+      "host": "google-gws-recovery-domain-verification",
+      "companies": 2
+    },
+    {
+      "kind": "TXT token",
+      "host": "h1-domain-verification",
+      "companies": 2
+    },
+    {
+      "kind": "TXT token",
+      "host": "parallels-domain-verification",
+      "companies": 2
+    },
+    {
+      "kind": "TXT token",
+      "host": "reachdesk-verification",
+      "companies": 2
+    },
+    {
+      "kind": "TXT token",
+      "host": "sophos-domain-verification",
+      "companies": 2
+    },
+    {
+      "kind": "TXT token",
+      "host": "status-page-domain-verification",
+      "companies": 2
+    },
+    {
+      "kind": "TXT token",
+      "host": "verification_token",
+      "companies": 2
+    }
+  ],
+  "line": "Of 26 companies in one real PE portfolio, public DNS shows 24 on Microsoft 365, 22 on Atlassian, 15 on Apple, and 9 with the same device management vendor (Jamf), 3 with the same password manager vendor (1Password), 3 with the same login and MFA vendor (Auth0). Same vendor isn't the same weakness: each one is a candidate link until a company confirms what it actually shares."
+}

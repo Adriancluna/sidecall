@@ -27,6 +27,7 @@ import type * as notifications from "../notifications.js";
 import type * as notify from "../notify.js";
 import type * as ops from "../ops.js";
 import type * as payments from "../payments.js";
+import type * as responseEvidence from "../responseEvidence.js";
 import type * as responses from "../responses.js";
 import type * as sandbox from "../sandbox.js";
 import type * as scoring from "../scoring.js";
@@ -59,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   notify: typeof notify;
   ops: typeof ops;
   payments: typeof payments;
+  responseEvidence: typeof responseEvidence;
   responses: typeof responses;
   sandbox: typeof sandbox;
   scoring: typeof scoring;

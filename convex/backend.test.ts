@@ -91,7 +91,7 @@ describe("incident intake", () => {
       }));
     const before = await counts();
     const replay = await fire();
-    expect(replay).toEqual({ ok: true, incidentId: first.incidentId, duplicate: true });
+    expect(replay).toEqual({ ok: true, incidentId: first.incidentId, duplicate: true, correlated: false });
     expect(await counts()).toEqual(before);
   });
 
@@ -101,6 +101,7 @@ describe("incident intake", () => {
     const blast = await (await as(PE)).query(api.blastRadius.getBlastRadius, { incidentId });
     expect(blast?.totals).toEqual({
       companiesExposed: 3,
+      companiesNotified: 3,
       peopleExposed: 4200,
       heldCents: 61_200_000,
       paymentsHeld: 4,
@@ -368,6 +369,7 @@ describe("scale", () => {
     const blast = await (await as(PE)).query(api.blastRadius.getBlastRadius, { incidentId });
     expect(blast!.totals).toEqual({
       companiesExposed: 303,
+      companiesNotified: 303,
       peopleExposed: 4200 + 300 * 100,
       heldCents: 61_200_000 + 300 * 1_000_000,
       paymentsHeld: 304,
@@ -698,7 +700,7 @@ describe("demo reset", () => {
     await expect(presenter.mutation(api.seed.resetDemo, {})).rejects.toThrow(/DEMO_MODE/);
     process.env.DEMO_MODE = "true";
     await expect(t.mutation(api.seed.resetDemo, {})).rejects.toThrow(/Not signed in/);
-    await expect(presenter.mutation(api.seed.resetDemo, {})).resolves.toMatchObject({ companies: 8, continuing: false });
+    await expect(presenter.mutation(api.seed.resetDemo, {})).resolves.toMatchObject({ companies: 14, continuing: false });
   });
 
   test("with a presenter key set, a signed-in visitor can't reset; the presenter can", async () => {
@@ -709,7 +711,7 @@ describe("demo reset", () => {
       const visitor = await as("Jordan Ames (Northpass Capital)");
       await expect(visitor.mutation(api.seed.resetDemo, {})).rejects.toThrow(/presenter-only/);
       await expect(visitor.mutation(api.seed.resetDemo, { presenterKey: "guess" })).rejects.toThrow(/presenter-only/);
-      await expect(visitor.mutation(api.seed.resetDemo, { presenterKey: "stage-secret" })).resolves.toMatchObject({ companies: 8 });
+      await expect(visitor.mutation(api.seed.resetDemo, { presenterKey: "stage-secret" })).resolves.toMatchObject({ companies: 14 });
     } finally {
       delete process.env.PRESENTER_KEY;
     }
@@ -732,7 +734,7 @@ describe("demo reset", () => {
       notifications: (await ctx.db.query("notifications").take(5000)).length,
       companies: (await ctx.db.query("companies").take(100)).length,
     }));
-    expect(after).toEqual({ notifications: 0, companies: 8 });
+    expect(after).toEqual({ notifications: 0, companies: 14 });
     vi.useRealTimers();
   });
 });

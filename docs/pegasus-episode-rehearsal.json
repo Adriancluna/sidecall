@@ -1,0 +1,40 @@
+{
+  "generatedAt": "2026-10-24T23:19:07.133Z",
+  "deployment": "https://tangible-koala-842.convex.cloud",
+  "intake": "operator-only internal mutation via Convex CLI; webhook authentication is covered separately",
+  "data": "synthetic seeded portfolio; no external payment or provider action",
+  "checks": [
+    {
+      "name": "Unconfirmed warnings are visible; no holds/steps and no reporter or firm-record leak",
+      "passed": true
+    },
+    {
+      "name": "Eight concurrent reports retain receipts but coalesce notices and cannot restart deadlines/actions",
+      "passed": true
+    },
+    {
+      "name": "Concurrent exact-ID replays do not add receipts, actions or audit entries",
+      "passed": true
+    },
+    {
+      "name": "Business continues: the $38K bill can enter the normal pending flow during alert noise",
+      "passed": true
+    },
+    {
+      "name": "A company clerk cannot promote observations to portfolio-wide actions",
+      "passed": true
+    },
+    {
+      "name": "Independent confirmation closes warnings and holds exactly $650K including the newly requested bill",
+      "passed": true
+    },
+    {
+      "name": "Old correlated IDs remain no-ops after confirmation",
+      "passed": true
+    },
+    {
+      "name": "Containment allows a genuine new episode and never releases existing held money",
+      "passed": true
+    }
+  ]
+}

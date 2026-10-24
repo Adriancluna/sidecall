@@ -29,6 +29,10 @@ And in March 2026 a federal judge let a breach suit proceed against Bain Capital
 
 ## What it does
 
+**Intake policy:** signed unconfirmed reports warn linked companies immediately; payment holds and pre-approved access steps wait for firm confirmation or an explicitly enrolled detector's confirmed report, while the four built-in demo scenarios remain instant.
+
+For a confirmed vendor incident:
+
 1. **An incident comes in** (one signed webhook call): "Brightline Payroll is compromised."
 2. **Sidecall works out who genuinely shares the compromised thing.** Same vendor isn't the same weakness. A shared credential or shared admin access is urgent. Merely using the same vendor is advisory, and only when the vendor itself is what fell. A company with its own separate login isn't alerted at all.
 3. **It holds the money.** Every pending payment to the breached vendor, at companies that opted in, is **held**, never cancelled. Payments going to bank details changed within 30 days of the incident are flagged, showing the last account confirmed by phone next to the new one (`••2208 → ••7731`).
@@ -42,10 +46,12 @@ And in March 2026 a federal judge let a breach suit proceed against Bain Capital
 11. **The firm closes it out.** Marking an incident contained records what was fixed and how it was confirmed, and new payments to that vendor stop being held. Payments already held stay held until someone verifies.
 12. **Everything is on the record:** a controls log of every hold, flag, refusal, release and rejection, exportable as CSV.
 
+The firm can also export one response record connecting incoming evidence, company policies, approvals, execution checks, payment outcomes and the audit trail. Repeated reports cannot restart an active response or extend its original payment window, and a genuinely new incident after containment can trigger a fresh response.
+
 ## How we built it
 
 - **Convex** for the database, server functions, live queries, HTTP endpoints, scheduling and auth. React + Vite + TypeScript + Tailwind, deployed on Vercel; every merge to `main` deploys the backend and the frontend together.
-- **One webhook, one transaction:** `POST /incident` writes the incident, every exposure, every payment hold and bank-change flag, and the pending alerts atomically, then schedules the AI writer once per incident. Every browser sees the same snapshot, live, without polling.
+- **One confirmed report, one transaction:** `POST /incident` writes the incident, every exposure, every applicable payment hold and bank-change flag, and the pending alerts atomically, then schedules the AI writer once per incident. Unconfirmed reports atomically create notify-only alerts instead. Every browser sees the same snapshot, live, without polling.
 - **Idempotent:** replaying the same webhook (deduped on `externalId`) writes nothing new and holds nothing twice.
 - **Measured, on screen:** an incident timeline built from real timestamps shows the payments held in the same transaction as the report, and alerts written within a few hundred milliseconds (about 200 ms in our runs).
 - **Scales in one transaction:** in our test suite, one report fanned out to 303 companies and held 304 payments in a single atomic transaction in about 1.4 s on Convex. The demo shows 8.
@@ -55,12 +61,13 @@ And in March 2026 a federal judge let a breach suit proceed against Bain Capital
 - **The AI only writes:** company alerts, hold notices and the vendor letter. Exposure, urgency and holds are decided by queries and scoring, never by the model. The texts come from Claude (Opus 5.5), pre-generated so nothing on stage depends on a model call, and checked against our copy rules before they're saved: the reporter is never named, no payment is called fraud, and the only phone number is the one on file.
 - **Notifications:** one outbox row per channel and event, deduped, written in the same transaction as the alert or hold. One dispatch action sends them (5 s timeout, one retry, never throws), and only when the deployment allows live sending.
 - **MCP:** a `/mcp` endpoint with a bearer token per agent and four tools (`list_held_payments`, `explain_hold`, `list_bills`, `request_payment`). Every call is audited, and a test checks that a release tool doesn't exist.
-- **Tested:** 45 `convex-test` tests cover the guarantees: replay writes nothing, the headline totals, flagging, same-vendor-not-exposed, the acknowledge race, refusals logged, release moves cash once, every ledger entry balances, scoping, notifications and MCP. A rehearsal script plays every demo beat against a deployment with real sign-ins and checks each number.
+- **Tested:** 104 application/backend tests and 40 prompt/scorecard tests cover replay, episode expiry, observation privacy, payment controls, acknowledgment races, ledger balance, scoping, notifications, MCP and response evidence. A rehearsal script plays every demo beat against a deployment with real sign-ins and checks each number. These are authored regression cases, not a real-world accuracy benchmark.
 
 ## What's real, what's simulated
 
-- **Simulated:** the portfolio, companies, users, bills, payments, amounts, incidents and bank-detail changes.
+- **Simulated:** the portfolio, companies, users, bills, payments, amounts, incidents, bank-detail changes and external identity-provider calls.
 - **Real:** the Convex backend and its guarantees (atomic fan-out, same snapshot, idempotency, race safety), the exposure and hold logic, the AI writing, the scorecard against the planted answer key, and DNS-based vendor detection on real public domains.
+- **Verified on our isolated development sandbox:** targeted resource access changes from HTTP 200 to 403 while unrelated access remains 200; authorized Undo restores access and replay leaves it restored. This checks Sidecall's own authorization boundary, not a connected customer identity provider. Signed intake warns immediately; disruptive action still requires confirmation or explicit detector enrollment.
 
 ## Proof: the scorecard
 

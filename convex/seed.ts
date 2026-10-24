@@ -23,6 +23,7 @@ const cents = (dollars: number) => Math.round(dollars * 100); // dollars → int
 
 // Auth tables are cleared too: their rows point at users that a reseed replaces.
 const TABLES: TableNames[] = [
+  "incidentReports",
   "investigations",
   "sandboxResources",
   "notifications",
@@ -49,8 +50,20 @@ const TABLES: TableNames[] = [
   "companies",
 ];
 
-type CompanyKey = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H";
-type AssetKey = "brightline" | "ironcladMsp" | "ironcladAdmin" | "keystone" | "relay" | "ledgerly";
+type CompanyKey = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N";
+type AssetKey =
+  | "brightline"
+  | "ironcladMsp"
+  | "ironcladAdmin"
+  | "keystone"
+  | "relay"
+  | "ledgerly"
+  | "fleetline"
+  | "tether"
+  | "vaultline"
+  | "bramble"
+  | "inkwell"
+  | "helmsman";
 
 const COMPANIES: Record<CompanyKey, Omit<Doc<"companies">, "_id" | "_creationTime">> = {
   A: { name: "Alder Freight Systems", domain: "alderfreight.example", sector: "Logistics", headcount: 1800, holdRuleEnabled: true },
@@ -62,6 +75,14 @@ const COMPANIES: Record<CompanyKey, Omit<Doc<"companies">, "_id" | "_creationTim
   G: { name: "Meridian Dental Group", domain: "meridiandental.example", sector: "Dental", headcount: 900, holdRuleEnabled: false },
   // Newest, smallest acquisition: least reviewed, where the attacker gets in.
   H: { name: "Pinecrest Staffing", domain: "pinecreststaffing.example", sector: "Staffing", headcount: 140, holdRuleEnabled: false },
+  // Background companies: none of them uses Brightline or Ironclad, so every demo headline is unchanged.
+  // They make the portfolio the size of a real mid-market fund and the map's "3 of 14" a discipline story.
+  I: { name: "Ridgeway Comfort Services", domain: "ridgewaycomfort.example", sector: "HVAC and plumbing", headcount: 1350, holdRuleEnabled: true },
+  J: { name: "Oakmont Specialty Pharmacy", domain: "oakmontrx.example", sector: "Specialty pharmacy", headcount: 420, holdRuleEnabled: true },
+  K: { name: "Fairhaven Physical Therapy", domain: "fairhavenpt.example", sector: "Physical therapy", headcount: 780, holdRuleEnabled: false },
+  L: { name: "Kestrel Insurance Partners", domain: "kestrelins.example", sector: "Insurance brokerage", headcount: 310, holdRuleEnabled: true },
+  M: { name: "Wrenfield Fleet Software", domain: "wrenfield.example", sector: "Software", headcount: 260, holdRuleEnabled: false },
+  N: { name: "Saltmarsh Pool Supply", domain: "saltmarshpool.example", sector: "Distribution", headcount: 950, holdRuleEnabled: true },
 };
 
 const ASSETS: Record<AssetKey, Omit<Doc<"assets">, "_id" | "_creationTime">> = {
@@ -71,6 +92,14 @@ const ASSETS: Record<AssetKey, Omit<Doc<"assets">, "_id" | "_creationTime">> = {
   keystone: { name: "Keystone SSO", vendorName: "Keystone Identity", kind: "idp", phoneOnFile: "+1 (628) 555-0110" },
   relay: { name: "Relay Mail", vendorName: "Relay Mail Co.", kind: "email", phoneOnFile: "+1 (628) 555-0193" },
   ledgerly: { name: "Ledgerly AP Portal", vendorName: "Ledgerly", kind: "other", phoneOnFile: "+1 (510) 555-0127" },
+  // Background stack, shaped like a real portfolio's public DNS (scripts/dns/portfolio_report.json): device
+  // management on half the companies, a few on the same remote-access tool, password manager, ERP. Never incidents.
+  fleetline: { name: "Fleetline MDM", vendorName: "Fleetline Device Management", kind: "other", phoneOnFile: "+1 (312) 555-0164" },
+  tether: { name: "Tether Remote Support", vendorName: "Tether Remote", kind: "msp", phoneOnFile: "+1 (206) 555-0139" },
+  vaultline: { name: "Vaultline Passwords", vendorName: "Vaultline", kind: "idp", phoneOnFile: "+1 (617) 555-0181" },
+  bramble: { name: "Bramble ERP", vendorName: "Bramble Software", kind: "other", phoneOnFile: "+1 (512) 555-0152" },
+  inkwell: { name: "Inkwell eSign", vendorName: "Inkwell", kind: "other", phoneOnFile: "+1 (628) 555-0106" },
+  helmsman: { name: "Helmsman Service Desk", vendorName: "Helmsman", kind: "other", phoneOnFile: "+1 (720) 555-0148" },
 };
 
 const LINKS: [CompanyKey, AssetKey, Doc<"links">["shareType"], Doc<"links">["source"]][] = [
@@ -98,6 +127,31 @@ const LINKS: [CompanyKey, AssetKey, Doc<"links">["shareType"], Doc<"links">["sou
   ["G", "relay", "same_vendor_only", "dns_inferred"],
   ["B", "ledgerly", "same_vendor_only", "self_reported"],
   ["D", "ledgerly", "same_vendor_only", "self_reported"],
+  // Background stack (no demo incident touches these assets)
+  ["I", "keystone", "same_vendor_only", "self_reported"],
+  ["K", "keystone", "shared_credential", "self_reported"],
+  ["A", "fleetline", "same_vendor_only", "self_reported"],
+  ["C", "fleetline", "same_vendor_only", "self_reported"],
+  ["E", "fleetline", "shared_admin_access", "self_reported"],
+  ["I", "fleetline", "same_vendor_only", "self_reported"],
+  ["M", "fleetline", "shared_admin_access", "self_reported"],
+  ["F", "tether", "same_vendor_only", "self_reported"],
+  ["I", "tether", "shared_admin_access", "self_reported"],
+  ["N", "tether", "shared_admin_access", "self_reported"],
+  ["B", "vaultline", "same_vendor_only", "self_reported"],
+  ["E", "vaultline", "same_vendor_only", "self_reported"],
+  ["L", "vaultline", "same_vendor_only", "self_reported"],
+  ["D", "bramble", "same_vendor_only", "self_reported"],
+  ["J", "bramble", "same_vendor_only", "self_reported"],
+  ["L", "bramble", "same_vendor_only", "self_reported"],
+  ["N", "bramble", "same_vendor_only", "self_reported"],
+  ["A", "inkwell", "same_vendor_only", "self_reported"],
+  ["C", "inkwell", "same_vendor_only", "self_reported"],
+  ["J", "inkwell", "same_vendor_only", "self_reported"],
+  ["L", "inkwell", "same_vendor_only", "self_reported"],
+  ["E", "helmsman", "same_vendor_only", "self_reported"],
+  ["K", "helmsman", "same_vendor_only", "self_reported"],
+  ["M", "helmsman", "same_vendor_only", "self_reported"],
 ];
 
 const USERS: Record<CompanyKey, { clerk: string; controller: string; it?: string }> = {
@@ -109,6 +163,12 @@ const USERS: Record<CompanyKey, { clerk: string; controller: string; it?: string
   F: { clerk: "Carmen Diaz", controller: "Victor Lindqvist" },
   G: { clerk: "Hannah Park", controller: "Omar Haddad" },
   H: { clerk: "Riley Moore", controller: "Sofia Bianchi" },
+  I: { clerk: "Megan Ostrowski", controller: "Darnell Price" },
+  J: { clerk: "Ines Moreau", controller: "Paul Nakamura" },
+  K: { clerk: "Chloe Brandt", controller: "Rafael Soto" },
+  L: { clerk: "Yusuf Demir", controller: "Karen Liu" },
+  M: { clerk: "Leo Varga", controller: "Nadia Petrova", it: "Arjun Mehta" },
+  N: { clerk: "Tessa Grant", controller: "Hector Alvarado" },
 };
 
 // Bank detail history. Dates are relative to seeding; fire the demo incident soon after.
@@ -142,6 +202,21 @@ const PAYMENTS: {
   { ref: "pay_A_ironclad_24k", company: "A", asset: "ironcladMsp", dollars: 24_000, last4: "5510", status: "pending", description: "Managed IT retainer, Q4" },
   { ref: "pay_A_keystone_22k", company: "A", asset: "keystone", dollars: 22_000, last4: "3380", status: "pending", description: "SSO licences, annual" },
   { ref: "pay_G_relay_9k", company: "G", asset: "relay", dollars: 9_000, last4: "6612", status: "pending", description: "Email hosting, annual" },
+  // Ordinary AP at the background companies, so their books aren't empty.
+  { ref: "pay_I_fleetline_18k", company: "I", asset: "fleetline", dollars: 18_400, last4: "4471", status: "pending", description: "Device management, 1,350 seats, annual" },
+  { ref: "pay_I_tether_6k", company: "I", asset: "tether", dollars: 6_200, last4: "8023", status: "pending", description: "Remote support seats, Q4" },
+  { ref: "pay_I_tether_paid", company: "I", asset: "tether", dollars: 6_200, last4: "8023", status: "paid", description: "Remote support seats, Q3" },
+  { ref: "pay_J_bramble_31k", company: "J", asset: "bramble", dollars: 31_500, last4: "2950", status: "pending", description: "ERP subscription, annual" },
+  { ref: "pay_J_inkwell_4k", company: "J", asset: "inkwell", dollars: 4_800, last4: "6318", status: "pending", description: "E-signature seats, annual" },
+  { ref: "pay_K_helmsman_7k", company: "K", asset: "helmsman", dollars: 7_300, last4: "1187", status: "pending", description: "Service desk licences, Q4" },
+  { ref: "pay_K_keystone_11k", company: "K", asset: "keystone", dollars: 11_250, last4: "3380", status: "pending", description: "SSO licences, annual" },
+  { ref: "pay_L_bramble_22k", company: "L", asset: "bramble", dollars: 22_000, last4: "2950", status: "pending", description: "ERP implementation, milestone 2 of 3" },
+  { ref: "pay_L_vaultline_3k", company: "L", asset: "vaultline", dollars: 3_900, last4: "7764", status: "pending", description: "Password manager, 310 seats" },
+  { ref: "pay_L_bramble_paid", company: "L", asset: "bramble", dollars: 22_000, last4: "2950", status: "paid", description: "ERP implementation, milestone 1 of 3" },
+  { ref: "pay_M_fleetline_4k", company: "M", asset: "fleetline", dollars: 4_100, last4: "4471", status: "pending", description: "Device management, 260 seats, annual" },
+  { ref: "pay_M_helmsman_5k", company: "M", asset: "helmsman", dollars: 5_600, last4: "1187", status: "pending", description: "Service desk licences, Q4" },
+  { ref: "pay_N_bramble_27k", company: "N", asset: "bramble", dollars: 27_800, last4: "2950", status: "pending", description: "ERP subscription and warehouse module" },
+  { ref: "pay_N_tether_5k", company: "N", asset: "tether", dollars: 5_450, last4: "8023", status: "pending", description: "Remote support seats, Q4" },
 ];
 
 // Bills with no payment yet: the AP clerk requests one in the app (payments.requestPayment).
