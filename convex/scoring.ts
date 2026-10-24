@@ -55,7 +55,7 @@ export function scoreExposure(
       detail:
         link.source === "self_reported"
           ? "Reported by your team during onboarding"
-          : "Candidate link from public DNS records (reachability, not confirmed)",
+          : `Candidate link from public DNS records (reachability, not confirmed)${link.detail ? `: ${link.detail}` : ""}`,
     },
   ];
 

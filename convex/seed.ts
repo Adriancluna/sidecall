@@ -9,6 +9,10 @@ import { env, internalMutation, mutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id, TableNames } from "./_generated/dataModel";
 import { recordIncidentImpl } from "./incidents";
+// Role 4's DNS findings, bundled at deploy time. Each entry becomes a dns_inferred candidate link.
+import dnsLinks from "../data/dns_links.json";
+
+type DnsLink = { companyDomain: string; assetName: string; detail?: string };
 
 const DAY = 24 * 60 * 60 * 1000;
 const usd = (dollars: number) => Math.round(dollars * 100);
@@ -191,6 +195,36 @@ async function seedAll(ctx: MutationCtx) {
     await ctx.db.insert("links", { companyId: companyIds[company], assetId: assetIds[asset], shareType, source });
   }
 
+  // DNS can only say "this company uses this vendor": always same_vendor_only, never a
+  // shared credential. A self-reported link for the same pair wins.
+  const companyByDomain = new Map(
+    (Object.keys(COMPANIES) as CompanyKey[]).map((k) => [COMPANIES[k].domain, companyIds[k]]),
+  );
+  const assetByName = new Map(
+    (Object.keys(ASSETS) as AssetKey[]).map((k) => [ASSETS[k].name, assetIds[k]]),
+  );
+  const seenPairs = new Set(LINKS.map(([c, a]) => `${companyIds[c]}:${assetIds[a]}`));
+  let dnsImported = 0;
+  const dnsSkipped: string[] = [];
+  for (const entry of dnsLinks as DnsLink[]) {
+    const companyId = companyByDomain.get(entry.companyDomain);
+    const assetId = assetByName.get(entry.assetName);
+    const pair = `${companyId}:${assetId}`;
+    if (!companyId || !assetId || seenPairs.has(pair)) {
+      dnsSkipped.push(`${entry.companyDomain} → ${entry.assetName}`);
+      continue;
+    }
+    seenPairs.add(pair);
+    await ctx.db.insert("links", {
+      companyId,
+      assetId,
+      shareType: "same_vendor_only",
+      source: "dns_inferred",
+      detail: entry.detail,
+    });
+    dnsImported += 1;
+  }
+
   const clerkIds = {} as Record<CompanyKey, Id<"users">>;
   for (const [key, people] of Object.entries(USERS) as [CompanyKey, (typeof USERS)[CompanyKey]][]) {
     const domain = COMPANIES[key].domain;
@@ -284,6 +318,8 @@ async function seedAll(ctx: MutationCtx) {
     links: LINKS.length,
     payments: PAYMENTS.length,
     bankChanges: BANK_CHANGES.length,
+    dnsImported,
+    dnsSkipped,
   };
 }
 
