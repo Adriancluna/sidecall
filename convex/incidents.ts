@@ -1,7 +1,7 @@
 // Incident intake and fan-out. One transaction writes the incident, every exposure,
 // every payment hold, the pending alerts, and schedules the AI writers once.
 import { v } from "convex/values";
-import { internalMutation, mutation } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
@@ -25,6 +25,8 @@ const incidentArgs = {
   reportedByDomain: v.optional(v.string()),
   summary: v.optional(v.string()),
   finding: v.optional(findingValidator), // already validated by convex/findings.ts parseFinding
+  assessment: v.optional(v.union(v.literal("observation"), v.literal("confirmed"))),
+  evidenceRefs: v.optional(v.array(v.string())),
 };
 
 export async function recordIncidentImpl(
@@ -35,6 +37,10 @@ export async function recordIncidentImpl(
     reportedByDomain?: string;
     summary?: string;
     finding?: Finding;
+    assessment?: "observation" | "confirmed";
+    evidenceRefs?: string[];
+    // Internal only: an authorized person reviewed genuinely new evidence after containment.
+    reviewedReopen?: boolean;
   },
 ): Promise<RecordIncidentResult> {
   // Idempotency: a replayed webhook returns the original incident and writes nothing.
@@ -59,18 +65,59 @@ export async function recordIncidentImpl(
   // A finding is measured from the company that was tested: without it there are no "sisters".
   if (args.finding && !reporter) return { ok: false, error: "unknown_reporter" };
 
+  const now = Date.now();
+  const responseClass = args.assessment === "observation" ? "observation"
+    : args.finding?.terminalKind === "credential" ? "credential" : "vendor";
+  const correlationKey = `${asset._id}:${responseClass}`;
+  let episode = await ctx.db.query("incidents")
+    .withIndex("by_correlationKey", (q) => q.eq("correlationKey", correlationKey)).order("desc").first();
+  // Adopt pre-upgrade episodes without starting a new response cycle or requiring a reset.
+  if (!episode && responseClass !== "observation") {
+    const older = await ctx.db.query("incidents").withIndex("by_assetId", (q) => q.eq("assetId", asset._id)).order("desc").take(100);
+    episode = older.find((i) => !i.correlationKey && (i.finding?.terminalKind === "credential" ? "credential" : "vendor") === responseClass) ?? null;
+  }
+  // Changing the sender's ID, summary, timestamp or evidence labels cannot restart automation.
+  // Even contained episodes stay correlated until an authorized human reviews a new episode.
+  if (episode && (!args.reviewedReopen || episode.containedAt === undefined)) {
+    await ctx.db.patch("incidents", episode._id, {
+      correlationKey,
+      responseClass,
+      correlatedReports: Math.min((episode.correlatedReports ?? 0) + 1, 1_000_000),
+      lastReportedAt: now,
+      evidenceRefs: [...new Set([...(episode.evidenceRefs ?? []), ...(args.evidenceRefs ?? [])])].slice(0, 20),
+      reviewDueAt: episode.reviewDueAt ?? episode.createdAt + 15 * 60 * 1000,
+    });
+    if (episode.reviewDueAt === undefined) {
+      await ctx.scheduler.runAfter(Math.max(0, episode.createdAt + 15 * 60 * 1000 - now), internal.incidents.reviewDeadline, { incidentId: episode._id });
+    }
+    return { ok: true, incidentId: episode._id, duplicate: true };
+  }
+
   const incidentId = await ctx.db.insert("incidents", {
     externalId: args.externalId,
     assetId: asset._id,
     reportedByCompanyId: reporter?._id,
     summary: args.summary,
-    createdAt: Date.now(),
+    createdAt: now,
     finding: args.finding,
+    responseClass,
+    correlationKey,
+    correlatedReports: 0,
+    lastReportedAt: now,
+    evidenceRefs: (args.evidenceRefs ?? []).slice(0, 20),
+    reviewDueAt: now + 15 * 60 * 1000,
   });
   const incident = (await ctx.db.get("incidents", incidentId))!;
+  await ctx.scheduler.runAfter(15 * 60 * 1000, internal.incidents.reviewDeadline, { incidentId });
+  // A signal is queued for investigation; volume alone never authorizes holds or containment.
+  if (responseClass === "observation") return { ok: true, incidentId, duplicate: false };
 
   // Holds first, so scoring can see which companies have flagged payments.
-  const { byCompany: heldByCompany, held: heldPayments } = await holdPaymentsForIncident(ctx, incident, asset);
+  // A compromised credential is an access-response scope, not proof that every vendor payment
+  // is unsafe, even if a sender maps that credential finding onto the vendor's payee asset.
+  const { byCompany: heldByCompany, held: heldPayments } = responseClass === "credential"
+    ? { byCompany: new Map<Id<"companies">, HeldSummary>(), held: [] as Doc<"payments">[] }
+    : await holdPaymentsForIncident(ctx, incident, asset);
 
   // One exposure per company linked to the compromised asset, keeping the most
   // dangerous link if a company has several. The reporter already knows.
@@ -209,6 +256,69 @@ export const recordIncident = internalMutation({
   args: incidentArgs,
   handler: async (ctx, args): Promise<RecordIncidentResult> => {
     return await recordIncidentImpl(ctx, args);
+  },
+});
+
+export const reviewDeadline = internalMutation({
+  args: { incidentId: v.id("incidents") },
+  handler: async (ctx, { incidentId }) => {
+    const incident = await ctx.db.get("incidents", incidentId);
+    if (!incident || incident.reviewedAt || incident.containedAt || incident.reviewEscalatedAt) return null;
+    await ctx.db.patch("incidents", incidentId, { reviewEscalatedAt: Date.now() });
+    await ctx.db.insert("auditLog", {
+      actor: "system", at: Date.now(), action: "escalate", incidentId,
+      rule: "fixed_response_review_deadline",
+      reason: "Response review is due. Repeated reports did not extend the deadline. Existing holds require a controller decision; nothing is automatically released.",
+    });
+    await enqueue(ctx, { event: "incident", scope: "firm", incidentId, refId: `review:${incidentId}`,
+      text: "Sidecall: response review is due. Review the evidence and business impact; repeated reports have not restarted automation. No money was automatically released." });
+    return null;
+  },
+});
+
+// Explicit review is the only way to confirm an observation or reopen a contained episode.
+export const reviewReport = mutation({
+  args: { incidentId: v.id("incidents"), decision: v.union(v.literal("confirm"), v.literal("dismiss")), note: v.string() },
+  returns: v.object({ ok: v.boolean(), reason: v.string() }),
+  handler: async (ctx, args) => {
+    const viewer = await getViewer(ctx);
+    if (!viewer.firm) return { ok: false, reason: "Only the firm reviews portfolio incident evidence." };
+    const incident = await ctx.db.get("incidents", args.incidentId);
+    if (!incident) return { ok: false, reason: "Report not found." };
+    if (incident.reviewedAt && (incident.lastReportedAt ?? incident.createdAt) <= incident.reviewedAt) return { ok: false, reason: "This evidence was already reviewed." };
+    if (args.note.trim().length < 30) return { ok: false, reason: "Describe the independent evidence checked and why this decision is justified (30 characters minimum)." };
+    const asset = await ctx.db.get("assets", incident.assetId);
+    if (!asset) return { ok: false, reason: "Asset not found." };
+    if (args.decision === "confirm" && incident.responseClass !== "observation" && !incident.containedAt) {
+      return { ok: false, reason: "This episode is already active; review does not restart its actions." };
+    }
+    await ctx.db.patch("incidents", incident._id, { reviewedAt: Date.now() });
+    await ctx.db.insert("auditLog", { actor: viewer.user._id, at: Date.now(), action: "approve", incidentId: incident._id,
+      rule: `incident_review_${args.decision}`, reason: args.note.trim() });
+    if (args.decision === "confirm") {
+      const reporter = incident.reportedByCompanyId ? await ctx.db.get("companies", incident.reportedByCompanyId) : null;
+      await recordIncidentImpl(ctx, { externalId: `review:${incident._id}:${Date.now()}`, assetName: asset.name,
+        reportedByDomain: reporter?.domain, finding: incident.finding, assessment: "confirmed",
+        summary: args.note.trim(), evidenceRefs: incident.evidenceRefs, reviewedReopen: true });
+    }
+    return { ok: true, reason: args.decision === "confirm" ? "Evidence confirmed; scoped response evaluated." : "Report dismissed; no new actions." };
+  },
+});
+
+export const getResponseSafety = query({
+  args: {},
+  handler: async (ctx) => {
+    const viewer = await getViewer(ctx);
+    if (!viewer.firm) return [];
+    const reports = await ctx.db.query("incidents").withIndex("by_lastReportedAt").order("desc").take(50);
+    return await Promise.all(reports.map(async (report) => ({
+      incidentId: report._id, assetName: (await ctx.db.get("assets", report.assetId))?.name ?? "Unknown asset",
+      responseClass: report.responseClass ?? "vendor", correlatedReports: report.correlatedReports ?? 0,
+      createdAt: report.createdAt, reviewDueAt: report.reviewDueAt ?? null,
+      reviewEscalatedAt: report.reviewEscalatedAt ?? null, reviewedAt: report.reviewedAt ?? null,
+      containedAt: report.containedAt ?? null, evidenceRefs: report.evidenceRefs ?? [],
+      summary: report.summary ?? null, lastReportedAt: report.lastReportedAt ?? report.createdAt,
+    })));
   },
 });
 

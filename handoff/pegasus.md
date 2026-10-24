@@ -1,30 +1,32 @@
 # Pegasus: response resilience + payment investigation
-Last updated: 2026-10-24 15:17 America/Los_Angeles by Pegasus
+Last updated: 2026-10-24 15:25 PDT by Pegasus
 
 ## Status
-- Ashwa requested implementation while keeping Hyphenate and Armadin, including resistance to repeated alerts disrupting business.
-- Implementation branch: `feat/pegasus-resilience`, based on `24d029b`; published as draft PR #103 (https://github.com/Adriancluna/sidecall/pull/103), no application deployment performed by Pegasus.
-- GitHub CLI is authenticated as `ashwathram-prathap` and repository push permission/dry-run pass; the prior connector 403 no longer blocks CLI delivery.
-- Vercel CLI accesses existing `sidecall` in `adriancluna23-3084s-projects`; link command completed and project inspection passed. CLI 65 stores local authentication/configuration differently from the older `.vercel/project.json` assumption.
-- Convex account login is valid and Adrian's team is accessible; Sidecall deployment selection, production permissions, and live backend tests remain unverified.
-- Validation on the implementation baseline: 95 tests passed (54 backend, 12 MCP, 29 Pegasus), application/backend typechecks, ESLint, production build, and rehearsal-script syntax passed.
-- Latest remote handoff check: main `02b5a33`; #98 map evidence changes and #100 Marco's proposed dashboard polish overlap with this branch's small UI edits.
+- Ashwa requested integration while keeping Hyphenate and Armadin, including resistance to repeated alerts disrupting business.
+- Delivery: PR #103 (https://github.com/Adriancluna/sidecall/pull/103), `feat/pegasus-resilience`; integrated current main `615713d` and resolved #98's EvidencePanel overlap. This handoff accompanies the tested application changes for normal merge/deployment.
+- GitHub push, Adrian's existing Vercel team/project, and Convex project access work. No ownership transfer is needed.
+- Own isolated DEV: `adriancluna23:sidecall:dev/pegasus-integration` (`tangible-koala-842`). Actual Convex deploy/codegen, demo auth and seeding succeeded; no production reset performed.
+- Validation: 95 app/backend tests + 40 prompt/scorecard tests (135 total), ESLint, app/backend typechecks, build, full live demo rehearsal and signed-in browser investigation/safety checks passed.
+- Live HTTP abuse check: 100 distinct weak-report IDs → one observation, unchanged payment queue/deadline; confirmed evidence → expected scoped hold; ten repeated confirmed IDs preserved the controller release/deadline.
+- Owned sandbox access: Cedar 200 → 403, unrelated Summit stays 200 (1,223 ms observed including CLI/network; not a production benchmark).
 
 ## Completed
 - Observation-only default intake, enrolled confirmed detector response, cross-ID episode correlation, fixed review escalation, preservation of payment decisions/unrelated operations, and credential-only incidents never holding vendor payments.
 - Firm evidence review/reopening and repeat-response approval safeguards; queued actions recheck current policy.
 - Source-backed payment investigation, exact reconciliation, firm-only portfolio context, company CSV export, and ambiguous AP vendor rejection.
-- Owned sandbox with real pause/revocation and isolation/undo safeguards; external IdP actions remain labelled simulated.
-- Investigation/safety panels and adversarial regression tests; setup/rehearsal in `docs/pegasus-implementation.md`, results in `docs/pegasus-test-results.json`.
+- Owned sandbox with actual pause/revocation and isolation/undo safeguards; external IdP actions remain labelled simulated.
+- Retained Omar's #98 "What to check" and red-team reachable/not-tested labels; evidence provenance replaces uncalibrated confidence words/meters.
+- Investigation/safety panels, regression evidence and setup/rehearsal instructions in `docs/pegasus-implementation.md` and `docs/pegasus-test-results.json`.
 
 ## Needs from others
-- → Role 1: review/integrate the branch, reconcile upstream changes, regenerate Convex declarations on DEV, configure the documented detector/sandbox settings, and run the live rehearsal; do not reset production.
-- → Role 2 / Adrian: coordinate `PortfolioView.tsx` and `CompanyView.tsx` tab additions with Marco's planned polish from #100.
-- → Omar (Roles 3/4): preserve #98's red-team labels while reconciling `EvidencePanel.tsx`; test optional model extraction with the team's dev key.
-- → All: read this handoff and implementation notes before overlapping work, update only your own handoff, then rehearse weak-alert spam, confirmed scoped response, unaffected operations, and malicious bank-change evidence for both track narratives.
+- → Role 2: read your #105 answer. Current-main navigation is preserved for a working release; when #101 lands, put firm investigation inside Payments, safety inside Timeline/close-out, and company investigation inside Held payments as you proposed. Panel props/API are unchanged.
+- → Omar (Roles 3/4): optional model extraction still needs a live run with the team's dev AI key; structured extraction and source validation are verified. Keep #98's labels when updating the map.
+- → Role 1: production signed-detector automation requires explicit `INCIDENT_AUTO_RESPONSE=true` enrollment with the signing secret; don't enable it for an untrusted detector. Sandbox provisioning is only on Pegasus DEV. Existing built-in scenarios still execute the confirmed demo path.
+- → All: read this handoff before overlapping work; keep the two track narratives, and distinguish synthetic business data, real sandbox authorization effects, and simulated external-provider actions. Read #106's data inventory before a real-data pivot; that separate proposed work is not included here.
 
 ## Decisions & gotchas
 - Signed transport authenticates sender, not truth; evidence references are provenance, not independently verified proof.
 - Repetition never upgrades confidence or renews review deadlines; deadline expiry escalates without releasing money/restoring access.
 - This limits repeated business side effects, not network floods; per-source credentials/ingress limits remain deployment work.
-- No live external IdP integration, live model validation, remote application deployment or signed-in browser rehearsal is claimed.
+- DEV has DEMO_MODE and RESPONSE_SANDBOX enabled; temporary detector/signing settings were removed after the HTTP test. Never reset another contributor's database or production to rehearse.
+- No live external IdP integration or live model extraction is claimed. Production release health is the Vercel/Convex pipeline on the PR's main merge, not inferred from DEV success.

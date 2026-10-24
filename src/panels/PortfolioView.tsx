@@ -1,5 +1,6 @@
 // PE firm dashboard: the only view allowed to name the reporting company. The hero answers
 // "how bad, and is every company handling it?"; the map and everything else are tabs.
+import { InvestigationPanel, ResponseSafetyPanel } from "./InvestigationPanel";
 import { useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
@@ -39,7 +40,7 @@ function savePinned(id: Id<"incidents">) {
   }
 }
 
-const TAB_IDS = ["map", "alerts", "payments", "timeline", "letter", "closeout", "onboard", "notifications", "proof"] as const;
+const TAB_IDS = ["investigate", "safety", "map", "alerts", "payments", "timeline", "letter", "closeout", "onboard", "notifications", "proof"] as const;
 
 export function PortfolioView() {
   const incidents = useQuery(api.blastRadius.listIncidents, {});
@@ -61,6 +62,8 @@ export function PortfolioView() {
 
   if (!incidentId) {
     const tabs: TabDef[] = [
+      { id: "investigate", label: "Investigate payments", content: () => <InvestigationPanel firm /> },
+      { id: "safety", label: "Response safety", content: () => <ResponseSafetyPanel /> },
       { id: "onboard", label: "Onboard a company", content: () => <ApImportPanel /> },
       { id: "notifications", label: "Slack & alerts out", content: () => <NotificationsPanel scope="firm" canManage /> },
       { id: "proof", label: "Proof", content: () => <ProofPanel /> },
@@ -107,6 +110,8 @@ export function PortfolioView() {
   };
 
   const tabs: TabDef[] = [
+      { id: "investigate", label: "Investigate payments", content: () => <InvestigationPanel firm /> },
+      { id: "safety", label: "Response safety", content: () => <ResponseSafetyPanel /> },
     {
       id: "map",
       label: "Blast radius map",

@@ -163,6 +163,36 @@ const ledgerLine = v.object({
 export default defineSchema({
   ...authTables, // Convex Auth sessions/accounts; `users` below extends its users table
 
+  // Owned test resources only. These tokens confer no access to an actual identity provider.
+  sandboxResources: defineTable({
+    companyId: v.id("companies"), assetId: v.id("assets"), tokenHash: v.string(),
+    paused: v.boolean(), revoked: v.boolean(),
+  }).index("by_tokenHash", ["tokenHash"]).index("by_companyId_and_assetId", ["companyId", "assetId"]),
+
+  investigations: defineTable({
+    companyId: v.id("companies"),
+    submittedBy: v.id("users"),
+    sourceText: v.string(),
+    createdAt: v.number(),
+    status: v.union(v.literal("queued"), v.literal("complete"), v.literal("failed")),
+    completedAt: v.optional(v.number()),
+    engine: v.optional(v.union(v.literal("structured_text"), v.literal("model"))),
+    result: v.optional(v.object({
+      disposition: v.union(v.literal("review_required"), v.literal("consistent")),
+      vendorName: v.union(v.string(), v.null()),
+      invoiceNumber: v.union(v.string(), v.null()),
+      amountCents: v.union(v.number(), v.null()),
+      accountLast4: v.union(v.string(), v.null()),
+      evidence: v.array(v.object({ field: v.string(), quote: v.string() })),
+      reasons: v.array(v.string()),
+      assetId: v.optional(v.id("assets")),
+      trustedPhone: v.union(v.string(), v.null()),
+      verifiedAccountLast4: v.union(v.string(), v.null()),
+      paymentIds: v.array(v.id("payments")),
+    })),
+    error: v.optional(v.string()),
+  }).index("by_companyId", ["companyId"]),
+
   companies: defineTable({
     name: v.string(),
     domain: v.string(),
@@ -216,8 +246,18 @@ export default defineSchema({
     containedBy: v.optional(v.id("users")),
     containmentNote: v.optional(v.string()),
     finding: v.optional(finding), // present when the report is a validated red-team finding
+    responseClass: v.optional(v.union(v.literal("observation"), v.literal("vendor"), v.literal("credential"))),
+    correlationKey: v.optional(v.string()), // server-derived episode key, never supplied by the sender
+    correlatedReports: v.optional(v.number()),
+    lastReportedAt: v.optional(v.number()),
+    evidenceRefs: v.optional(v.array(v.string())), // bounded, firm-only, references not instructions
+    reviewDueAt: v.optional(v.number()), // fixed at first acceptance; repeats never extend it
+    reviewedAt: v.optional(v.number()),
+    reviewEscalatedAt: v.optional(v.number()),
   })
     .index("by_externalId", ["externalId"])
+    .index("by_correlationKey", ["correlationKey"])
+    .index("by_lastReportedAt", ["lastReportedAt"])
     .index("by_assetId", ["assetId"]),
 
   exposures: defineTable({
@@ -385,10 +425,12 @@ export default defineSchema({
     approvedBy: v.optional(v.id("users")),
     approvedAt: v.optional(v.number()),
     executedAt: v.optional(v.number()),
+    executionMode: v.optional(v.union(v.literal("simulated"), v.literal("sandbox"))),
     undoneBy: v.optional(v.id("users")),
     undoneAt: v.optional(v.number()),
   })
     .index("by_incidentId_and_companyId_and_action", ["incidentId", "companyId", "action"])
+    .index("by_companyId_and_action_and_target", ["companyId", "action", "target"])
     .index("by_incidentId_and_status", ["incidentId", "status"]),
 
   auditLog: defineTable({

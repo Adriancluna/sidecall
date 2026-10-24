@@ -392,7 +392,9 @@ describe("notifications", () => {
     const first = await rows();
 
     const events = first.map((r) => r.event).sort();
-    expect(events).toEqual(["alert", "escalation", "hold", "incident"]); // Summit's channel + the firm's
+    // Advancing every scheduled timer includes the firm's fixed 15-minute review escalation.
+    expect(events).toEqual(["alert", "escalation", "hold", "incident", "incident"]);
+    expect(first.filter((r) => r.refId.startsWith("review:"))).toHaveLength(1);
     expect(first.every((r) => r.status === "simulated")).toBe(true); // NOTIFY_LIVE off: nothing sent
     for (const r of first.filter((r) => r.event !== "incident")) expect(r.text).not.toContain("Pinecrest");
     expect(first.find((r) => r.event === "incident")!.text).toMatch(/3 companies exposed · 4,200 people · \$612,000/);

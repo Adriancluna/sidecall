@@ -1,0 +1,538 @@
+{
+  "author": "Pegasus",
+  "generatedAt": "2026-10-24T22:21:04.764000+00:00",
+  "scope": "Local convex-test/Vitest execution on integrated branch; synthetic cases, not an accuracy benchmark",
+  "total": 95,
+  "passed": 95,
+  "failed": 0,
+  "suites": [
+    {
+      "file": "backend.test.ts",
+      "tests": [
+        {
+          "name": "incident intake replaying the webhook writes nothing new",
+          "status": "passed",
+          "durationMs": 22.326832999999965
+        },
+        {
+          "name": "incident intake one write fans out to the demo headline numbers",
+          "status": "passed",
+          "durationMs": 10.661500000000046
+        },
+        {
+          "name": "incident intake only payments to recently changed accounts are flagged",
+          "status": "passed",
+          "durationMs": 6.909500000000037
+        },
+        {
+          "name": "incident intake same vendor is not a shared weakness",
+          "status": "passed",
+          "durationMs": 4.517875000000004
+        },
+        {
+          "name": "acknowledge two simultaneous clicks: exactly one wins",
+          "status": "passed",
+          "durationMs": 6.134416999999985
+        },
+        {
+          "name": "acknowledge another company cannot acknowledge your exposure",
+          "status": "passed",
+          "durationMs": 5.352083999999991
+        },
+        {
+          "name": "payment release requester, other companies and the PE firm are refused, and each refusal is logged",
+          "status": "passed",
+          "durationMs": 5.621207999999967
+        },
+        {
+          "name": "payment release controller release needs a note, pays once, and moves cash",
+          "status": "passed",
+          "durationMs": 6.355707999999993
+        },
+        {
+          "name": "payment release reject leaves cash and the bill untouched",
+          "status": "passed",
+          "durationMs": 5.002124999999978
+        },
+        {
+          "name": "payment release every ledger entry balances",
+          "status": "passed",
+          "durationMs": 5.93912499999999
+        },
+        {
+          "name": "escalation (knows when to ask) a hold due within 24h is escalated to the controller at once; others wait",
+          "status": "passed",
+          "durationMs": 4.1054169999999885
+        },
+        {
+          "name": "escalation (knows when to ask) the cron escalates the rest once they come due, exactly once",
+          "status": "passed",
+          "durationMs": 4.470708999999999
+        },
+        {
+          "name": "timeline holds land in the report's own transaction; a company sees only its events",
+          "status": "passed",
+          "durationMs": 5.21062500000005
+        },
+        {
+          "name": "payment requests a payment requested after the incident is held and flagged on creation",
+          "status": "passed",
+          "durationMs": 4.579499999999996
+        },
+        {
+          "name": "payment requests before any incident a request stays pending; only an AP clerk may request",
+          "status": "passed",
+          "durationMs": 4.036250000000052
+        },
+        {
+          "name": "containment only the PE firm contains; afterwards new requests aren't held but old holds stay",
+          "status": "passed",
+          "durationMs": 7.938290999999992
+        },
+        {
+          "name": "scale one report fans out to 303 companies in a single transaction, totals stay right",
+          "status": "passed",
+          "durationMs": 144.57262499999996
+        },
+        {
+          "name": "notifications an incident fills the outboxes once, simulated, and company text never names the reporter",
+          "status": "passed",
+          "durationMs": 33.97554100000002
+        },
+        {
+          "name": "notifications only the right people add channels, bad URLs are refused and logged, URLs never leave the server",
+          "status": "passed",
+          "durationMs": 12.593082999999979
+        },
+        {
+          "name": "AP import CSV parsing handles quoted commas and $ amounts",
+          "status": "passed",
+          "durationMs": 0.18204100000002654
+        },
+        {
+          "name": "AP import preview spots the swapped bank account before any incident; only the firm can preview",
+          "status": "passed",
+          "durationMs": 9.438041999999996
+        },
+        {
+          "name": "AP import importing during an incident holds and flags the new company's payments and exposes it",
+          "status": "passed",
+          "durationMs": 15.258958000000007
+        },
+        {
+          "name": "AP import only the firm imports; bad files and duplicate companies are refused",
+          "status": "passed",
+          "durationMs": 27.383166999999958
+        },
+        {
+          "name": "notification sender (NOTIFY_LIVE) rows stuck in sending after a crashed run are requeued and sent; fresh claims are left alone",
+          "status": "passed",
+          "durationMs": 21.942208999999934
+        },
+        {
+          "name": "notification sender (NOTIFY_LIVE) live: Slack gets { text } and every row ends sent",
+          "status": "passed",
+          "durationMs": 44.18254200000001
+        },
+        {
+          "name": "notification sender (NOTIFY_LIVE) live: a 5xx is retried once then marked failed; a 4xx isn't retried; the URL never leaks",
+          "status": "passed",
+          "durationMs": 84.23900000000003
+        },
+        {
+          "name": "demo readiness fresh seed is ready; after firing it says to Reset",
+          "status": "passed",
+          "durationMs": 33.58220799999992
+        },
+        {
+          "name": "controls log PE sees every company's rows, a company only its own",
+          "status": "passed",
+          "durationMs": 28.455249999999978
+        },
+        {
+          "name": "scoping a company never sees another company's data or who reported",
+          "status": "passed",
+          "durationMs": 29.98620900000003
+        },
+        {
+          "name": "directory and timeline access off DEMO_MODE the directory needs a session, and a company sees only its colleagues' emails",
+          "status": "passed",
+          "durationMs": 26.010582999999997
+        },
+        {
+          "name": "directory and timeline access a company can't read the timeline of an incident that never touched it",
+          "status": "passed",
+          "durationMs": 4.20191699999998
+        },
+        {
+          "name": "identity signed-out calls are refused",
+          "status": "passed",
+          "durationMs": 2.1020829999999933
+        },
+        {
+          "name": "identity functions no longer accept a user id from the client",
+          "status": "passed",
+          "durationMs": 2.1377919999999904
+        },
+        {
+          "name": "demo reset refuses unless DEMO_MODE=true and someone is signed in",
+          "status": "passed",
+          "durationMs": 7.384416999999985
+        },
+        {
+          "name": "demo reset with a presenter key set, a signed-in visitor can't reset; the presenter can",
+          "status": "passed",
+          "durationMs": 5.458750000000009
+        },
+        {
+          "name": "demo reset a reset too big for one transaction finishes in follow-up runs",
+          "status": "passed",
+          "durationMs": 252.012834
+        },
+        {
+          "name": "POST /incident unsigned requests are refused unless they are a demo scenario on a DEMO_MODE deployment",
+          "status": "passed",
+          "durationMs": 19.086000000000013
+        },
+        {
+          "name": "POST /incident signed requests from a real sender are accepted; a bad signature is not",
+          "status": "passed",
+          "durationMs": 5.105874999999969
+        },
+        {
+          "name": "POST /incident a finding is validated field by field; ids and asset default from it; replay writes nothing",
+          "status": "passed",
+          "durationMs": 5.548166999999921
+        },
+        {
+          "name": "POST /incident with a presenter key set, the unsigned stage Fire needs it; signed senders don't",
+          "status": "passed",
+          "durationMs": 4.5027919999999995
+        },
+        {
+          "name": "POST /incident an unsigned demo request runs the stored scenario, never the body's own finding",
+          "status": "passed",
+          "durationMs": 4.291292000000112
+        },
+        {
+          "name": "red-team finding, one step ahead same exposures, scores and urgency as the plain credential report: a finding raises nothing",
+          "status": "passed",
+          "durationMs": 6.157458000000133
+        },
+        {
+          "name": "red-team finding, one step ahead a leaked login reaches only companies sharing it, not every customer of the vendor",
+          "status": "passed",
+          "durationMs": 2.277166999999963
+        },
+        {
+          "name": "red-team finding, one step ahead sister companies never see the reporter, its hops or ids, or 'validated' without 'not tested'",
+          "status": "passed",
+          "durationMs": 3.5075420000000577
+        },
+        {
+          "name": "red-team finding, one step ahead the firm map labels the proven edge and the inferred ones; the AI gets safe context",
+          "status": "passed",
+          "durationMs": 5.407000000000153
+        },
+        {
+          "name": "response playbook (pre-approved steps) each company's own rule runs: Cedar pre-approved, Granite one click, Harborline notify",
+          "status": "passed",
+          "durationMs": 6.00974999999994
+        },
+        {
+          "name": "response playbook (pre-approved steps) a replayed report plans and runs nothing new",
+          "status": "passed",
+          "durationMs": 4.406208000000106
+        },
+        {
+          "name": "response playbook (pre-approved steps) two people click one-click at once: exactly one runs it",
+          "status": "passed",
+          "durationMs": 4.882374999999911
+        },
+        {
+          "name": "response playbook (pre-approved steps) only the company's IT lead or controller acts; everyone else is refused and logged",
+          "status": "passed",
+          "durationMs": 5.78774999999996
+        },
+        {
+          "name": "response playbook (pre-approved steps) caps: payroll logins and vendor admin accounts stop at one click; DNS guesses and same-vendor links get nothing",
+          "status": "passed",
+          "durationMs": 11.213583000000199
+        },
+        {
+          "name": "response playbook (pre-approved steps) no more than 3 companies run steps without a click from one report",
+          "status": "passed",
+          "durationMs": 6.70633399999997
+        },
+        {
+          "name": "response playbook (pre-approved steps) raising a step to pre-approved takes two different people; lowering takes one",
+          "status": "passed",
+          "durationMs": 4.190041000000065
+        },
+        {
+          "name": "response playbook (pre-approved steps) payment holds keep their single controller switch",
+          "status": "passed",
+          "durationMs": 3.119833000000199
+        },
+        {
+          "name": "response playbook (pre-approved steps) undo restores; containment expires steps nobody ran",
+          "status": "passed",
+          "durationMs": 5.0942499999998745
+        }
+      ]
+    },
+    {
+      "file": "mcp.test.ts",
+      "tests": [
+        {
+          "name": "agent identity authenticate resolves the agent to the clerk it acts for",
+          "status": "passed",
+          "durationMs": 12.50966600000001
+        },
+        {
+          "name": "agent identity a revoked agent or an unknown token does not authenticate",
+          "status": "passed",
+          "durationMs": 5.259291000000019
+        },
+        {
+          "name": "agent identity the agent survives a reseed",
+          "status": "passed",
+          "durationMs": 7.850999999999999
+        },
+        {
+          "name": "agent identity logCall writes one agent_call row the company sees, labelled as the agent",
+          "status": "passed",
+          "durationMs": 15.225084000000038
+        },
+        {
+          "name": "POST /mcp initialize, tools/list, ping",
+          "status": "passed",
+          "durationMs": 20.195374999999956
+        },
+        {
+          "name": "POST /mcp protocol edge cases",
+          "status": "passed",
+          "durationMs": 5.513709000000006
+        },
+        {
+          "name": "POST /mcp list_held_payments shows Summit's holds only, never the reporter",
+          "status": "passed",
+          "durationMs": 5.8792080000000055
+        },
+        {
+          "name": "POST /mcp explain_hold says a person must act; other companies' payments are not found",
+          "status": "passed",
+          "durationMs": 13.682209
+        },
+        {
+          "name": "POST /mcp every tools/call writes exactly one agent_call audit row",
+          "status": "passed",
+          "durationMs": 7.485375000000033
+        },
+        {
+          "name": "agent requests a payment an agent-requested payment to a compromised vendor is held and flagged",
+          "status": "passed",
+          "durationMs": 7.907040999999992
+        },
+        {
+          "name": "agent requests a payment the clerk the agent acts for cannot release it; the controller can",
+          "status": "passed",
+          "durationMs": 8.580165999999963
+        },
+        {
+          "name": "agent requests a payment request_payment writes exactly one agent_call row, linked to the payment",
+          "status": "passed",
+          "durationMs": 9.284249999999986
+        }
+      ]
+    },
+    {
+      "file": "pegasus.test.ts",
+      "tests": [
+        {
+          "name": "Pegasus response-abuse controls 100 reports with changing IDs stay one episode and do not renew deadlines or holds",
+          "status": "passed",
+          "durationMs": 47.435542
+        },
+        {
+          "name": "Pegasus response-abuse controls low confidence signals never hold payments or execute response steps",
+          "status": "passed",
+          "durationMs": 6.82891699999999
+        },
+        {
+          "name": "Pegasus response-abuse controls a low-grade report cannot hide an existing compromise from a new payment request",
+          "status": "passed",
+          "durationMs": 7.2509580000000255
+        },
+        {
+          "name": "Pegasus response-abuse controls correlated reports preserve a controller release and unaffected vendors",
+          "status": "passed",
+          "durationMs": 6.432166999999993
+        },
+        {
+          "name": "Pegasus response-abuse controls review expiry escalates once without releasing money",
+          "status": "passed",
+          "durationMs": 21.648458000000005
+        },
+        {
+          "name": "Pegasus response-abuse controls contained incident cannot be reopened by another sender ID",
+          "status": "passed",
+          "durationMs": 4.907375000000002
+        },
+        {
+          "name": "Pegasus response-abuse controls only the firm may confirm an observation and it cannot restart an already active episode",
+          "status": "passed",
+          "durationMs": 5.053333000000009
+        },
+        {
+          "name": "Pegasus response-abuse controls a signed report without detector enrollment is still only an observation",
+          "status": "passed",
+          "durationMs": 15.447041000000013
+        },
+        {
+          "name": "Pegasus source-backed investigation rejects malformed money -5",
+          "status": "passed",
+          "durationMs": 0.151457999999991
+        },
+        {
+          "name": "Pegasus source-backed investigation rejects malformed money (5)",
+          "status": "passed",
+          "durationMs": 0.11045900000004849
+        },
+        {
+          "name": "Pegasus source-backed investigation rejects malformed money 1.001",
+          "status": "passed",
+          "durationMs": 0.03437500000001137
+        },
+        {
+          "name": "Pegasus source-backed investigation rejects malformed money 1,2",
+          "status": "passed",
+          "durationMs": 0.025374999999996817
+        },
+        {
+          "name": "Pegasus source-backed investigation rejects malformed money NaN",
+          "status": "passed",
+          "durationMs": 0.027082999999947788
+        },
+        {
+          "name": "Pegasus source-backed investigation rejects malformed money 1e8",
+          "status": "passed",
+          "durationMs": 0.03862499999996771
+        },
+        {
+          "name": "Pegasus source-backed investigation extracts exact cents and flags contradictory source fields",
+          "status": "passed",
+          "durationMs": 0.5019580000000019
+        },
+        {
+          "name": "Pegasus source-backed investigation fabricated model evidence is rejected",
+          "status": "passed",
+          "durationMs": 0.2651250000000118
+        },
+        {
+          "name": "Pegasus source-backed investigation CSV export neutralizes spreadsheet formulas",
+          "status": "passed",
+          "durationMs": 0.050292000000013104
+        },
+        {
+          "name": "Pegasus source-backed investigation adversarial email creates a packet but cannot change records, holds or payment authority",
+          "status": "passed",
+          "durationMs": 6.47504200000003
+        },
+        {
+          "name": "Pegasus source-backed investigation legitimate fresh invoice reconciles while keeping approval separate",
+          "status": "passed",
+          "durationMs": 4.354790999999977
+        },
+        {
+          "name": "Pegasus source-backed investigation duplicate documents do not schedule duplicate investigations",
+          "status": "passed",
+          "durationMs": 3.1214590000000157
+        },
+        {
+          "name": "owned sandbox response real resource access fails after automatic containment, unrelated access survives, undo is not reversed by replay",
+          "status": "passed",
+          "durationMs": 13.103458000000046
+        },
+        {
+          "name": "integration edge cases a changed company policy prevents queued automatic execution",
+          "status": "passed",
+          "durationMs": 3.8899999999999864
+        },
+        {
+          "name": "integration edge cases two actual payees with the same normalized vendor name require review",
+          "status": "passed",
+          "durationMs": 5.271082999999976
+        },
+        {
+          "name": "integration edge cases invoice reference prefixes cannot reconcile a different invoice",
+          "status": "passed",
+          "durationMs": 5.16779200000002
+        },
+        {
+          "name": "integration edge cases model extraction is source-checked and still cannot grant payment authority",
+          "status": "passed",
+          "durationMs": 4.743750000000034
+        },
+        {
+          "name": "integration edge cases a revoked sandbox token stays revoked even after a pause is undone",
+          "status": "passed",
+          "durationMs": 6.727625000000046
+        },
+        {
+          "name": "pre-upgrade episodes are adopted without resetting their original clock",
+          "status": "passed",
+          "durationMs": 4.123708000000022
+        },
+        {
+          "name": "observations remain in the review queue and never appear as confirmed map incidents",
+          "status": "passed",
+          "durationMs": 5.578750000000014
+        },
+        {
+          "name": "credential-only evidence cannot freeze vendor payments even when mapped onto a payee asset",
+          "status": "passed",
+          "durationMs": 3.943375000000003
+        }
+      ]
+    }
+  ],
+  "supplementaryTests": {
+    "command": "node --test prompts/writing.test.mjs scripts/scorecard/score.test.mjs",
+    "passed": 40,
+    "failed": 0
+  },
+  "liveDevelopment": {
+    "deployment": "tangible-koala-842",
+    "fullDemoRehearsal": "passed",
+    "signedHttpResilience": {
+      "author": "Pegasus",
+      "at": "2026-10-24T22:24:55.100Z",
+      "scope": "owned development deployment tangible-koala-842; synthetic data only",
+      "weakReports": 100,
+      "observationEpisodes": 1,
+      "weakReportsPaymentQueueUnchanged": true,
+      "reviewDeadlineUnchanged": true,
+      "confirmedReportHeldExpectedPayment": true,
+      "confirmedRepeats": 10,
+      "controllerReleasePreserved": true
+    },
+    "ownedSandbox": {
+      "before": {
+        "target": 200,
+        "unrelated": 200
+      },
+      "after": {
+        "target": 403,
+        "unrelated": 200
+      },
+      "observedElapsedMs": 1223,
+      "note": "Includes CLI, network and scheduling; not a production latency benchmark."
+    },
+    "browserInvestigation": "passed; changed account requires review, trusted contact and source quotes visible"
+  },
+  "notVerified": [
+    "live model extraction",
+    "external identity-provider integration"
+  ]
+}
