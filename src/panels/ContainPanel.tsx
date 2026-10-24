@@ -7,6 +7,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { refusalOf } from "../layout/errors";
 import { dateTime } from "./format";
 import { Card } from "./ui";
+import { BUTTON_PRIMARY } from "./styles";
 
 type Props = { incidentId: Id<"incidents">; containedAt: number | null };
 
@@ -58,7 +59,7 @@ export function ContainPanel({ incidentId, containedAt }: Props) {
         type="button"
         disabled={busy || note.trim() === ""}
         onClick={() => void submit()}
-        className="mt-2 rounded-md bg-amber px-3 py-1.5 text-sm font-semibold text-graphite hover:bg-amber/90 disabled:opacity-50"
+        className={`mt-2 ${BUTTON_PRIMARY}`}
       >
         Mark contained
       </button>

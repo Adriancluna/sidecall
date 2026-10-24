@@ -11,6 +11,7 @@ import { DEMO_PASSWORD } from "../auth/useSignInAs";
 import { friendlyError } from "../layout/errors";
 import { money } from "./format";
 import { Card, Chip, Empty } from "./ui";
+import { BUTTON_PRIMARY, BUTTON_SECONDARY, FIELD } from "./styles";
 
 type Result = FunctionReturnType<typeof api.imports.importPortfolioCompany>;
 type Files = { vendorsCsv: string; billsCsv: string };
@@ -23,9 +24,6 @@ const SAMPLE_COMPANY = {
   apClerkName: "Morgan Ellis",
   controllerName: "Daniel Okoro",
 };
-
-const field =
-  "w-full rounded-md border border-line bg-graphite px-2 py-1.5 text-sm text-paper";
 
 export function ApImportPanel() {
   const [files, setFiles] = useState<Partial<Files>>({});
@@ -84,7 +82,7 @@ export function ApImportPanel() {
         inputMode={key === "headcount" ? "numeric" : undefined}
         value={company[key]}
         onChange={(e) => setCompany({ ...company, [key]: e.target.value })}
-        className={`${field} mt-1`}
+        className={`${FIELD} mt-1 w-full`}
       />
     </label>
   );
@@ -124,7 +122,7 @@ export function ApImportPanel() {
               setUsingSample(true);
               setResult(undefined);
             }}
-            className="rounded-md border border-line px-3 py-1.5 text-sm hover:border-ash"
+            className={BUTTON_SECONDARY}
           >
             Use sample files
           </button>
@@ -149,7 +147,7 @@ export function ApImportPanel() {
         <button
           type="submit"
           disabled={!ready || busy || preview === null}
-          className="rounded-md bg-amber px-3 py-1.5 text-sm font-semibold text-graphite hover:bg-amber/90 disabled:opacity-50"
+          className={BUTTON_PRIMARY}
         >
           {busy ? "Importing…" : "Import"}
         </button>

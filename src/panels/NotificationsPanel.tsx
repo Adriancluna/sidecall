@@ -9,6 +9,7 @@ import { friendlyError, refusalOf } from "../layout/errors";
 import { dateTime } from "./format";
 import { OUTBOX_STATUS } from "./labels";
 import { Card, Empty, LookChip } from "./ui";
+import { BUTTON_PRIMARY, FIELD } from "./styles";
 
 type Scope = "company" | "firm";
 type Kind = "slack" | "discord" | "webhook";
@@ -146,8 +147,6 @@ function AddChannel({
     }
   };
 
-  const field =
-    "rounded-md border border-line bg-graphite px-2 py-1.5 text-sm text-paper";
   return (
     <details className="text-sm">
       <summary className="cursor-pointer text-ash">Connect a channel</summary>
@@ -160,7 +159,7 @@ function AddChannel({
             id={`kind-${scope}`}
             value={kind}
             onChange={(e) => setKind(e.target.value as Kind)}
-            className={field}
+            className={FIELD}
           >
             <option value="slack">Slack</option>
             <option value="discord">Discord</option>
@@ -176,7 +175,7 @@ function AddChannel({
             placeholder="#finance-alerts"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            className={`${field} min-w-0 flex-1`}
+            className={`${FIELD} min-w-0 flex-1`}
           />
         </div>
         <label className="sr-only" htmlFor={`url-${scope}`}>
@@ -192,7 +191,7 @@ function AddChannel({
           placeholder="https://hooks.slack.com/services/…"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          className={`${field} w-full`}
+          className={`${FIELD} w-full`}
         />
         <fieldset className="flex flex-wrap gap-3 text-xs text-ash">
           <legend className="sr-only">Events</legend>
@@ -216,7 +215,7 @@ function AddChannel({
         <button
           type="submit"
           disabled={busy || events.length === 0}
-          className="rounded-md bg-amber px-3 py-1.5 text-sm font-semibold text-graphite hover:bg-amber/90 disabled:opacity-50"
+          className={BUTTON_PRIMARY}
         >
           Connect
         </button>

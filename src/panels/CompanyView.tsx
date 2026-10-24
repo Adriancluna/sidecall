@@ -14,6 +14,7 @@ import { NotificationsPanel } from "./NotificationsPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { Card, Chip, Empty, LookChip } from "./ui";
 import { humanize } from "./format";
+import { BUTTON_SECONDARY } from "./styles";
 
 type Props = {
   companyId: Id<"companies">;
@@ -141,8 +142,6 @@ function AlertItem({ exposure, alert }: AlertItemProps) {
     }
   };
 
-  const button =
-    "rounded-md border border-line px-3 py-1.5 text-sm hover:border-ash disabled:opacity-50";
   return (
     <article className="rounded-lg border border-line bg-graphite p-4">
       <div className="mb-2 flex items-center gap-2">
@@ -160,7 +159,7 @@ function AlertItem({ exposure, alert }: AlertItemProps) {
               type="button"
               disabled={busy}
               onClick={() => void change("acknowledge")}
-              className={button}
+              className={BUTTON_SECONDARY}
             >
               Acknowledge
             </button>
@@ -169,7 +168,7 @@ function AlertItem({ exposure, alert }: AlertItemProps) {
             type="button"
             disabled={busy}
             onClick={() => void change("close")}
-            className={button}
+            className={BUTTON_SECONDARY}
           >
             Close
           </button>

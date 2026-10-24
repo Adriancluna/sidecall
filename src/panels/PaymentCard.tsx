@@ -10,6 +10,7 @@ import { dateTime, humanize, money } from "./format";
 import { PAYMENT_STATUS } from "./labels";
 import type { HeldPaymentRow } from "./types";
 import { LookChip } from "./ui";
+import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "./styles";
 
 // Who is looking, so the instructions address the right person (the backend enforces the rules).
 export type Viewer = { id: Id<"users">; isController: boolean };
@@ -216,7 +217,7 @@ export function PaymentCard({ row, escalation, viewer }: Props) {
               type="button"
               disabled={busy !== undefined || note.trim() === ""}
               onClick={() => void decide("release")}
-              className="rounded-md bg-amber px-3 py-1.5 text-sm font-semibold text-graphite disabled:opacity-50"
+              className={BUTTON_PRIMARY}
             >
               {busy === "release" ? "Releasing…" : "Release payment"}
             </button>
@@ -224,7 +225,7 @@ export function PaymentCard({ row, escalation, viewer }: Props) {
               type="button"
               disabled={busy !== undefined}
               onClick={() => void decide("reject")}
-              className="rounded-md border border-line px-3 py-1.5 text-sm hover:border-ash disabled:opacity-50"
+              className={BUTTON_SECONDARY}
             >
               {busy === "reject" ? "Rejecting…" : "Reject"}
             </button>
