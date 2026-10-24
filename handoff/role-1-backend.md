@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 23, 20:50 by Adrian's Claude
+Last updated: Oct 23, 21:00 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -14,7 +14,10 @@ Last updated: Oct 23, 20:50 by Adrian's Claude
 - **Copy fixes:** alert reasons no longer repeat "under an active incident"; proper plurals ("1 held payment goes…", "2 days"). E.g. "Your company shares a login credential with Brightline Payroll Inc."
 - **Return validators** on every public mutation + `access.me` (Convex review follow-up). Types unchanged.
 - ✓ done for Role 2: `vercel.json` `ignoreCommand` skips non-production builds (your #43). Saw your escalation banner + timeline panel (#42): thanks.
-- `npm test`: 20 tests green (they sign in as each person; added: client can't pass a user id, controls log scoping).
+- **Demo readiness check:** `npx convex run ops:demoReadiness --prod` (Adrian runs before going on stage; read-only). Checks DEMO_MODE, seed, $480K still pending, escalation window, "2 days before" freshness, no incident yet, ledger balance, AI alerts written. Says "press Reset" when needed.
+- **All 3 scenarios verified through the real webhook on dev** (unsigned, DEMO_MODE): `demo-brightline-001`, `demo-ironclad-cred-002`, `demo-ironclad-msp-003`.
+- ✓ Merged Role 2's #45 (polish + ledger columns): tsc, lint, build, tests green.
+- `npm test`: 21 tests green (they sign in as each person; added: client can't pass a user id, controls log scoping).
 - ✓ done for Role 2: reviewed and merged #26. Earlier: #20, #22, #24.
 
 ## In progress
@@ -34,7 +37,15 @@ Last updated: Oct 23, 20:50 by Adrian's Claude
   7. **Errors and polish:** friendly message for `ConvexError` texts ("Not signed in" after Reset → back to sign-in); every screen at phone width (16px gutter, no horizontal scroll); copy audit against CLAUDE.md "Never say" (no "fraud", no "validated", no "we block payments").
   8. **Pitch material** (new folder `docs/`, Role 2 owns it): `docs/demo-script.md` (opens on the $480K money moment, ≤ 3 min, who clicks what), `docs/devpost.md` draft (what it does, how we built it on Convex, real vs simulated, the one-line seat: "AP payment controls across a PE portfolio"), and a shot list for the backup video.
 - → **Role 2, do first (bug from Adrian's prod test):** on a decided payment card (`row.decision` set), show "Released by Rosa Alvarez · <note> · <time>" (or "Rejected by …") instead of hold wording; label `holdReasons` as "Why it was held"; hide the note box. Short notes like "480000" now come back refused with guidance (shown inline already). Also: the PE headline's "$ held" drops after a release (counts still-held only, by design); add a second line "released after verification: $X" from `getHeldPayments` rows with `decision.status === "paid"`.
-- → **Role 2, small bug (Adrian's screenshot):** ledger table columns run together: "…service fees**Expense**", "8:41 PM**Opening** balance". Add column padding / fixed widths in `LedgerPanel`.
+- → **Role 2, round 4 — scenario picker on `/?stage`** (backend ready, no changes needed):
+  - Next to Fire incident, a small select of three scenarios; POST the same way your Fire button does (unsigned works for these only):
+    - **Brightline payroll breach** (main demo): `{ "externalId": "demo-brightline-001", "assetName": "Brightline Payroll", "reportedByDomain": "pinecreststaffing.example" }`
+    - **Ironclad shared login leaked** (discipline beat: Summit uses Ironclad with its own login → **no alert for Summit**, map shows it as "separate access"; no payments held): `{ "externalId": "demo-ironclad-cred-002", "assetName": "Ironclad shared admin account", "reportedByDomain": "pinecreststaffing.example" }`
+    - **Ironclad MSP itself compromised** (vendor fell: every customer exposed, Harborline's $37K to a new account flagged): `{ "externalId": "demo-ironclad-msp-003", "assetName": "Ironclad IT Services", "reportedByDomain": "pinecreststaffing.example" }`
+  - PE view: add an incident selector (`listIncidents` is newest first; today the view shows only `[0]`), so after firing two scenarios you can flip between them.
+  - Presenter panel: add an optional beat "Discipline: fire the Ironclad credential scenario → sign in as Jamie → no new alert".
+  - Add "Run `npx convex run ops:demoReadiness --prod`" as step 0 in `docs/demo-script.md`.
+- ✓ Ledger column spacing: fixed in your #45.
 - → Role 2 (done, keep for reference) round 3:
   1. **Escalation in the company view:** `getMyAlerts` now includes `kind: "escalation"` alerts ("Decision needed: … due in about 20 hours … Rosa Alvarez: call … then release or reject"). Show them at the top of the held-payments card or as a banner; the controls log already lists the `escalate` rows.
   2. **Timeline panel (PE view, and scoped in the company view):** `api.blastRadius.getIncidentTimeline({ incidentId })`. Headline line from `stats`: "Payments held in the same transaction as the report · alerts written in 97 ms · first acknowledgement after 41 s". This is our Convex-track proof on screen.
