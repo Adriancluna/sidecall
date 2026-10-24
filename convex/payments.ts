@@ -8,6 +8,7 @@ import { canSeeCompany, getViewer } from "./access";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const BANK_CHANGE_WINDOW_MS = 30 * DAY_MS;
+const MIN_NOTE_LENGTH = 15;
 
 // Runs inside recordIncident's transaction. Holds every pending payment to the
 // compromised asset at companies that opted in. Never cancels anything.
@@ -156,8 +157,9 @@ export const releasePayment = mutation({
     const check = await checkDecision(ctx, payment, actor, "release");
     if (!check.ok) return check;
 
+    // A release must say who was called and what they confirmed, not just "ok" or an amount.
     const note = args.verificationNote.trim();
-    if (note.length === 0) {
+    if (note.length < MIN_NOTE_LENGTH || !/[a-z]{2,}\s+[a-z]{2,}/i.test(note)) {
       await ctx.db.insert("auditLog", {
         at: Date.now(),
         actor,
@@ -166,9 +168,12 @@ export const releasePayment = mutation({
         paymentId: payment._id,
         incidentId: payment.heldByIncidentId,
         rule: "verification_required",
-        reason: "Refused release: no verification note (call the number on file first).",
+        reason: "Refused release: verification note missing or too short (call the number on file first).",
       });
-      return { ok: false, reason: "Add a verification note before releasing." };
+      return {
+        ok: false,
+        reason: "Describe the verification call: who you called at the number on file and what they confirmed.",
+      };
     }
 
     const now = Date.now();
@@ -288,6 +293,7 @@ export const getHeldPayments = query({
         const change = payment.flaggedBankChangeId
           ? await ctx.db.get("bankDetailChanges", payment.flaggedBankChangeId)
           : null;
+        const approver = payment.approvedBy ? await ctx.db.get("users", payment.approvedBy) : null;
         // Earlier bank details for the same vendor, newest first, for the "old vs new" flag.
         const earlier = change
           ? await ctx.db
@@ -318,7 +324,17 @@ export const getHeldPayments = query({
                 }
               : null,
           holdReasons: payment.holdReasons ?? [],
-          notice: notice?.body ?? null,
+          // The hold notice only applies while the payment is still held.
+          notice: payment.status === "held" ? (notice?.body ?? null) : null,
+          decision:
+            payment.status === "paid" || payment.status === "rejected"
+              ? {
+                  status: payment.status,
+                  byName: approver?.name ?? null,
+                  note: payment.verificationNote ?? null,
+                  at: payment.decidedAt ?? null,
+                }
+              : null,
         };
       }),
     );

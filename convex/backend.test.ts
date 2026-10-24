@@ -174,9 +174,20 @@ describe("payment release", () => {
     ).toMatchObject({ ok: false });
     expect((await ledger())!.balances.cash).toBe(cashBefore); // held money never moves
 
-    const args = { paymentId, verificationNote: "Called +1 415 555-0142, confirmed" };
+    expect(
+      await controller.mutation(api.payments.releasePayment, { paymentId, verificationNote: "480000" }),
+    ).toMatchObject({ ok: false }); // an amount is not a verification
+
+    const args = {
+      paymentId,
+      verificationNote: "Called Brightline at +1 415 555-0142, they confirmed account 7731",
+    };
     expect(await controller.mutation(api.payments.releasePayment, args)).toEqual({ ok: true });
     expect(await controller.mutation(api.payments.releasePayment, args)).toMatchObject({ ok: false });
+
+    const [row] = await controller.query(api.payments.getHeldPayments, {});
+    expect(row.notice).toBeNull(); // no "held until verified" text on a paid payment
+    expect(row.decision).toMatchObject({ status: "paid", byName: "Rosa Alvarez", note: args.verificationNote });
 
     const after = (await ledger())!.balances;
     expect(cashBefore - after.cash).toBe(48_000_000);
@@ -195,7 +206,7 @@ describe("payment release", () => {
     const { t, as, paymentId } = await heldPayment();
     await (await as("Rosa Alvarez")).mutation(api.payments.releasePayment, {
       paymentId,
-      verificationNote: "Verified by phone",
+      verificationNote: "Called the number on file, vendor confirmed the account",
     });
     const entries = await t.run((ctx) => ctx.db.query("ledgerEntries").take(500));
     for (const entry of entries) {
