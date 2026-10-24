@@ -329,8 +329,8 @@ function PortfolioHero({
 
       <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-12">
         <div className="min-w-0">
-          {/* The zoom-out line as three figures, each beside what it counts. Never wraps mid-number. */}
-          <div aria-hidden className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-4 gap-y-3">
+          {/* The zoom-out line as three metric blocks in one card, label over figure. */}
+          <div aria-hidden className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)_minmax(0,1.5fr)] divide-x divide-line rounded-tile border border-line bg-panel">
             <Stat value={String(totals.companiesExposed)} label={totals.companiesExposed === 1 ? "company exposed" : "companies exposed"} />
             <Stat value={totals.peopleExposed.toLocaleString()} label="people behind them" />
             <Stat
@@ -462,13 +462,13 @@ function AckTiles({ nodes }: { nodes: Node[] }) {
 
 function Stat({ value, label, tone = "text-paper" }: { value: string; label: string; tone?: string }) {
   return (
-    <>
+    <div className="min-w-0 px-4 py-3.5">
+      <span className="block text-sm text-[#7d7d7d]">{label}</span>
       <span
-        className={`text-right text-[clamp(2.5rem,1.6rem+2.2vw,3.75rem)] leading-none font-semibold tracking-[-0.03em] tabular-nums ${tone}`}
+        className={`mt-1 block text-[clamp(1.25rem,0.9rem+0.9vw,1.75rem)] whitespace-nowrap leading-tight font-semibold tracking-[-0.04em] tabular-nums ${tone}`}
       >
         {value}
       </span>
-      <span className="text-base leading-snug text-ash md:text-lg">{label}</span>
-    </>
+    </div>
   );
 }

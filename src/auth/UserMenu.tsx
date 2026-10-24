@@ -6,7 +6,8 @@ import { ROLE_LABEL, useDirectory } from "./directory";
 import { BUTTON_QUIET } from "../panels/styles";
 import { useSwitchTo } from "./useSignInAs";
 
-export function UserMenu({ me }: { me: CurrentUser }) {
+// stacked: the sidebar footer (full-width switch over Sign out).
+export function UserMenu({ me, stacked = false }: { me: CurrentUser; stacked?: boolean }) {
   const directory = useDirectory();
   const { signOut } = useAuthActions();
   const switchToPerson = useSwitchTo();
@@ -22,11 +23,13 @@ export function UserMenu({ me }: { me: CurrentUser }) {
   };
 
   return (
-    <div className="flex min-w-0 shrink items-center gap-1 text-sm text-ash sm:gap-2">
+    <div
+      className={`flex min-w-0 shrink text-sm text-ash ${stacked ? "flex-col items-stretch gap-1" : "items-center gap-1 sm:gap-2"}`}
+    >
       <label className="flex min-w-0 items-center gap-2">
-        <span className="sr-only shrink-0 lg:not-sr-only">Signed in as</span>
+        <span className="sr-only">Signed in as</span>
         <select
-          className="min-h-9 w-full max-w-[11rem] min-w-0 truncate rounded-chip border border-line bg-panel py-1.5 pr-7 pl-3 text-paper hover:border-ash disabled:text-ash sm:max-w-xs"
+          className={`min-h-9 w-full min-w-0 truncate rounded-chip bg-panel py-1.5 pr-7 pl-3 text-paper ring-1 ring-line hover:ring-[#454545] disabled:text-ash ${stacked ? "" : "max-w-[11rem] sm:max-w-xs"}`}
           value={me.email ?? ""}
           disabled={busy}
           onChange={(e) => void switchTo(e.target.value)}
@@ -48,7 +51,7 @@ export function UserMenu({ me }: { me: CurrentUser }) {
       <button
         type="button"
         onClick={() => void signOut()}
-        className={`shrink-0 ${BUTTON_QUIET}`}
+        className={`shrink-0 ${BUTTON_QUIET} ${stacked ? "justify-start" : ""}`}
       >
         Sign out
       </button>

@@ -1,5 +1,5 @@
 // Small shared building blocks for the panels.
-// Status reads as a word plus a small tile (the logo's shape): filled for a live state, hollow for
+// Status reads as a word plus a small dot: filled for a live state, hollow for
 // neutral or history. The word carries the meaning, so status is never colour alone.
 import type { ReactNode } from "react";
 import symbolUrl from "../../brand/logo/sidecall-symbol-small-amber.svg";
@@ -15,14 +15,14 @@ export function Card({
   aside?: ReactNode;
 }) {
   return (
-    <section className="rounded-tile border border-line bg-panel p-5 md:p-6">
+    <section className="overflow-hidden rounded-tile border border-line bg-panel">
       {(title || aside) && (
-        <header className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          {title && <h2 className="text-base font-semibold text-paper">{title}</h2>}
+        <header className="flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line py-3 pr-3 pl-4">
+          {title && <h2 className="text-sm font-medium tracking-[-0.02em] text-paper">{title}</h2>}
           {aside}
         </header>
       )}
-      {children}
+      <div className="p-4 md:p-5">{children}</div>
     </section>
   );
 }
@@ -30,20 +30,20 @@ export function Card({
 export type Tone = keyof typeof TONE;
 
 const TONE = {
-  danger: "bg-danger/12 text-danger",
-  amber: "bg-amber/12 text-amber",
-  ok: "bg-ok/12 text-ok",
+  danger: "bg-[oklch(22.1%_0.0657_15.11)] text-danger",
+  amber: "bg-[oklch(22.46%_0.0538_76.04)] text-amber",
+  ok: "bg-[oklch(23.09%_0.0716_149.68)] text-ok",
   muted: "bg-raised text-ash",
 } as const;
 
 const TEXT = { danger: "text-danger", amber: "text-amber", ok: "text-ok", muted: "text-ash" } as const;
 
-// The brand tile as a status glyph.
+// A status dot.
 export function Tile({ hollow = false, className = "size-2" }: { hollow?: boolean; className?: string }) {
   return (
     <span
       aria-hidden
-      className={`inline-block shrink-0 rounded-[2.5px] ${hollow ? "border-[1.5px] border-current" : "bg-current"} ${className}`}
+      className={`inline-block shrink-0 rounded-full ${hollow ? "border-[1.5px] border-current" : "bg-current"} ${className}`}
     />
   );
 }
@@ -51,7 +51,7 @@ export function Tile({ hollow = false, className = "size-2" }: { hollow?: boolea
 export function Chip({ tone, children }: { tone: Tone; children: ReactNode }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-chip px-2 py-0.5 text-xs leading-5 font-semibold whitespace-nowrap ${TONE[tone]}`}
+      className={`inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium whitespace-nowrap ${TONE[tone]}`}
     >
       <Tile hollow={tone === "muted"} />
       {children}
@@ -92,7 +92,7 @@ export function Fact({ label, children }: { label: string; children: ReactNode }
   return (
     <div className="min-w-0">
       <dt className="text-sm text-ash">{label}</dt>
-      <dd className="mt-1 text-sm leading-snug text-paper">{children}</dd>
+      <dd className="mt-1.5 text-sm leading-snug font-medium text-paper">{children}</dd>
     </div>
   );
 }
@@ -105,7 +105,7 @@ export function Skeleton({ rows = 3 }: { rows?: number }) {
       {Array.from({ length: rows }, (_, i) => (
         <div
           key={i}
-          className={`h-4 rounded bg-raised motion-safe:animate-pulse ${i % 3 === 2 ? "w-2/5" : i % 2 ? "w-4/5" : "w-full"}`}
+          className={`h-4 rounded-tile bg-raised motion-safe:animate-pulse ${i % 3 === 2 ? "w-2/5" : i % 2 ? "w-4/5" : "w-full"}`}
         />
       ))}
     </div>
