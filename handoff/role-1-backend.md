@@ -76,6 +76,12 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 ## Status update (~2:45am): "What to check" (last backend feature before hardening)
 Team decision (Adrian): **no more new features**; focus on precision, the $480K moment, and the red-team finding. One gap closed: an exposed company's IT lead now gets a concrete check, not just "rotate and review". `getExposureEvidence().path.whatToCheck` / evidence kind `what_to_check` / `getWritingContext().companyAlerts[].whatToCheck`, e.g. "What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong." (Harborline, which gives admin access, gets "Ask Ironclad Managed IT to rotate the admin account it uses for you…"). 55 tests, rehearsal 25/25. From here Role 1 = demo hardening + support for the video.
 
+## ⚠ OMAR: SCOPE CHANGE FOR THE UI REMAKE (Adrian's decision, Oct 24)
+**Role 1 (Adrian's Claude) is rebuilding the dashboards: the page shell, header, hero and tabs for every person, i.e. all of `src/` EXCEPT `src/map/`.** Branch `feat/dashboards`.
+- **Omar: work only in `src/map/`** (the map + `EvidencePanel`): the remake prompt's map section (§4.6 map labels, plain evidence labels, "What to check" first), plus your `convex/ai.ts` asks. **Skip every other section of `docs/specs/ui-remake-oneshot-prompt.md`** (shell, tokens, panels, company views): those are mine now.
+- Keep `BlastRadiusMap`'s props (`{ blast, selected, onSelect }`) and `EvidencePanel`'s (`{ exposureId, companyName }`) stable; I import them as they are. If you need to change a prop, write it here first.
+- If you already changed files outside `src/map/` locally, put them on a `wip/omar-*` branch and tell Adrian; don't merge them.
+
 ## Rehearsal covers the red-team beat
 `npm run rehearse` beat 9 presses the stage button body (`demo-armadin-004`, id + asset only) and checks: 3 exposed / $0 held, firm sees the finding, map edge labels (validated at Pinecrest, reachable at Cedar Ridge), Cedar IT (Sam Kowalski) gets "What to check", no Pinecrest / hop / finding-id leak in Sam's views, Summit not alerted. 32/32 on dev. Run it on prod before judging (Adrian): `npm run rehearse -- --url https://judicious-tiger-712.convex.cloud`.
 
