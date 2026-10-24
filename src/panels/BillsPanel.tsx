@@ -5,14 +5,12 @@ import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { friendlyError } from "../layout/errors";
-import { money } from "./format";
+import { money, shortDate } from "./format";
 import { paymentLook } from "./labels";
-import { Card, Empty, LookChip } from "./ui";
+import { BUTTON_SECONDARY } from "./styles";
+import { Card, Empty, LookChip, Skeleton } from "./ui";
 
 const TEXT_TONE = { amber: "text-amber", danger: "text-danger", ok: "text-ok" };
-
-const shortDate = (ms: number) =>
-  new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
 export function BillsPanel() {
   const bills = useQuery(api.payments.getMyBills, {});
@@ -27,7 +25,7 @@ export function BillsPanel() {
   return (
     <Card title="Bills to pay">
       {bills === undefined ? (
-        <Empty>Loading…</Empty>
+        <Skeleton />
       ) : bills.length === 0 ? (
         <Empty>No bills.</Empty>
       ) : (
@@ -108,8 +106,8 @@ function BillRow({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="text-sm font-medium">{description}</p>
-          <p className="text-xs text-ash">
-            {vendorName} · due {shortDate(dueDate)}
+          <p className="text-sm text-ash">
+            {vendorName}, due {shortDate(dueDate)}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -123,9 +121,9 @@ function BillRow({
               type="button"
               disabled={busy}
               onClick={() => void request()}
-              className="rounded-md bg-amber px-3 py-1 text-sm font-semibold text-graphite hover:bg-amber/90 disabled:opacity-50"
+              className={BUTTON_SECONDARY}
             >
-              Request payment
+              {busy ? "Requesting…" : "Request payment"}
             </button>
           )}
         </div>

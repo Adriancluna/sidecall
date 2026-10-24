@@ -100,7 +100,7 @@ export function ApImportPanel() {
               type="file"
               accept=".csv,text/csv"
               onChange={(e) => void readFile("vendorsCsv")(e)}
-              className="mt-1 block text-sm text-paper file:mr-2 file:rounded-md file:border file:border-line file:bg-graphite file:px-2 file:py-1 file:text-paper"
+              className="mt-1 block text-sm text-paper file:mr-2 file:min-h-9 file:rounded-chip file:border file:border-line file:bg-graphite file:px-3 file:font-semibold file:text-paper"
             />
           </label>
           <label className="text-xs text-ash">
@@ -109,7 +109,7 @@ export function ApImportPanel() {
               type="file"
               accept=".csv,text/csv"
               onChange={(e) => void readFile("billsCsv")(e)}
-              className="mt-1 block text-sm text-paper file:mr-2 file:rounded-md file:border file:border-line file:bg-graphite file:px-2 file:py-1 file:text-paper"
+              className="mt-1 block text-sm text-paper file:mr-2 file:min-h-9 file:rounded-chip file:border file:border-line file:bg-graphite file:px-3 file:font-semibold file:text-paper"
             />
           </label>
           <button
@@ -169,17 +169,17 @@ function Preview({
   return (
     <div className="space-y-2">
       <p className="text-sm">
-        {preview.vendors.length} vendors · {preview.bills} open bills ·{" "}
+        {preview.vendors.length} vendors, {preview.bills} open bills,{" "}
         <span className="tabular-nums">{money(preview.totalCents)}</span>
       </p>
-      <ul className="divide-y divide-line rounded-lg border border-line bg-graphite">
+      <ul className="divide-y divide-line border-y border-line">
         {preview.vendors.map((v) => (
-          <li key={v.name} className="px-3 py-2 text-sm">
+          <li key={v.name} className="py-2 text-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-medium">
                 {v.name}
                 {v.bankLast4 && (
-                  <span className="ml-2 font-mono text-xs text-ash">
+                  <span className="ml-2 text-ash tabular-nums">
                     ••{v.bankLast4}
                   </span>
                 )}
@@ -220,12 +220,11 @@ function Imported({ result }: { result: Result }) {
         {result.bills} bills booked
         {result.held > 0 && (
           <span className="text-amber">
-            {" "}
-            · {result.held} held on import ({money(result.heldCents)})
+            , {result.held} held on import ({money(result.heldCents)})
           </span>
         )}
         {result.exposedTo.length > 0 &&
-          ` · exposed to ${result.exposedTo.join(", ")}`}
+          `, exposed to ${result.exposedTo.join(", ")}`}
       </p>
       <p className="text-ash">
         Sign in as{" "}
@@ -237,7 +236,7 @@ function Imported({ result }: { result: Result }) {
           </span>
         ))}{" "}
         with the demo password{" "}
-        <code className="font-mono">{DEMO_PASSWORD}</code>.
+        <span className="font-semibold text-paper">{DEMO_PASSWORD}</span>.
       </p>
     </div>
   );

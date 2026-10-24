@@ -80,12 +80,13 @@ export function readableEvidence(evidence: Doc<"exposures">["evidence"]) {
   return [...evidence]
     .sort((a, b) => rank(a.kind) - rank(b.kind))
     .map((e) => ({
+      kind: e.kind,
       label: EVIDENCE_LABEL[e.kind] ?? humanize(e.kind),
       text:
         e.kind === "link"
           ? e.detail.replace(/^(\w+) via /, (_, code: string) => `${SHARE_LABEL[code as ShareType] ?? humanize(code)} via `)
           : e.kind === "what_to_check"
-            ? e.detail.replace(/^What to check:\s*/, "")
+            ? capitalize(e.detail.replace(/^What to check:\s*/, ""))
             : e.detail,
     }));
 }
@@ -94,3 +95,5 @@ function rank(kind: string) {
   const i = EVIDENCE_ORDER.indexOf(kind);
   return i === -1 ? EVIDENCE_ORDER.length : i;
 }
+
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);

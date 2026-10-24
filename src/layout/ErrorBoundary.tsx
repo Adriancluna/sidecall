@@ -2,6 +2,7 @@
 // page shows a way forward instead of going blank. Session errors sign the person out.
 import { useAuthActions } from "@convex-dev/auth/react";
 import { Component, useEffect, type ReactNode } from "react";
+import { BUTTON_PRIMARY } from "../panels/styles";
 import { Card } from "../panels/ui";
 import { isSessionEnded, friendlyError } from "./errors";
 
@@ -50,7 +51,7 @@ function Notice({ text, reload = false }: { text: string; reload?: boolean }) {
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="mt-3 rounded-md bg-amber px-3 py-1.5 text-sm font-semibold text-graphite"
+            className={`mt-3 ${BUTTON_PRIMARY}`}
           >
             Reload
           </button>

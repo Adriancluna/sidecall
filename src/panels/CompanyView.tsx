@@ -5,24 +5,24 @@ import { InvestigationPanel } from "./InvestigationPanel";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
-import { QuickLinks, Tabs, type QuickLink, type TabDef } from "../layout/Tabs";
+import { Tabs, type TabDef } from "../layout/Tabs";
 import { useTabs } from "../layout/useTabs";
 import { AcknowledgedBy } from "./AcknowledgedBy";
 import { BillsPanel } from "./BillsPanel";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { ExposureHero } from "./ExposureHero";
 import { readableEvidence } from "./exposureCopy";
-import { dateTime, money } from "./format";
+import { assetTitle, dateTime, money, shortDate } from "./format";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
-import { EXPOSURE_STATUS, paymentLook, URGENCY } from "./labels";
+import { paymentLook } from "./labels";
 import { LedgerPanel } from "./LedgerPanel";
 import { NotificationsPanel } from "./NotificationsPanel";
-import { PaymentCard } from "./PaymentCard";
+import { PaymentHero } from "./PaymentHero";
 import { PlaybookPanel } from "./ResponsePlaybook";
 import { TimelinePanel } from "./TimelinePanel";
 import type { HeldPaymentRow } from "./types";
-import { Card, Chip, Empty, LookChip } from "./ui";
-import { BUTTON_SECONDARY } from "./styles";
+import { Card, Empty, HeroSkeleton, LookChip, Skeleton, StatusLine, UrgencyChip } from "./ui";
+import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "./styles";
 import { useExposureAction } from "./useExposureAction";
 
 type Props = {
@@ -55,7 +55,6 @@ export function CompanyView({ companyId, meId, role }: Props) {
     (alerts ?? []).flatMap((a) => (a.kind === "company_alert" && a.exposureId ? [[a.exposureId, a] as const] : [])),
   );
   const stillHeld = (held ?? []).filter((r) => r.payment.status === "held");
-  const heldCents = stillHeld.reduce((s, r) => s + r.payment.amountCents, 0);
   const openExposures = (exposures ?? []).filter((e) => e.status !== "closed");
   // Urgent first, then newest (the query returns newest first).
   const leadExposure = [...openExposures].sort(
@@ -65,14 +64,26 @@ export function CompanyView({ companyId, meId, role }: Props) {
   const unpaidBills = (bills ?? []).filter((b) => b.payment === null).length;
 
   const viewer = { id: meId, isController };
-  const heroPayment = handlesPayments ? pickHeroPayment(stillHeld, escalations) : undefined;
+  // A held payment leads; once decided, it stays in the hero (both signatures filled) so the release
+  // or rejection lands on the screen where it happened instead of the page jumping to another hero.
+  const lastDecided = [...(held ?? [])]
+    .filter((r) => r.decision)
+    .sort((a, b) => (b.decision?.at ?? 0) - (a.decision?.at ?? 0))[0];
+  const heroPayment = handlesPayments ? (pickHeroPayment(stillHeld, escalations) ?? lastDecided) : undefined;
+  // The exposure the IT hero already shows in full; its tab entry skips the repeated steps and buttons.
+  const heroExposureId = !heroPayment ? leadExposure?._id : undefined;
+  // In flight before any incident (the $480K): the All clear screen names it, so the hold lands on a known payment.
+  const nextOut = handlesPayments
+    ? (bills ?? [])
+        .filter((b) => b.payment?.status === "pending")
+        .sort((a, b) => b.bill.amountCents - a.bill.amountCents)[0]
+    : undefined;
 
-  const tabIds = ["investigate", "alerts", "payments", "bills", "playbook", "timeline", "controls", "ledger", "notifications"] as const;
+  const tabIds = ["alerts", "payments", "bills", "playbook", "timeline", "controls", "ledger", "notifications"] as const;
   const fallback = isController ? "payments" : role === "ap_clerk" ? "bills" : "alerts";
   const { active, select } = useTabs(tabIds, fallback);
 
   const tabs: TabDef[] = [
-    { id: "investigate", label: "Investigate payments", content: () => <InvestigationPanel /> },
     {
       id: "alerts",
       label: "Incident & evidence",
@@ -83,6 +94,7 @@ export function CompanyView({ companyId, meId, role }: Props) {
           alertByExposure={alertByExposure}
           incidentById={incidentById}
           held={held ?? []}
+          heroExposureId={heroExposureId}
         />
       ),
     },
@@ -90,14 +102,17 @@ export function CompanyView({ companyId, meId, role }: Props) {
       id: "payments",
       label: "Held payments",
       count: stillHeld.length,
+      // Payment investigation (Pegasus, #103) lives under the held payments, not as its own tab.
       content: () => (
-        <HeldPaymentsPanel
-          title="Payments held until verified"
-          rows={held}
-          intro="Held payments are never cancelled. A controller who didn't request the payment calls the vendor at the number on file, then releases or rejects it."
-          escalations={handlesPayments ? escalations : undefined}
-          viewer={viewer}
-        />
+        <div className="space-y-8">
+          <HeldPaymentsPanel
+            title="Held payments"
+            rows={held}
+            escalations={handlesPayments ? escalations : undefined}
+            viewer={viewer}
+          />
+          <InvestigationPanel />
+        </div>
       ),
     },
     { id: "bills", label: "Bills to pay", count: unpaidBills, content: () => <BillsPanel /> },
@@ -129,25 +144,9 @@ export function CompanyView({ companyId, meId, role }: Props) {
     },
   ];
 
-  const links: QuickLink[] = [
-    ...(leadExposure && heroPayment
-      ? [{ tab: "alerts", label: "The incident", detail: `${URGENCY[leadExposure.urgency].label} · ${incidentById.get(leadExposure.incidentId)?.vendorName ?? ""}`, tone: leadExposure.urgency === "urgent" ? ("danger" as const) : ("amber" as const) }]
-      : openExposures.length > 0
-        ? [{ tab: "alerts", label: "Why you're affected", detail: openExposures.length > 1 ? `${openExposures.length} active incidents` : "Full alert and evidence" }]
-        : [{ tab: "alerts", label: "Alert history", detail: (exposures ?? []).length ? `${(exposures ?? []).length} past` : "None so far" }]),
-    ...(stillHeld.length > 0
-      ? [{ tab: "payments", label: "Held payments", detail: `${stillHeld.length} held · ${money(heldCents)}`, tone: "amber" as const }]
-      : []),
-    ...(handlesPayments ? [{ tab: "bills", label: "Bills to pay", detail: unpaidBills ? `${unpaidBills} unpaid` : "All paid or in progress" }] : []),
-    { tab: "playbook", label: "Response playbook", detail: "What Sidecall may do for you" },
-    { tab: "timeline", label: "What happened, second by second" },
-    { tab: "controls", label: "Controls log", detail: "Every hold, refusal and release" },
-    { tab: "notifications", label: "Slack messages sent" },
-  ];
-
   let hero;
   if (exposures === undefined || held === undefined) {
-    hero = <HeroFrame><Empty>Loading…</Empty></HeroFrame>;
+    hero = <HeroSkeleton />;
   } else if (heroPayment) {
     hero = (
       <PaymentHero
@@ -172,15 +171,18 @@ export function CompanyView({ companyId, meId, role }: Props) {
       />
     );
   } else {
-    hero = <AllClear companyName={company?.name} resolved={(exposures ?? []).length > 0} />;
+    hero = (
+      <AllClear
+        companyName={company?.name}
+        resolved={(exposures ?? []).length > 0}
+        nextOut={nextOut && { cents: nextOut.bill.amountCents, vendor: nextOut.vendorName, due: nextOut.bill.dueDate }}
+      />
+    );
   }
 
   return (
-    <div className="space-y-8">
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        {hero}
-        <QuickLinks links={links} onPick={(t) => select(t, true)} />
-      </div>
+    <div className="space-y-14">
+      {hero}
       <Tabs tabs={tabs} active={active} onSelect={(t) => select(t)} label={`${company?.name ?? "Company"} details`} />
     </div>
   );
@@ -197,72 +199,41 @@ function pickHeroPayment(rows: HeldPaymentRow[], escalations: Map<Id<"payments">
   )[0];
 }
 
-function HeroFrame({ children, tone }: { children: React.ReactNode; tone?: "danger" | "amber" | "ok" }) {
-  const accent = tone === "danger" ? "border-l-danger" : tone === "ok" ? "border-l-ok" : "border-l-amber";
-  return (
-    <section aria-labelledby="hero-title" className={`rounded-2xl border border-l-4 border-line bg-panel p-6 md:p-8 ${accent}`}>
-      {children}
-    </section>
-  );
-}
-
-function PaymentHero({
-  row,
-  escalation,
-  viewer,
-  others,
-  onOpenTab,
+function AllClear({
+  companyName,
+  resolved,
+  nextOut,
 }: {
-  row: HeldPaymentRow;
-  escalation?: string;
-  viewer: { id: Id<"users">; isController: boolean };
-  others: number;
-  onOpenTab: (tab: string) => void;
+  companyName?: string;
+  resolved: boolean;
+  nextOut?: { cents: number; vendor: string; due: number };
 }) {
-  const { payment, bankChange } = row;
-  const isRequester = viewer.id === payment.requestedBy;
-  const headline = bankChange
-    ? `${money(payment.amountCents)} held: the account it pays was changed by ${bankChange.requestChannel.replace("_", " ")} ${bankChange.daysBeforeIncident} days before the breach`
-    : `${money(payment.amountCents)} to ${row.vendorName} is held until someone verifies it`;
-  const who = viewer.isController && !isRequester
-    ? "You decide. Call the vendor at the number on file, write down what they confirmed, then release or reject."
-    : isRequester
-      ? "You requested this payment, so you can't release it. A controller verifies it by phone."
-      : "A controller verifies it by phone before any money moves.";
   return (
-    <HeroFrame tone={bankChange ? "danger" : "amber"}>
-      <p className="text-sm text-ash">
-        {escalation ? "Decision needed today" : "Payment held"} · {row.companyName}
-      </p>
-      <h1 id="hero-title" className="mt-2 max-w-4xl text-3xl font-semibold tracking-tight text-balance md:text-4xl">
-        {headline}
-      </h1>
-      <p className="mt-3 max-w-3xl text-ash">{who}</p>
-      <div className="mt-6">
-        <PaymentCard row={row} escalation={escalation} viewer={viewer} />
+    <section aria-labelledby="hero-title" className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] xl:gap-16">
+      <div className="min-w-0">
+        <StatusLine tone="ok" state={resolved ? "Resolved" : "All clear"}>
+          {companyName && <span className="sm:hidden">{companyName}</span>}
+        </StatusLine>
+        <h1 id="hero-title" className="mt-5 max-w-3xl text-headline font-semibold text-balance">
+          {resolved ? "Every incident affecting you is resolved" : "Nothing needs your attention"}
+        </h1>
+        <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ash">
+          {resolved
+            ? `${companyName ?? "Your company"} has closed every alert. The history stays in the tabs below.`
+            : `No active incident touches anything ${companyName ?? "your company"} shares. Sidecall only alerts you when you genuinely share what was compromised, not just the same vendor.`}
+        </p>
       </div>
-      {others > 0 && (
-        <button type="button" onClick={() => onOpenTab("payments")} className="mt-4 text-sm text-ash hover:text-paper">
-          {others} more held payment{others === 1 ? "" : "s"} →
-        </button>
+      {nextOut && (
+        // Pre-incident foreshadow: the payment the demo is about, already in flight.
+        <aside aria-label="Next payment out" className="self-start rounded-tile border border-line bg-panel p-5 md:p-6">
+          <p className="text-sm text-ash">Next payment out</p>
+          <p className="mt-2 text-5xl font-semibold tracking-tight tabular-nums">{money(nextOut.cents)}</p>
+          <p className="mt-2 text-ash">
+            to <span className="text-paper">{nextOut.vendor}</span>, due {shortDate(nextOut.due)}
+          </p>
+        </aside>
       )}
-    </HeroFrame>
-  );
-}
-
-function AllClear({ companyName, resolved }: { companyName?: string; resolved: boolean }) {
-  return (
-    <HeroFrame tone="ok">
-      <p className="text-sm text-ok">{resolved ? "Resolved" : "All clear"}</p>
-      <h1 id="hero-title" className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">
-        {resolved ? "Every incident affecting you is resolved" : "Nothing needs your attention"}
-      </h1>
-      <p className="mt-3 max-w-3xl text-ash">
-        {resolved
-          ? `${companyName ?? "Your company"} has closed every alert. The history stays in the tabs below.`
-          : `No active incident touches anything ${companyName ?? "your company"} shares. Sidecall only alerts you when you genuinely share what was compromised, not just the same vendor.`}
-      </p>
-    </HeroFrame>
+    </section>
   );
 }
 
@@ -271,13 +242,15 @@ function AlertsTab({
   alertByExposure,
   incidentById,
   held,
+  heroExposureId,
 }: {
   exposures: Doc<"exposures">[] | undefined;
   alertByExposure: Map<Id<"exposures">, Doc<"alerts">>;
   incidentById: Map<Id<"incidents">, IncidentRow>;
   held: HeldPaymentRow[];
+  heroExposureId?: Id<"exposures">;
 }) {
-  if (exposures === undefined) return <Empty>Loading…</Empty>;
+  if (exposures === undefined) return <Skeleton />;
   if (exposures.length === 0) {
     return (
       <Card>
@@ -294,6 +267,7 @@ function AlertsTab({
           alert={alertByExposure.get(e._id)}
           incident={incidentById.get(e.incidentId)}
           payments={held.filter((r) => r.payment.heldByIncidentId === e.incidentId)}
+          inHero={e._id === heroExposureId}
         />
       ))}
     </div>
@@ -305,28 +279,29 @@ function AlertItem({
   alert,
   incident,
   payments,
+  inHero,
 }: {
   exposure: Doc<"exposures">;
   alert?: Doc<"alerts">;
   incident?: IncidentRow;
   payments: HeldPaymentRow[];
+  inHero: boolean;
 }) {
-  const { run, busy, message } = useExposureAction(exposure._id);
+  const { run, busy, pending, message } = useExposureAction(exposure._id);
   return (
-    <article className="grid gap-6 rounded-2xl border border-line bg-panel p-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+    <article className="grid gap-6 rounded-tile border border-line bg-panel p-5 md:p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:gap-10">
       <div>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <LookChip look={URGENCY[exposure.urgency]} />
-          <Chip tone="muted">{EXPOSURE_STATUS[exposure.status]}</Chip>
+          <UrgencyChip urgency={exposure.urgency} resolved={exposure.status === "closed"} />
           <AcknowledgedBy userId={exposure.acknowledgedBy} />
         </div>
         {incident && (
-          <h3 className="text-lg font-semibold">
-            {incident.vendorName} · {incident.assetName}
-            <span className="ml-2 text-sm font-normal text-ash">{dateTime(incident.createdAt)}</span>
+          <h3 className="text-xl font-semibold tracking-tight">
+            {assetTitle(incident.vendorName, incident.assetName)}
+            <span className="mt-1 block text-sm font-normal text-ash">{dateTime(incident.createdAt)}</span>
           </h3>
         )}
-        <p className="mt-2 max-w-prose text-sm leading-relaxed">
+        <p className="mt-3 max-w-prose leading-relaxed">
           {alert?.status === "ready" ? alert.body : "Writing your alert…"}
         </p>
         {/* The alert text is written once; payments show their state now. */}
@@ -339,36 +314,40 @@ function AlertItem({
                 {r.decision && (
                   <span className="text-ash">
                     {r.decision.status === "paid" ? "since released" : "rejected"} by {r.decision.byName ?? "a controller"}
-                    {r.decision.at !== null && ` · ${dateTime(r.decision.at)}`}
+                    {r.decision.at !== null && `, ${dateTime(r.decision.at)}`}
                   </span>
                 )}
               </li>
             ))}
           </ul>
         )}
-        {exposure.status !== "closed" && (
-          <div className="mt-4 flex gap-2">
+        {inHero ? (
+          <p className="mt-4 text-sm text-ash">Acknowledge and resolve it from the steps at the top of the page.</p>
+        ) : exposure.status !== "closed" && (
+          <div className="mt-5 flex flex-wrap gap-2">
             {exposure.status === "open" && (
-              <button type="button" disabled={busy} onClick={() => void run("acknowledge")} className={BUTTON_SECONDARY}>
-                Acknowledge
+              <button type="button" disabled={busy} onClick={() => void run("acknowledge")} className={BUTTON_PRIMARY}>
+                {pending === "acknowledge" ? "Acknowledging…" : "Acknowledge"}
               </button>
             )}
             <button type="button" disabled={busy} onClick={() => void run("close")} className={BUTTON_SECONDARY}>
-              Mark resolved
+              {pending === "close" ? "Resolving…" : "Mark resolved"}
             </button>
           </div>
         )}
         {message && (
-          <p role="status" className="mt-2 text-sm text-ash">
+          <p role="status" className="mt-3 text-sm text-paper motion-safe:animate-arrive">
             {message}
           </p>
         )}
       </div>
-      <dl className="space-y-3 rounded-xl bg-graphite p-4 text-sm">
-        {readableEvidence(exposure.evidence).map((e) => (
+      <dl className="space-y-4 border-t border-line pt-5 text-sm lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8">
+        {readableEvidence(exposure.evidence)
+          .filter((e) => !(inHero && e.kind === "what_to_check"))
+          .map((e) => (
           <div key={`${e.label}-${e.text}`}>
-            <dt className="text-xs font-semibold tracking-wider text-ash uppercase">{e.label}</dt>
-            <dd className="mt-0.5 leading-relaxed">{e.text}</dd>
+            <dt className="text-xs font-medium text-ash">{e.label}</dt>
+            <dd className="mt-1 leading-relaxed">{e.text}</dd>
           </div>
         ))}
       </dl>

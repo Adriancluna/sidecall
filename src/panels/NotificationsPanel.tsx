@@ -8,12 +8,22 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { friendlyError, refusalOf } from "../layout/errors";
 import { dateTime } from "./format";
 import { OUTBOX_STATUS } from "./labels";
-import { Card, Empty, LookChip } from "./ui";
-import { BUTTON_PRIMARY, FIELD } from "./styles";
+import { Card, Empty, LookChip, Skeleton } from "./ui";
+import { BUTTON_PRIMARY, BUTTON_QUIET, BUTTON_SECONDARY, FIELD } from "./styles";
 
 type Scope = "company" | "firm";
 type Kind = "slack" | "discord" | "webhook";
 type Event = "alert" | "hold" | "escalation" | "incident" | "contained";
+
+const EVENT_LABEL: Record<string, string> = {
+  alert: "Alerts",
+  hold: "Holds",
+  escalation: "Escalations",
+  incident: "Incidents",
+  contained: "Containment",
+  test: "Test",
+};
+const KIND_LABEL: Record<Kind, string> = { slack: "Slack", discord: "Discord", webhook: "Webhook" };
 
 const EVENTS: Record<Scope, Event[]> = {
   company: ["alert", "hold", "escalation"],
@@ -31,65 +41,73 @@ export function NotificationsPanel({ scope, canManage, incidentId }: Props) {
   const removeChannel = useMutation(api.notifications.removeChannel);
   const sendTest = useMutation(api.notifications.sendTest);
   const [message, setMessage] = useState<string>();
+  const [busy, setBusy] = useState<string>();
 
   const act = async (
+    key: string,
     run: () => Promise<{ ok: boolean; reason?: string }>,
     done: string,
   ) => {
+    setBusy(key);
     setMessage((await refusalOf(run)) ?? done);
+    setBusy(undefined);
   };
 
   const mine = channels?.filter((c) => c.scope === scope);
   return (
     <Card title="Notifications">
-      <p className="mb-3 text-xs text-ash">
+      <p className="mb-4 max-w-prose text-sm text-ash">
         Warnings also go to the team's own channels. On this deployment they're
-        recorded as <span className="text-amber">simulated</span> and not
-        actually sent.
+        recorded as simulated and not actually sent.
       </p>
       {mine === undefined ? (
-        <Empty>Loading…</Empty>
+        <Skeleton rows={2} />
       ) : mine.length === 0 ? (
         <Empty>No channels connected.</Empty>
       ) : (
-        <ul className="mb-3 space-y-2">
+        <ul className="mb-4 divide-y divide-line border-y border-line">
           {mine.map((c) => (
             <li
               key={c._id}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-graphite px-3 py-2 text-sm"
+              className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm"
             >
               <div className="min-w-0">
                 <span className="font-medium">{c.label}</span>{" "}
-                <span className="text-xs text-ash">
-                  {c.kind} · {c.target} · {c.events.join(", ")}
+                <span className="text-ash">
+                  {KIND_LABEL[c.kind]}, {c.target}.{" "}
+                  {c.events.map((ev) => EVENT_LABEL[ev] ?? ev).join(", ")}
                 </span>
               </div>
               {c.canEdit && (
                 <div className="flex gap-2">
                   <button
                     type="button"
+                    disabled={busy !== undefined}
                     onClick={() =>
                       void act(
+                        `${c._id}-test`,
                         () => sendTest({ channelId: c._id }),
                         "Test queued.",
                       )
                     }
-                    className="rounded-md border border-line px-2 py-1 text-xs hover:border-ash"
+                    className={BUTTON_SECONDARY}
                   >
-                    Send test
+                    {busy === `${c._id}-test` ? "Sending…" : "Send test"}
                   </button>
                   <button
                     type="button"
+                    disabled={busy !== undefined}
                     onClick={() =>
                       window.confirm(`Disconnect ${c.label}?`) &&
                       void act(
+                        `${c._id}-remove`,
                         () => removeChannel({ channelId: c._id }),
                         "Disconnected.",
                       )
                     }
-                    className="rounded-md border border-line px-2 py-1 text-xs hover:border-ash"
+                    className={BUTTON_QUIET}
                   >
-                    Remove
+                    {busy === `${c._id}-remove` ? "Removing…" : "Remove"}
                   </button>
                 </div>
               )}
@@ -149,7 +167,7 @@ function AddChannel({
 
   return (
     <details className="text-sm">
-      <summary className="cursor-pointer text-ash">Connect a channel</summary>
+      <summary className="text-ash">Connect a channel</summary>
       <form onSubmit={(e) => void submit(e)} className="mt-2 space-y-2">
         <div className="flex flex-wrap gap-2">
           <label className="sr-only" htmlFor={`kind-${scope}`}>
@@ -208,7 +226,7 @@ function AddChannel({
                   )
                 }
               />
-              {ev}
+              {EVENT_LABEL[ev] ?? ev}
             </label>
           ))}
         </fieldset>
@@ -217,7 +235,7 @@ function AddChannel({
           disabled={busy || events.length === 0}
           className={BUTTON_PRIMARY}
         >
-          Connect
+          {busy ? "Connecting…" : "Connect"}
         </button>
       </form>
     </details>
@@ -231,11 +249,9 @@ function Outbox({ incidentId }: { incidentId?: Id<"incidents"> }) {
   );
   return (
     <div className="mt-4 border-t border-line pt-3">
-      <h3 className="mb-2 text-xs font-semibold tracking-wide text-ash uppercase">
-        Outbox{rows ? ` · ${rows.length}` : ""}
-      </h3>
+      <h3 className="mb-2 font-semibold">Outbox</h3>
       {rows === undefined ? (
-        <Empty>Loading…</Empty>
+        <Skeleton rows={2} />
       ) : rows.length === 0 ? (
         <Empty>Nothing sent yet.</Empty>
       ) : (
@@ -247,7 +263,7 @@ function Outbox({ incidentId }: { incidentId?: Id<"incidents"> }) {
                   {dateTime(r.createdAt)}
                 </span>
                 <span className="font-medium">{r.channelLabel}</span>
-                <span className="font-mono text-xs">{r.event}</span>
+                <span className="text-xs text-ash">{r.event.charAt(0).toUpperCase() + r.event.slice(1)}</span>
                 <LookChip look={OUTBOX_STATUS[r.status]} />
               </div>
               <p className="mt-0.5 line-clamp-2 whitespace-pre-line text-ash">

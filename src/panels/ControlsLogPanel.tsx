@@ -1,12 +1,15 @@
 // Controls log: every hold, flag, release, reject and refusal for an incident, newest first.
-// The backend scopes rows (firm = whole portfolio, company = own rows). Export is client-side CSV.
+// The backend scopes rows (firm = whole portfolio, company = own rows). Export is client-side CSV,
+// with the raw rule codes an auditor can filter on; the screen shows them in words.
 import { useQuery } from "convex/react";
-import { Fragment, useMemo } from "react";
+import { useMemo } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { dateTime } from "./format";
-import { Card, Empty } from "./ui";
+import { actionLabel, ruleLabel } from "./labels";
+import { BUTTON_SECONDARY } from "./styles";
+import { Card, Empty, Skeleton } from "./ui";
 
 type AuditRow = FunctionReturnType<
   typeof api.payments.getIncidentAudit
@@ -49,14 +52,14 @@ export function ControlsLogPanel({ incidentId, fileLabel }: Props) {
 
   return (
     <Card
-      title={`Controls log${rows ? ` · ${rows.length}` : ""}`}
+      title="Controls log"
       aside={
         rows &&
         rows.length > 0 && (
           <a
             download={`sidecall-controls-log-${fileLabel}.csv`}
             href={csvHref}
-            className="rounded-md border border-line px-3 py-1 text-sm hover:border-ash"
+            className={BUTTON_SECONDARY}
           >
             Export CSV
           </a>
@@ -64,7 +67,7 @@ export function ControlsLogPanel({ incidentId, fileLabel }: Props) {
       }
     >
       {rows === undefined ? (
-        <Empty>Loading…</Empty>
+        <Skeleton />
       ) : rows.length === 0 ? (
         <Empty>No controls recorded for this incident yet.</Empty>
       ) : (
@@ -87,19 +90,8 @@ export function ControlsLogPanel({ incidentId, fileLabel }: Props) {
                   </td>
                   <td className="py-1.5 pr-3">{r.companyName}</td>
                   <td className="py-1.5 pr-3">{r.actorName}</td>
-                  <td className="py-1.5 pr-3 font-mono text-xs">{r.action}</td>
-                  <td className="py-1.5 pr-3 font-mono text-xs text-ash">
-                    {r.rule.split("_").map((part, i) => (
-                      <Fragment key={i}>
-                        {i > 0 && (
-                          <>
-                            _<wbr />
-                          </>
-                        )}
-                        {part}
-                      </Fragment>
-                    ))}
-                  </td>
+                  <td className="py-1.5 pr-3 font-medium">{actionLabel(r.action)}</td>
+                  <td className="py-1.5 pr-3 text-ash">{ruleLabel(r.rule)}</td>
                   <td className="min-w-56 py-1.5">{r.reason}</td>
                 </tr>
               ))}

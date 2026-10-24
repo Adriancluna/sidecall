@@ -1,17 +1,16 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 24, 20:00 by Marco's Claude
+Last updated: Oct 24, 22:45 by Marco's Claude
 
-## → Adrian (Role 1): Marco is taking the UI polish back. Please read before your next src/ change
-Marco asked for this: Role 2 does the UI fixes from a UX critique of prod (`impeccable critique`, 27/40). **Nothing has started yet.** We wait for your OK here (or in chat with Marco) so we don't collide with your dashboards work.
-- **Files we plan to edit:** `src/demo/PresenterPanel.tsx`, `src/demo/DemoControls.tsx`, `src/demo/stage.ts`, `src/layout/AppShell.tsx`, `src/layout/Tabs.tsx`, `src/panels/PortfolioView.tsx`, `src/panels/CompanyView.tsx`, `src/panels/ExposureHero.tsx`, `src/panels/PaymentCard.tsx`, `src/panels/ProofPanel.tsx`, `src/auth/UserMenu.tsx`. One branch (`polish/critique-fixes`), one PR, not merged by us.
-- **Not touching:** `src/panels/ResponsePlaybook.tsx` (your #96), `src/map/` (Omar), `convex/`.
-- **Planned fixes:**
-  - P0 presenter clutter on the projector: Presenter collapses to a slim pill; the key field shows "Key set ✓" once set; the simulator strip becomes a separate demo band.
-  - P1 navigation: drop "Jump to" (it repeats the tabs); firm view down to 5 tabs or fewer ("Proof" is clipped at 1440); IT page loses the repeated "What to check" and the second Acknowledge.
-  - P1 `?stage` dropped once on a header person switch, and the beat resets on reload: keep both in sessionStorage.
-  - P2 firm view: resolved companies stop showing "Urgent"; headline as three stat blocks (it wraps mid-number "3,950 / people"); one timezone.
-  - P3: the clerk's All clear screen previews the $480,000 payment; Proof opens with "18 cases · 0 missed · 0 false holds"; the segregation-of-duties refusal gets a neutral "Working as designed" style instead of error red.
-- If you're mid-change in any of these files, say which and we'll skip or wait.
+## New UI: combined council redesign, branch `council/final` (supersedes #101, not merged)
+Marco took the UI polish back (#100). After an `impeccable` critique of prod (27/40), eight agents each redesigned `src/` (outside `src/map/` and `ResponsePlaybook.tsx`) with a different design skill, reviewed each other, and the top-voted ideas were combined on top of #101. Main (#103 Pegasus, #106–#109) is merged in.
+- **Money moment (Jamie / Rosa):** $480,000 in display type with "to Brightline Payroll Inc.", the account change set large (••2208 last confirmed by phone, ••7731 changed by email in red). Right rail "Two signatures before money moves": requester signed, controller line dashed until released or rejected. Rosa gets two numbered steps (call the number on file, then note and decide). Jamie gets "Try to release" (secondary), which lands the calm "Working as designed" refusal. "On the record" audit log under it; the newest row flashes amber. After a decision the payment stays in the hero with both signatures filled.
+- **Firm view (Jordan):** the three figures beside "Response by company" (open companies first, "Resolved" instead of the duplicate), so the tabs and the top of the map fit at 1440x900. 6 tabs: Map & evidence · Alerts & letter · Payments & controls log · Timeline & close-out · Onboard · Proof.
+- **Pegasus (#103), as proposed in #105:** firm "Investigate payments" sits in Payments & controls log; "Response safety" in Timeline & close-out (with no open incident: Payments and Response safety tabs); company "Investigate payments" in Held payments. `InvestigationPanel.tsx` itself is unchanged.
+- **Chrome:** one-line sticky header, "Simulator" toggle (closed by default, remembered per tab; open on `/?stage`), presenter pill bottom-left, `?stage` and beat remembered per tab, sticky tab bar. Sign-in leads with four seats (Jamie "start here", Rosa, Jordan, Sam).
+- **Slop cut (src/ outside map/playbook):** no all-caps labels, no monospace, no raw rule ids on screen (`labels.ts` `ruleLabel`), no "→", no nested cards or side stripes, skeletons instead of "Loading…", one button system with busy labels ("Releasing…"). All times in UTC.
+- **Checked on Marco's dev (main's backend pushed, reseeded after):** Jamie refusal + flashing audit row; Rosa release (signatures fill, hero stays); Jordan tabs with the Pegasus panels; 1440 and 375 with no page-level sideways scroll. `npm run lint`, `npm test` (95), `npm run build` green.
+- **Still open:** `ResponsePlaybook.tsx` (Adrian) keeps an all-caps "Your pre-approved steps" label and an amber "Run now" next to Sam's Acknowledge; the map (Omar) keeps "·" meta strings; Ledger and Controls log tables scroll inside their box at 375px. Known backend gap (council review): Release pays ••7731 even when the call confirms ••2208, so on stage the right move after that call is Reject.
+- `docs/demo-script.md` and the shot list still describe the older layout (simulator strip, "Jump to", Containment card); update after this merges.
 
 ## → Omar (Role 3), from the same critique (your call, `src/map/`)
 - Map labels render at about 8-10 CSS px at 1440 wide (unreadable projected); the zoom card overlaps the Pinecrest label; two Ironclad nodes ("Ironclad Managed IT" breached, "Ironclad IT Services" not affected) confuse; the 8-item legend sits below the map.

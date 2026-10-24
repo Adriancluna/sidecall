@@ -1,6 +1,7 @@
 // Copy the vendor letter, or open it in the presenter's email client (no address prefilled:
 // the vendor's security contact isn't in our data).
 import { useState } from "react";
+import { BUTTON_SECONDARY } from "./styles";
 
 type Props = { vendorName: string; body: string };
 
@@ -18,8 +19,6 @@ export function VendorLetterActions({ vendorName, body }: Props) {
     }
   };
 
-  const button =
-    "rounded-md border border-line px-3 py-1 text-sm hover:border-ash";
   return (
     <div className="flex items-center gap-2">
       {copied && (
@@ -27,10 +26,10 @@ export function VendorLetterActions({ vendorName, body }: Props) {
           {copied === "ok" ? "Copied" : "Copy failed, select the text instead"}
         </span>
       )}
-      <button type="button" onClick={() => void copy()} className={button}>
+      <button type="button" onClick={() => void copy()} className={BUTTON_SECONDARY}>
         Copy
       </button>
-      <a href={mailto} className={button}>
+      <a href={mailto} className={BUTTON_SECONDARY}>
         Open in email
       </a>
     </div>
