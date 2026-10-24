@@ -20,7 +20,9 @@ import {
   ariaLabel,
   caption,
   moneyFacts,
+  pathWord,
   SHARE_WORDS,
+  validatedWord,
   type MapNode,
   type MoneyFacts,
   type Tone,
@@ -188,6 +190,8 @@ export function MapCard({
             <figcaption className="sr-only">
               Portfolio tree for {blast.asset.name}: {count("exposed")}{" "}
               companies exposed out of {blast.nodes.length}.
+              {blast.edges.some((e) => e.path === "validated_at_source") &&
+                ` Red-team finding ${validatedWord(blast.incident.reportedByName)}; exposed companies are reachable, not tested.`}
             </figcaption>
             <svg ref={svgRef} className="h-auto w-full select-none">
               <g aria-hidden="true">
@@ -679,6 +683,12 @@ function CompanyDetail({ tile, note }: { tile: MapTile; note: string | null }) {
                 ? "candidate from public DNS"
                 : "self-reported"}
             </dd>
+          </div>
+        )}
+        {pathWord(edge) && (
+          <div className="flex gap-2">
+            <dt className="w-16 shrink-0 text-ash">Red team</dt>
+            <dd>{pathWord(edge)}</dd>
           </div>
         )}
       </dl>
