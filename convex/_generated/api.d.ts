@@ -18,6 +18,7 @@ import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as imports from "../imports.js";
 import type * as incidents from "../incidents.js";
+import type * as mcp from "../mcp.js";
 import type * as notifications from "../notifications.js";
 import type * as notify from "../notify.js";
 import type * as ops from "../ops.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   imports: typeof imports;
   incidents: typeof incidents;
+  mcp: typeof mcp;
   notifications: typeof notifications;
   notify: typeof notify;
   ops: typeof ops;

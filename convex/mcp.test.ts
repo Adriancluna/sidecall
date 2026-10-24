@@ -74,3 +74,84 @@ describe("agent identity", () => {
     expect(rows.filter((r) => r.action === "agent_call").map((r) => r.actorName)).toEqual([`${AGENT} (agent)`]);
   });
 });
+
+describe("POST /mcp", () => {
+  type T = Awaited<ReturnType<typeof seeded>>["t"];
+  const post = (t: T, body: string, headers: Record<string, string> = {}) =>
+    t.fetch("/mcp", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json", ...headers },
+      body,
+    });
+  const rpc = async (t: T, method: string, params: unknown = {}, id: number | undefined = 1) =>
+    (await post(t, JSON.stringify({ jsonrpc: "2.0", ...(id === undefined ? {} : { id }), method, params }))).json();
+  const call = async (t: T, name: string, args: Record<string, unknown> = {}) =>
+    (await rpc(t, "tools/call", { name, arguments: args })).result as { content: { text: string }[]; isError?: boolean };
+
+  test("initialize, tools/list, ping", async () => {
+    const { t } = await seeded();
+    const init = await rpc(t, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "test", version: "0" } });
+    expect(init.result.protocolVersion).toBe("2025-06-18");
+    expect(init.result.capabilities.tools).toBeDefined();
+    expect(init.result.serverInfo.name).toBe("sidecall");
+    const tools = await rpc(t, "tools/list");
+    expect(tools.result.tools.map((x: { name: string }) => x.name)).toEqual(["list_held_payments", "explain_hold"]);
+    expect((await rpc(t, "ping")).result).toEqual({});
+  });
+
+  test("protocol edge cases", async () => {
+    const { t } = await seeded();
+    const note = await post(t, JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }));
+    expect(note.status).toBe(202);
+    expect(await note.text()).toBe("");
+    expect((await t.fetch("/mcp", { method: "GET" })).status).toBe(405);
+    expect((await post(t, "{}", { Authorization: "Bearer wrong" })).status).toBe(401);
+    expect((await post(t, "{}", { Origin: "https://evil.example" })).status).toBe(403);
+    expect((await (await post(t, "{")).json()).error.code).toBe(-32700);
+    expect((await (await post(t, "[]")).json()).error.code).toBe(-32600);
+    expect((await rpc(t, "foo/bar")).error.code).toBe(-32601);
+    expect((await (await post(t, JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }), { "MCP-Protocol-Version": "1999-01-01" })).json()).error.code).toBe(-32600);
+  });
+
+  test("list_held_payments shows Summit's holds only, never the reporter", async () => {
+    const { t, fire } = await seeded();
+    await fire();
+    const res = await call(t, "list_held_payments");
+    const rows = JSON.parse(res.content[0].text) as { vendorName: string; amountCents: number; bankChangeFlag: boolean }[];
+    expect(rows.every((r) => r.vendorName === "Brightline Payroll Inc.")).toBe(true);
+    expect(rows.find((r) => r.amountCents === 48_000_000)?.bankChangeFlag).toBe(true);
+    for (const name of ["Pinecrest", "Cedar Ridge", "Bayview"]) expect(res.content[0].text).not.toContain(name);
+  });
+
+  test("explain_hold says a person must act; other companies' payments are not found", async () => {
+    const { t, fire } = await seeded();
+    await fire();
+    const rows = JSON.parse((await call(t, "list_held_payments")).content[0].text) as { paymentId: string; amountCents: number }[];
+    const big = rows.find((r) => r.amountCents === 48_000_000)!;
+    const explained = JSON.parse((await call(t, "explain_hold", { paymentId: big.paymentId })).content[0].text);
+    expect(explained.nextStep).toContain("number on file");
+    expect(explained.nextStep).toContain("cannot release");
+    expect(explained.bankChange).toMatchObject({ accountLast4: "7731", lastVerifiedAccountLast4: "2208" });
+    expect(JSON.stringify(explained)).not.toContain("Pinecrest");
+
+    const cedarPayment = await t.run(async (ctx) => {
+      const cedar = (await ctx.db.query("companies").take(100)).find((c) => c.name === "Cedar Ridge Manufacturing")!;
+      return (await ctx.db.query("payments").take(100)).find((p) => p.companyId === cedar._id && p.status === "held")!._id;
+    });
+    for (const paymentId of [cedarPayment, "garbage"]) {
+      const res = await call(t, "explain_hold", { paymentId });
+      expect(res).toMatchObject({ isError: true, content: [{ text: "Payment not found." }] });
+    }
+  });
+
+  test("every tools/call writes exactly one agent_call audit row", async () => {
+    const { t, fire } = await seeded();
+    await fire();
+    const count = () => t.run(async (ctx) => (await ctx.db.query("auditLog").take(500)).filter((a) => a.action === "agent_call").length);
+    const before = await count();
+    await call(t, "list_held_payments");
+    await call(t, "explain_hold", { paymentId: "garbage" });
+    await rpc(t, "tools/call", { name: "release_payment", arguments: {} }); // doesn't exist: refused
+    expect((await count()) - before).toBe(3);
+  });
+});

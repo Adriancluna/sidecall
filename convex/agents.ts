@@ -5,7 +5,11 @@
 //   npx convex run agents:revoke '{"name":"Summit AP assistant"}'
 import { ConvexError, v } from "convex/values";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
+import { viewerForUser } from "./access";
+import { heldPaymentsFor, paymentAuditFor, type HeldPaymentRow } from "./payments";
 
 export async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
@@ -120,5 +124,88 @@ export const logCall = internalMutation({
       reason: `${agent.name} called ${args.tool}: ${args.ok ? "ok" : "refused"}. ${args.summary}`,
     });
     return null;
+  },
+});
+
+// ---- Tool internals (read-only). Each builds the Viewer of the person the agent acts for, so
+// the agent sees exactly what that person would: their own company, never the reporter. ----
+
+const usd = (cents: number) => `$${(cents / 100).toLocaleString("en-US")}`;
+
+async function agentViewer(ctx: QueryCtx, agentId: Id<"agents">) {
+  const agent = await ctx.db.get("agents", agentId);
+  if (!agent || agent.revokedAt !== undefined) throw new ConvexError("Agent not active");
+  const user = await ctx.db
+    .query("users")
+    .withIndex("email", (q) => q.eq("email", agent.onBehalfOfEmail))
+    .unique();
+  if (!user) throw new ConvexError("The person this agent acts for no longer exists");
+  return viewerForUser(user);
+}
+
+const decisionOut = (row: HeldPaymentRow) =>
+  row.decision ? { status: row.decision.status, byName: row.decision.byName, at: row.decision.at } : null;
+
+export const listHeldPayments = internalQuery({
+  args: {
+    agentId: v.id("agents"),
+    status: v.optional(v.union(v.literal("held"), v.literal("paid"), v.literal("rejected"))),
+  },
+  handler: async (ctx, args) => {
+    const viewer = await agentViewer(ctx, args.agentId);
+    const rows = await heldPaymentsFor(ctx, viewer, {});
+    return rows
+      .filter((r) => !args.status || r.payment.status === args.status)
+      .map((r) => ({
+        paymentId: r.payment._id,
+        vendorName: r.vendorName,
+        amountCents: r.payment.amountCents,
+        amount: usd(r.payment.amountCents),
+        status: r.payment.status,
+        bankChangeFlag: r.payment.bankChangeFlag ?? false,
+        holdReasons: r.holdReasons,
+        dueDate: r.payment.dueDate ?? null,
+        decision: decisionOut(r),
+      }));
+  },
+});
+
+export const explainHold = internalQuery({
+  args: { agentId: v.id("agents"), paymentId: v.string() },
+  handler: async (ctx, args) => {
+    const viewer = await agentViewer(ctx, args.agentId);
+    const paymentId = ctx.db.normalizeId("payments", args.paymentId);
+    if (!paymentId) return null;
+    const rows = await heldPaymentsFor(ctx, viewer, {});
+    const row = rows.find((r) => r.payment._id === paymentId);
+    if (!row) return null; // not this company's, or never held: same answer, no leak
+    const audit = await paymentAuditFor(ctx, viewer, paymentId);
+    const status = row.payment.status;
+    const nextStep =
+      status === "held"
+        ? `Held until verified. A controller other than the requester must call ${row.vendorName} at the number on file (${row.phoneOnFile}), not a number from a recent email, then release or reject it in Sidecall. This assistant cannot release or reject payments.`
+        : row.decision
+          ? `Decided (${status}) by ${row.decision.byName}. No action needed.`
+          : "Not held.";
+    return {
+      paymentId,
+      vendorName: row.vendorName,
+      amount: usd(row.payment.amountCents),
+      status,
+      holdReasons: row.holdReasons,
+      bankChange: row.bankChange
+        ? {
+            daysBeforeIncident: row.bankChange.daysBeforeIncident,
+            requestChannel: row.bankChange.requestChannel,
+            accountLast4: row.bankChange.accountLast4,
+            lastVerifiedAccountLast4: row.bankChange.lastVerifiedAccountLast4,
+          }
+        : null,
+      phoneOnFile: row.phoneOnFile,
+      decision: decisionOut(row),
+      audit: audit.map((a) => ({ at: a.at, action: a.action, rule: a.rule, reason: a.reason })),
+      incidentId: row.payment.heldByIncidentId ?? null,
+      nextStep,
+    };
   },
 });
