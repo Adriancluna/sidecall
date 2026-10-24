@@ -38,13 +38,8 @@ export function PaymentCard({ row, canDecide, escalation }: Props) {
   const audit = useQuery(api.payments.getPaymentAudit, {
     paymentId: payment._id,
   });
-  // Audit rows carry ids; resolve who acted and which incident for the reader.
-  const users = useQuery(api.blastRadius.listUsers, {});
+  // Audit rows carry the actor's name (people and agents); resolve the incident for the reader.
   const incidents = useQuery(api.blastRadius.listIncidents, {});
-  const actorName = (actor: Doc<"auditLog">["actor"]) =>
-    actor === "system"
-      ? "System"
-      : (users?.find((u) => u._id === actor)?.name ?? "Unknown user");
   const incidentName = (id: Doc<"auditLog">["incidentId"]) => {
     const incident = incidents?.find((i) => i._id === id);
     return incident ? `${incident.assetName} incident` : undefined;
@@ -230,7 +225,7 @@ export function PaymentCard({ row, canDecide, escalation }: Props) {
                   {a.action}
                 </span>
                 <span>
-                  <span className="font-medium">{actorName(a.actor)}</span>:{" "}
+                  <span className="font-medium">{a.actorName}</span>:{" "}
                   {a.reason}{" "}
                   <span className="text-xs text-ash">
                     (
