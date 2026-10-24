@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 23, 21:25 by Adrian's Claude
+Last updated: Oct 23, 21:40 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -21,6 +21,7 @@ Last updated: Oct 23, 21:25 by Adrian's Claude
 - For Role 4: `getWritingContext` now includes `externalId` (to key pre-generated text); `ANTHROPIC_API_KEY` and `AI_LIVE` declared in `convex.config.ts`.
 - **New: payment requests close the "after the incident" gap.** `payments.requestPayment({ billId })` (AP clerk only) pays the vendor's current bank details; if the vendor had an incident in the last 30 days it's **held and flagged on creation** (audit rule `hold_payments_requested_during_incident`, hold notice written, escalation if due soon). `payments.getMyBills()` lists the company's bills + payment status. Seed: Summit has an unpaid $38K Brightline bill ("November payroll processing").
 - **New: containment.** `incidents.containIncident({ incidentId, note })`, PE partner only. Afterwards new payment requests to that vendor aren't held; payments already held stay held until a controller decides ("held, never cancelled"). Logged (`contain`) and on the timeline (company view gets a neutral label, never the reporter).
+- **Fixed: production had stopped deploying since #44.** The `ignoreCommand` used `$VERCEL_ENV`, which isn't set during Vercel's ignore step, so every build (production too) was skipped ("Canceled by Ignored Build Step"). Now `[ "$VERCEL_GIT_COMMIT_REF" != "main" ]`: only `main` builds. Everything from #44–#50 ships with this. After it deploys, Reset once on `/?stage`.
 - `npm test`: 24 tests green (they sign in as each person; added: client can't pass a user id, controls log scoping).
 - ✓ done for Role 2: reviewed and merged #26. Earlier: #20, #22, #24.
 
