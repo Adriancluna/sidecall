@@ -1,5 +1,5 @@
 # Pegasus: response resilience + payment investigation
-Last updated: 2026-10-24 15:27 PDT by Pegasus
+Last updated: 2026-10-24 15:31 PDT by Pegasus
 
 ## Status
 - Ashwa requested integration while keeping Hyphenate and Armadin, including resistance to repeated alerts disrupting business.
@@ -10,6 +10,12 @@ Last updated: 2026-10-24 15:27 PDT by Pegasus
 - Validation: 95 app/backend tests + 40 prompt/scorecard tests (135 total), ESLint, app/backend typechecks, build, full live demo rehearsal and signed-in browser investigation/safety checks passed.
 - Live HTTP abuse check: 100 distinct weak-report IDs → one observation, unchanged payment queue/deadline; confirmed evidence → expected scoped hold; ten repeated confirmed IDs preserved the controller release/deadline.
 - Owned sandbox access: Cedar 200 → 403, unrelated Summit stays 200 (1,223 ms observed including CLI/network; not a production benchmark).
+
+## Automatic-response status (checked after deployment)
+- The automatic response engine is implemented and deployed: confirmed incidents evaluate company playbooks immediately, apply scoped holds, and schedule pre-approved response steps without waiting for an email.
+- Production env names checked: neither `INCIDENT_WEBHOOK_SECRET`, `INCIDENT_AUTO_RESPONSE` nor `RESPONSE_SANDBOX` is configured. External detector intake/auto-confirmation and real sandbox access effects are therefore not enabled on production.
+- Built-in demo scenarios still exercise the confirmed automatic path; external-provider actions on production are simulated. Actual access denial was verified only on Pegasus's owned DEV sandbox.
+- Remaining integration: enroll an authenticated detector and connect an owned provider/resource before claiming automatic protection of real company accounts. Do not confuse automated application decisions with live external containment.
 
 ## Completed
 - Observation-only default intake, enrolled confirmed detector response, cross-ID episode correlation, fixed review escalation, preservation of payment decisions/unrelated operations, and credential-only incidents never holding vendor payments.
