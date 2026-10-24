@@ -14,7 +14,7 @@ const DEFAULT_VERSION = "2025-06-18";
 const MAX_BODY_BYTES = 64 * 1024;
 
 const INSTRUCTIONS =
-  "Sidecall holds payments to vendors under an active security incident until a person verifies them. You can list and explain held payments for your company, list its bills, and request payment of a bill as its AP clerk (a request to a vendor under an incident is held). You cannot release or reject payments: a controller other than the requester must call the vendor at the number on file and decide in Sidecall.";
+  "Sidecall holds payments to vendors under an active security incident until a person verifies them. You can list and explain held payments for your company, list its bills, and request payment of a bill as its AP clerk (a request to a vendor under an incident is held). A safe, unchanged bill within an explicit controller purchasing approval can settle automatically in the demo ledger. You cannot release or reject held payments: a controller other than the requester must call the vendor at the number on file and decide in Sidecall.";
 
 const TOOLS = [
   {
@@ -46,7 +46,7 @@ const TOOLS = [
   {
     name: "request_payment",
     description:
-      "Request payment of one bill, as the AP clerk you act for. If the vendor is under an active security incident the payment is held until a controller verifies it.",
+      "Request payment of one bill, as the AP clerk you act for. If the vendor is under an active security incident the payment is held until a controller verifies it. An unchanged bill covered by a controller purchasing approval can settle automatically within its limits in the demo ledger; this is not a live payment-network transaction.",
     inputSchema: {
       type: "object",
       properties: { billId: { type: "string" } },

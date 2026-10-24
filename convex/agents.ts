@@ -229,7 +229,7 @@ export const requestPayment = internalMutation({
     const { agent, viewer } = await agentViewer(ctx, args.agentId);
     const billId = ctx.db.normalizeId("bills", args.billId);
     const result = billId
-      ? await requestPaymentFor(ctx, viewer, billId)
+      ? await requestPaymentFor(ctx, viewer, billId, agent._id)
       : { ok: false as const, reason: "That bill isn't your company's." };
     const payment = result.ok ? await ctx.db.get("payments", result.paymentId) : null;
     await ctx.db.insert("auditLog", {

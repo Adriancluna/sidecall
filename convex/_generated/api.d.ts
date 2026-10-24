@@ -27,6 +27,9 @@ import type * as notifications from "../notifications.js";
 import type * as notify from "../notify.js";
 import type * as ops from "../ops.js";
 import type * as payments from "../payments.js";
+import type * as purchaseLab from "../purchaseLab.js";
+import type * as purchaseLimits from "../purchaseLimits.js";
+import type * as purchases from "../purchases.js";
 import type * as responseEvidence from "../responseEvidence.js";
 import type * as responses from "../responses.js";
 import type * as sandbox from "../sandbox.js";
@@ -60,6 +63,9 @@ declare const fullApi: ApiFromModules<{
   notify: typeof notify;
   ops: typeof ops;
   payments: typeof payments;
+  purchaseLab: typeof purchaseLab;
+  purchaseLimits: typeof purchaseLimits;
+  purchases: typeof purchases;
   responseEvidence: typeof responseEvidence;
   responses: typeof responses;
   sandbox: typeof sandbox;
@@ -94,4 +100,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
+};

@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
+import rateLimiterTest from "@convex-dev/rate-limiter/test";
 import { describe, expect, test, vi, afterEach } from "vitest";
 import schema from "./schema";
 import { api, internal } from "./_generated/api";
@@ -18,6 +19,7 @@ const event = {
 };
 async function fixture() {
   const t = convexTest(schema, modules);
+  rateLimiterTest.register(t);
   await t.mutation(internal.seed.run, {});
   const users = await t.run((ctx) => ctx.db.query("users").take(100));
   const user = (name: string) => users.find((u) => u.name === name)!;
@@ -447,7 +449,8 @@ describe("owned sandbox response", () => {
     expect(freshPlan.find((s) => s.action === "pause_shared_login")?.mode).toBe(
       "act",
     );
-    expect((await access(token)).status).toBe(200);
+    // The scheduled automatic action may already have executed; replaying the executor
+    // must be harmless and the newly authorized episode must deny access.
     await t.mutation(internal.responses.recordSimulated, {
       incidentId: subsequent[0].incidentId,
     });

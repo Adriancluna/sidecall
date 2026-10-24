@@ -8,6 +8,8 @@ import { canSeeCompany, getViewer, type Viewer } from "./access";
 import { insertReadyAlert } from "./alerts";
 import { DAY_MS, formatUsd, MAX_FANOUT, memo } from "./shared";
 import { postLedgerEntry } from "./ledger";
+import { purchaseLimits } from "./purchaseLimits";
+import { checkPurchase, settlePurchase } from "./purchases";
 
 const BANK_CHANGE_WINDOW_MS = 30 * DAY_MS;
 const MIN_NOTE_LENGTH = 15;
@@ -213,7 +215,7 @@ export async function activeIncidentFor(ctx: MutationCtx, assetId: Id<"assets">,
 // An AP clerk requests payment of a bill, to the vendor's current bank details on file (the
 // latest change). If the vendor's incident is active, the payment is held on creation like the
 // ones the incident caught. Shared by the UI mutation and the MCP agent.
-export async function requestPaymentFor(ctx: MutationCtx, viewer: Viewer, billId: Id<"bills">) {
+export async function requestPaymentFor(ctx: MutationCtx, viewer: Viewer, billId: Id<"bills">, agentId?: Id<"agents">) {
   const bill = await ctx.db.get("bills", billId);
   if (!bill || viewer.firm || viewer.companyId !== bill.companyId) {
     return { ok: false as const, reason: "That bill isn't your company's." };
@@ -221,6 +223,8 @@ export async function requestPaymentFor(ctx: MutationCtx, viewer: Viewer, billId
   if (viewer.user.role !== "ap_clerk") {
     return { ok: false as const, reason: "Only an AP clerk requests payments; a controller approves them." };
   }
+  const quota = await purchaseLimits.limit(ctx, "requests", { key: agentId ?? viewer.user._id });
+  if (!quota.ok) return { ok: false as const, reason: `Too many payment requests from this caller. Retry in ${Math.max(1, Math.ceil((quota.retryAfter ?? 1000) / 1000))} seconds; other callers can continue.` };
   const existing = await ctx.db
     .query("payments")
     .withIndex("by_billId", (q) => q.eq("billId", bill._id))
@@ -239,6 +243,14 @@ export async function requestPaymentFor(ctx: MutationCtx, viewer: Viewer, billId
   if (!latestChange) return { ok: false as const, reason: "No bank details on file for this vendor." };
 
   const now = Date.now();
+  const incident = await activeIncidentFor(ctx, asset._id, now);
+  const company = await ctx.db.get("companies", bill.companyId);
+  const decision = await checkPurchase(ctx, viewer, bill, latestChange, incident);
+  // Confirmed incidents retain the existing held-payment path. Other refused automatic
+  // purchases create no payment and move no cash; unrelated vendors are never frozen.
+  if (decision.kind === "refused" && !(incident && company?.holdRuleEnabled)) {
+    return { ok: false as const, reason: decision.reason };
+  }
   const paymentId = await ctx.db.insert("payments", {
     billId: bill._id,
     companyId: bill.companyId,
@@ -250,8 +262,10 @@ export async function requestPaymentFor(ctx: MutationCtx, viewer: Viewer, billId
     dueDate: bill.dueDate,
   });
 
-  const incident = await activeIncidentFor(ctx, asset._id, now);
-  const company = await ctx.db.get("companies", bill.companyId);
+  if (decision.kind === "approved") {
+    await settlePurchase(ctx, viewer, bill, paymentId, decision.mandate);
+    return { ok: true as const, paymentId, held: false, flagged: false, automatic: true };
+  }
   if (!incident || !company?.holdRuleEnabled) {
     return { ok: true as const, paymentId, held: false, flagged: false };
   }
@@ -270,7 +284,7 @@ export async function requestPaymentFor(ctx: MutationCtx, viewer: Viewer, billId
 export const requestPayment = mutation({
   args: { billId: v.id("bills") },
   returns: v.union(
-    v.object({ ok: v.literal(true), paymentId: v.id("payments"), held: v.boolean(), flagged: v.boolean() }),
+    v.object({ ok: v.literal(true), paymentId: v.id("payments"), held: v.boolean(), flagged: v.boolean(), automatic: v.optional(v.boolean()) }),
     v.object({ ok: v.literal(false), reason: v.string() }),
   ),
   handler: async (ctx, args) => await requestPaymentFor(ctx, await getViewer(ctx), args.billId),
@@ -297,7 +311,7 @@ export async function billsFor(ctx: QueryCtx, viewer: Viewer) {
       return {
         bill,
         vendorName: vendor?.vendorName ?? "",
-        payment: payment ? { _id: payment._id, status: payment.status } : null,
+        payment: payment ? { _id: payment._id, status: payment.status, purchaseMandateId: payment.purchaseMandateId } : null,
       };
     }),
   );

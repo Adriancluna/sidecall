@@ -1,0 +1,63 @@
+{
+  "generatedAt": "2026-10-24T23:03:06.465Z",
+  "deployment": "https://tangible-koala-842.convex.cloud",
+  "settlement": "demo_ledger",
+  "source": "live Convex API, real authenticated sessions, concurrent HTTP requests; fixture tampering through internal demo-only functions",
+  "cases": [
+    {
+      "name": "Concurrent split-budget attack",
+      "passed": true,
+      "observed": "$180 and $210 raced against $300; exactly one settled"
+    },
+    {
+      "name": "Unconfirmed-report flood preserves purchasing",
+      "passed": true,
+      "observed": "21000 cents settled after five unconfirmed reports"
+    },
+    {
+      "name": "Duplicate payment replay",
+      "passed": true,
+      "observed": "No second settlement or budget consumption"
+    },
+    {
+      "name": "Invoice instruction tampering",
+      "passed": true,
+      "observed": "Changed description refused; invoice text cannot alter approval"
+    },
+    {
+      "name": "Payee substitution with the same suffix",
+      "passed": true,
+      "observed": "New bank record refused even though both end in 4242"
+    },
+    {
+      "name": "Revoked approval replay",
+      "passed": true,
+      "observed": "No old approval reactivated"
+    },
+    {
+      "name": "Requester cannot self-authorize",
+      "passed": true,
+      "observed": "AP clerk cannot create purchasing authority"
+    },
+    {
+      "name": "Company record privacy",
+      "passed": true,
+      "observed": "Firm and unrelated company cannot read Summit receipts"
+    },
+    {
+      "name": "Compromised agent request flood",
+      "passed": true,
+      "observed": "Convex component refused excess requests under this agent's own key"
+    },
+    {
+      "name": "Unrelated business continues",
+      "passed": true,
+      "observed": "Another company's $120 purchase settled automatically during the attack"
+    },
+    {
+      "name": "Human caller isolated from agent flood",
+      "passed": true,
+      "observed": "Human reached the purchase policy; agent throttle did not lock out its owner"
+    }
+  ]
+}

@@ -311,6 +311,44 @@ export default defineSchema({
 
   // ---- Money layer ----
 
+  // A controller approves a bounded set of saved purchases; never authority derived from AI text.
+  purchaseMandates: defineTable({
+    companyId: v.id("companies"),
+    assetId: v.id("assets"),
+    bankDetailId: v.id("bankDetailChanges"),
+    accountLast4: v.string(),
+    bankChangedAt: v.number(),
+    perPurchaseCents: v.number(),
+    budgetCents: v.number(),
+    spentCents: v.number(),
+    approvedBy: v.id("users"),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    revokedAt: v.optional(v.number()),
+  }).index("by_companyId_and_assetId", ["companyId", "assetId"]),
+
+  purchaseQuotes: defineTable({
+    mandateId: v.id("purchaseMandates"),
+    billId: v.id("bills"),
+    assetId: v.id("assets"),
+    amountCents: v.number(),
+    description: v.string(),
+    dueDate: v.number(),
+  }).index("by_mandateId_and_billId", ["mandateId", "billId"]),
+
+  purchaseReceipts: defineTable({
+    companyId: v.id("companies"),
+    mandateId: v.id("purchaseMandates"),
+    billId: v.id("bills"),
+    paymentId: v.optional(v.id("payments")),
+    actorId: v.id("users"),
+    at: v.number(),
+    amountCents: v.number(),
+    outcome: v.union(v.literal("paid_demo"), v.literal("refused")),
+    rule: v.string(),
+    reason: v.string(),
+  }).index("by_companyId", ["companyId"]),
+
   bankDetailChanges: defineTable({
     assetId: v.id("assets"),
     changedAt: v.number(),
@@ -336,6 +374,7 @@ export default defineSchema({
     status: paymentStatus,
     requestedBy: v.id("users"),
     approvedBy: v.optional(v.id("users")),
+    purchaseMandateId: v.optional(v.id("purchaseMandates")),
     heldByIncidentId: v.optional(v.id("incidents")),
     bankChangeFlag: v.optional(v.boolean()),
     flaggedBankChangeId: v.optional(v.id("bankDetailChanges")),

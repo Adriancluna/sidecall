@@ -42,7 +42,7 @@ For a confirmed vendor incident:
 7. **It knows when to ask.** A held payment that nobody has decided as its due date gets close is escalated to that company's controllers, with an alert and an audit row.
 8. **The warning reaches people where they work.** The same alerts, holds and escalations go to each company's Slack, Discord or webhook channel, and the firm's channel gets the headline. In the demo they're recorded as simulated, so nothing on stage depends on Wi-Fi.
 9. **New companies onboard from their own AP export.** The firm uploads the vendor master and open bills any AP system exports. Sidecall matches the vendors, warns when a file pays an account other than the one confirmed by phone, and, mid-incident, holds the new company's payments on import.
-10. **AI assistants are held like everyone else.** An agent connected over MCP can look up holds and request payments for a clerk. It is recorded as an agent in the audit log and has no way to release.
+10. **AI assistants are held like everyone else.** An agent connected over MCP can look up holds and request payments for a clerk. It is recorded as an agent in the audit log and has no tool to release held money. For safe purchases outside an incident, a controller can pre-approve specific bills, a verified payee record, expiry and spend limits; the same request tool then settles within those limits in the demo ledger.
 11. **The firm closes it out.** Marking an incident contained records what was fixed and how it was confirmed, and new payments to that vendor stop being held. Payments already held stay held until someone verifies.
 12. **Everything is on the record:** a controls log of every hold, flag, refusal, release and rejection, exportable as CSV.
 
@@ -50,7 +50,7 @@ The firm can also export one response record connecting incoming evidence, compa
 
 ## How we built it
 
-- **Convex** for the database, server functions, live queries, HTTP endpoints, scheduling and auth. React + Vite + TypeScript + Tailwind, deployed on Vercel; every merge to `main` deploys the backend and the frontend together.
+- **Convex** for the database, server functions, live queries, HTTP endpoints, scheduling, auth and the official transactional rate-limiter component. React + Vite + TypeScript + Tailwind, deployed on Vercel; every merge to `main` deploys the backend and the frontend together.
 - **One confirmed report, one transaction:** `POST /incident` writes the incident, every exposure, every applicable payment hold and bank-change flag, and the pending alerts atomically, then schedules the AI writer once per incident. Unconfirmed reports atomically create notify-only alerts instead. Every browser sees the same snapshot, live, without polling.
 - **Idempotent:** replaying the same webhook (deduped on `externalId`) writes nothing new and holds nothing twice.
 - **Measured, on screen:** an incident timeline built from real timestamps shows the payments held in the same transaction as the report, and alerts written within a few hundred milliseconds (about 200 ms in our runs).
@@ -116,3 +116,11 @@ Holding beats blocking as a default. A control that pauses money for a person to
 ## Built with
 
 Convex · Convex Auth · React · Vite · TypeScript · Tailwind CSS · Vercel · Claude (Anthropic) · Model Context Protocol (MCP)
+
+## Secure purchasing depth (Visa / Convex)
+
+A controller approves specific saved purchases, not arbitrary instructions from a model: bill identity, vendor, payee record, amount, expiry and shared budget are pinned. A clerk or scoped assistant requests a purchase; valid requests settle automatically in the synthetic ledger, and changed bills/payees, expired authority or overspending are refused. Already-held money retains human review. The model cannot grant itself authority.
+
+Our live owned-DEV rehearsal raced $180 and $210 orders against a $300 budget: exactly one settled. It also checked replay, changed invoice instructions, a same-suffix payee substitution, revocation, company privacy and request flooding. A different company’s $120 purchase continued automatically, and the flooded agent did not consume its human owner’s allowance. Full run evidence is in `docs/pegasus-purchase-rehearsal.json`; these are authored adversarial cases, not population-level accuracy figures.
+
+The supplied Visa brief includes secure payments and budgeting, provides no proprietary Visa APIs, and requires meaningful generative AI. Show an actual assistant extracting/understanding source documents and using the existing scoped MCP tools; the guard itself is deterministic and is not an AI claim. No Visa integration or real payment-network settlement is claimed. Teammates own the chatbot.

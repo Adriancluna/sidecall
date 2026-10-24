@@ -57,7 +57,7 @@ type RowProps = {
   vendorName: string;
   amountCents: number;
   dueDate: number;
-  payment?: Pick<Doc<"payments">, "status" | "heldByIncidentId">;
+  payment?: Pick<Doc<"payments">, "status" | "heldByIncidentId" | "purchaseMandateId">;
 };
 
 function BillRow({
@@ -92,7 +92,7 @@ function BillRow({
           }.`,
         });
       } else {
-        setResult({ tone: "ok", text: "Payment requested." });
+        setResult({ tone: "ok", text: res.automatic ? "Automatically paid under your controller’s approval (demo ledger)." : "Payment requested." });
       }
     } catch (err) {
       setResult({ tone: "danger", text: friendlyError(err) });
@@ -109,6 +109,7 @@ function BillRow({
           <p className="text-sm text-ash">
             {vendorName}, due {shortDate(dueDate)}
           </p>
+          {payment?.purchaseMandateId && <p className="mt-1 text-xs text-ok">Automatically settled · demo ledger</p>}
         </div>
         <div className="flex items-center gap-3">
           <span className="font-semibold tabular-nums">
