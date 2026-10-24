@@ -1,8 +1,12 @@
 # Role 4: AI + scorecard + DNS (Waterloo #2, Omar)
 
-Last updated: Oct 24, 20:15 by Omar's Claude
+Last updated: Oct 24, 20:25 by Omar's Claude
 
-## Status (this PR: real-world anchors for the pitch)
+## Status (this PR, #102 part 2: richer demo data, omar's call)
+
+- **Seed (Role 1's files, drafted for Adrian to review and merge):** Northpass grows 8 → **14 companies** (Ridgeway Comfort Services, Oakmont Specialty Pharmacy, Fairhaven Physical Therapy, Kestrel Insurance Partners, Wrenfield Fleet Software, Saltmarsh Pool Supply; 13 new users), a **background vendor stack** shaped like the real portfolio scan (Fleetline MDM on 7, Tether Remote Support on 3, Vaultline Passwords, Bramble ERP, Inkwell eSign, Helmsman Service Desk; 24 new self-reported links) and **14 ordinary bills** at the new companies only. Nothing touches Brightline, Ironclad, their links, payments or bank changes, or companies A–H's books. `ops.ts`: readiness wants 14 companies / 34 users; `addScalePortfolio` names companies "Ashford Dental Group", "Birchwood HVAC Services"… (unique for 330) instead of "Scale Portfolio Co 17". `backend.test.ts`: the three `companies: 8` reset checks → 14.
+- **DNS (mine):** fictional records for the 6 new domains plus a Fleetline token at Meridian; new fingerprints in `vendors.mjs`. `data/dns_links.json` 13 → 32 entries; pairs a company already declared are skipped by the seed as before, the rest become candidate links.
+- **Verified on dev (brainy-cassowary-804):** `npm test` 66/66, lint, build; **`npm run rehearse` all beats pass** (3 · 4,200 · $612K, $480K flow, Lakeside 4 · 4,650, red-team 3 · $0); **scorecard rerun identical** (6/0/0/4 · 0/0/0/3 · 4/0/0/1); **`prompts/generate.mjs` reused all 23 cached texts, 0 regenerated** (facts unchanged).
 
 - **Precedent for the money moment (wording for Role 2, below).** A real public filing matches our hold beat: the Federal Home Loan Bank of New York's 8-K (Item 1.05, filed Mar 1, 2024) says a _fourth-party vendor_ (a vendor of one of its vendors) was compromised, unknown persons tried to fraudulently obtain funds, its operational controls detected it on Feb 21, 2024, and no money was transferred. Not a PE firm and not several companies, so never present it as a portfolio cascade. IC3 2025 (FBI) puts reported business email compromise losses at $3,046,598,558 (top-five table in the annual report).
 - **New `scripts/dns/portfolio.mjs`:** the same detector over one real PE firm's public portfolio list (`scripts/dns/portfolio_domains.json`: `{ source, retrieved, domains }`) → `scripts/dns/portfolio_report.json`, **totals only**: companies per vendor, how many siblings share at least one vendor, and unrecognized MX / SPF include / TXT verification hosts that two or more siblings share (that list is where a shared MSP or remote-access tool would show up). The report names no company or domain. DNS lookups moved into `scripts/dns/resolve.mjs` (shared with `scan.mjs`; `scan.mjs` output unchanged).
@@ -59,6 +63,9 @@ node scripts/dns/portfolio.mjs              # portfolio_domains.json → portfol
 Each Convex script runs `npx convex dev --once` first (`--no-push` skips it) and reseeds.
 
 ## Needs from others
+
+- → **Role 1 (Adrian): please review the seed part of #102** (`convex/seed.ts`, `convex/ops.ts`, `convex/backend.test.ts`). Omar asked for it; it's your file, so merge only if you agree. Numbers verified above.
+- → **Whoever owns `src/demo/` now (Role 1 or 2) and Marco for the script:** the presenter panel and script say "8 companies" (`src/demo/PresenterPanel.tsx:28`); after #102 it's 14. The "Sign in as" list also grows by six companies.
 
 - → **Role 1 (Adrian), optional:** `internal.alerts.getWritingContext` could return `portfolioCompanyNames: string[]` (every company, reporter included). The live AI path's "names another company" check builds its list from the exposed companies only, so the reporter's name is not on it (the prompts never carry it, so a leak would need a hallucination; `prompts/generate.mjs` already uses `listCompanies`). Must not go into any facts object or the cache keys change.
 - → **Role 1 (Adrian), optional:** add `prompts/**/*.test.mjs` and `scripts/scorecard/*.test.mjs` to a test script if you want them under `npm test` (they are node:test files; `vitest.config.ts` is yours).
