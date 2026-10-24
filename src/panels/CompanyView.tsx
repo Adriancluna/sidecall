@@ -5,6 +5,7 @@ import { api } from "../../convex/_generated/api";
 import { friendlyError } from "../layout/errors";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { AcknowledgedBy } from "./AcknowledgedBy";
+import { BillsPanel } from "./BillsPanel";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
 import { LedgerPanel } from "./LedgerPanel";
@@ -73,6 +74,8 @@ export function CompanyView({ companyId }: Props) {
           canDecide
         />
       )}
+
+      <BillsPanel />
 
       {latestIncident && <TimelinePanel incidentId={latestIncident._id} />}
 

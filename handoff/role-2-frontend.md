@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 21:03 by Marco's Claude
+Last updated: Oct 23, 21:19 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -26,9 +26,12 @@ Last updated: Oct 23, 21:03 by Marco's Claude
 - ✓ **Polish pass:** Ponytail over-engineering cuts (scorecard validator shrunk, one-consumer user context → prop, CSV export is a plain `<a download href=data:…>`, ErrorBoundary simplified, timeline `Stats` type inferred from the query, speculative error branch removed) and Vercel's Web Interface Guidelines audit: confirm before Reset and Reject, skip link, `color-scheme: dark`, `scroll-padding-top` for the sticky header, form `name` / `spellCheck` / `autoComplete`, font preconnect, balanced `h1`. No visual redesign. ✓ Thanks Role 1 for #44 (preview builds skipped).
 - ✓ **Round 4:** scenario picker on `/?stage` next to Fire / Replay (Brightline payroll breach · Ironclad shared login leaked · Ironclad MSP compromised; same unsigned POST); PE **Incident** selector (follows the newest unless one is picked; resets the selected company); presenter beat "Discipline (optional)"; `docs/demo-script.md` step 0 `npx convex run ops:demoReadiness --prod` + beat 6c. Verified on dev: all three fire; selector shows Brightline 3 · 4,200 · $612,000, credential leak 3 · 3,950 · $0 with Summit "separate access", MSP 3 · 4,600 · $116,000.
 - ✓ Thanks Role 1 for #48 (Role 3/4 briefs now in `handoff/`, match `main`).
+- ✓ **Round 5: Bills to pay** (`src/panels/BillsPanel.tsx`, company view): `getMyBills` with status chips; unpaid bills get **Request payment** → `requestPayment`; result inline (held → "Held until verified: <vendor> is under an active incident" + "…goes to an account changed by email" when flagged; refusals show `reason`). Verified on dev: Jamie requests the $38,000 November bill after the Brightline incident → held + flagged.
+- ✓ **Round 6: containment** (`src/panels/ContainPanel.tsx`, PE view, per incident): note + **Mark contained** → `containIncident`; refusal inline; "Contained" badge on the incident line and " · contained" in the Incident menu (from `listIncidents.containedAt`). Verified on dev: "fixed" → "Say what the vendor fixed and how it was confirmed."; full note → badge, card "Contained … New payments to this vendor are no longer held.", `contain` row in the controls log.
+- Presenter beats + `docs/demo-script.md`: 2b (new requests caught too) and optional 7b (contained).
 
 ## In progress
-1. Rounds 1–4 done. Next: update `docs/` once Roles 3/4 land (map, AI text, scorecard, `dns_findings.json` for the Proof panel); new asks from Role 1.
+1. Rounds 1–6 done. Next: update `docs/` once Roles 3/4 land (map, AI text, scorecard, `dns_findings.json` for the Proof panel); new asks from Role 1.
 
 ## Needs from others
 - (none right now)
