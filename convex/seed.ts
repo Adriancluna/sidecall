@@ -1,6 +1,6 @@
 // Demo portfolio. Everything here is simulated. Re-runnable: clears every table first.
 //   npx convex run seed:run
-//   UI: api.seed.resetDemo (needs DEMO_MODE=true on the deployment)
+//   UI: api.seed.resetDemo (needs DEMO_MODE=true on the deployment and a signed-in user)
 //   npx convex run seed:fireDemoIncident '{"scenario":"brightline"}'
 //
 // The planted cases (seedRef) are listed in data/answer_key.json, which nothing in convex/ reads.
@@ -9,6 +9,7 @@ import { env, internalMutation, mutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id, TableNames } from "./_generated/dataModel";
 import { recordIncidentImpl } from "./incidents";
+import { getViewer } from "./access";
 // Role 4's DNS findings, bundled at deploy time. Each entry becomes a dns_inferred candidate link.
 import dnsLinks from "../data/dns_links.json";
 
@@ -336,6 +337,7 @@ export const resetDemo = mutation({
     if (env.DEMO_MODE !== "true") {
       throw new ConvexError("Demo reset is disabled on this deployment (DEMO_MODE is not true).");
     }
+    await getViewer(ctx); // signed-in presenters only
     return await seedAll(ctx);
   },
 });

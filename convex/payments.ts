@@ -362,14 +362,15 @@ export const getLedger = query({
     const viewer = await getViewer(ctx);
     const companyId = viewer.firm ? args.companyId : viewer.companyId;
     if (!companyId) return null;
-    const entries = await ctx.db
-      .query("ledgerEntries")
-      .withIndex("by_companyId_and_date", (q) => q.eq("companyId", companyId))
-      .order("desc")
-      .take(200);
-    // Balances in natural sign: assets/expense debit-positive, liabilities/equity credit-positive.
+    const ledger = () =>
+      ctx.db
+        .query("ledgerEntries")
+        .withIndex("by_companyId_and_date", (q) => q.eq("companyId", companyId));
+    const entries = await ledger().order("desc").take(200); // what the UI lists
+    // Balances cover every entry, not just the listed ones. Natural sign: assets/expense
+    // debit-positive, liabilities/equity credit-positive.
     const balances = { cash: 0, accounts_payable: 0, expense: 0, equity: 0 };
-    for (const entry of entries) {
+    for await (const entry of ledger()) {
       for (const line of entry.lines) {
         const net = line.debitCents - line.creditCents;
         balances[line.account] +=
@@ -386,13 +387,20 @@ export const getIncidentAudit = query({
   args: { incidentId: v.id("incidents") },
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
-    const rows = (
-      await ctx.db
-        .query("auditLog")
-        .withIndex("by_incidentId", (q) => q.eq("incidentId", args.incidentId))
-        .order("desc")
-        .take(500)
-    ).filter((row) => row.companyId && canSeeCompany(viewer, row.companyId));
+    // A company reads only its own rows through the index; the firm reads the incident's rows.
+    const rows = viewer.firm
+      ? await ctx.db
+          .query("auditLog")
+          .withIndex("by_incidentId", (q) => q.eq("incidentId", args.incidentId))
+          .order("desc")
+          .take(500)
+      : await ctx.db
+          .query("auditLog")
+          .withIndex("by_companyId_and_incidentId", (q) =>
+            q.eq("companyId", viewer.companyId).eq("incidentId", args.incidentId),
+          )
+          .order("desc")
+          .take(500);
 
     const names = new Map<string, string>();
     const nameOf = async (id: Id<"users"> | Id<"companies">, table: "users" | "companies") => {

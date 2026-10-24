@@ -235,5 +235,5 @@ export default defineSchema({
   })
     .index("by_paymentId", ["paymentId"])
     .index("by_incidentId", ["incidentId"])
-    .index("by_companyId", ["companyId"]),
+    .index("by_companyId_and_incidentId", ["companyId", "incidentId"]),
 });

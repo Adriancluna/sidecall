@@ -7,6 +7,7 @@ The data shapes and function signatures every role builds against. Owned by Role
 
 ## Changelog
 
+- **Oct 23, ~8:20pm.** `POST /incident` needs an HMAC signature (`X-Sidecall-Signature`) except for the built-in demo scenarios on `DEMO_MODE` deployments (stage buttons unchanged). `resetDemo` needs a signed-in user. `getLedger` balances now cover every entry.
 - **Oct 23, ~8:10pm.** `getHeldPayments` rows gained `decision` (who released/rejected, their note, when); `notice` is null once a payment is decided. `releasePayment` refuses notes that don't describe the call (min 15 chars, words, not just an amount).
 - **Oct 23, ~8pm.** **`actingUserId` removed from every function** (identity = signed-in session only; `REQUIRE_SESSION` is gone, always on). Sign-up only accepts the demo password. New `payments.getIncidentAudit` (controls log). `data/scorecard.json` format defined (see "Scorecard").
 - **Oct 23, ~7:45pm.** `getHeldPayments` `bankChange` gained `previousAccountLast4` and `lastVerifiedAccountLast4` (for Role 2's old-vs-new flag).
@@ -165,7 +166,7 @@ Module prefix in brackets: `api.blastRadius.listIncidents`, etc. `null` means "n
 ```ts
 [incidents] acknowledgeExposure({ exposureId }) -> { ok: true } | { ok: false, reason: "not_found" | "not_your_company" | "already_acknowledged" | "closed" }
 [incidents] closeExposure({ exposureId })       -> same shape
-[seed]      resetDemo({}) -> counts                          // "Reset demo" button; throws unless DEMO_MODE=true on the deployment
+[seed]      resetDemo({}) -> counts                          // "Reset demo" button; throws unless DEMO_MODE=true and someone is signed in
 
 [payments] releasePayment({ paymentId, verificationNote }) -> { ok: true } | { ok: false, reason: string }
 [payments] rejectPayment({ paymentId, note? })             -> same shape
@@ -251,7 +252,12 @@ curl -X POST https://<deployment>.convex.site/incident -H 'Content-Type: applica
 POST https://<deployment>.convex.site/incident
 { "externalId": string, "assetName": string, "reportedByDomain"?: string, "summary"?: string }
 
+Header (real senders): X-Sidecall-Signature: sha256=<hex HMAC-SHA256 of the raw body, key = INCIDENT_WEBHOOK_SECRET>
+
 200 { "incidentId", "duplicate": false }   first time
 200 { "incidentId", "duplicate": true }    replay of the same externalId (nothing new written)
-400 bad body · 404 unknown asset
+400 bad body · 401 missing/invalid signature · 404 unknown asset
 ```
+
+- Unsigned requests are accepted **only** for the built-in demo scenarios (`seed.ts` `SCENARIOS`: same `externalId` and `assetName`) and only where `DEMO_MODE=true`. That keeps the stage Fire / Replay buttons working without putting a secret in the browser.
+- Real integrations (e.g. an Armadin finding) set `INCIDENT_WEBHOOK_SECRET` on the deployment and sign every request.

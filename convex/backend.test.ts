@@ -284,10 +284,59 @@ describe("demo reset", () => {
     process.env.DEMO_MODE = original;
   });
 
-  test("refuses unless DEMO_MODE=true", async () => {
-    const { t } = await seeded();
-    await expect(t.mutation(api.seed.resetDemo, {})).rejects.toThrow(/DEMO_MODE/);
+  test("refuses unless DEMO_MODE=true and someone is signed in", async () => {
+    const { t, as } = await seeded();
+    const presenter = await as("Jamie Chen");
+    await expect(presenter.mutation(api.seed.resetDemo, {})).rejects.toThrow(/DEMO_MODE/);
     process.env.DEMO_MODE = "true";
-    await expect(t.mutation(api.seed.resetDemo, {})).resolves.toMatchObject({ companies: 8 });
+    await expect(t.mutation(api.seed.resetDemo, {})).rejects.toThrow(/Not signed in/);
+    await expect(presenter.mutation(api.seed.resetDemo, {})).resolves.toMatchObject({ companies: 8 });
+  });
+});
+
+describe("POST /incident", () => {
+  const original = { demo: process.env.DEMO_MODE, secret: process.env.INCIDENT_WEBHOOK_SECRET };
+  beforeEach(() => {
+    delete process.env.DEMO_MODE;
+    delete process.env.INCIDENT_WEBHOOK_SECRET;
+  });
+  afterEach(() => {
+    process.env.DEMO_MODE = original.demo;
+    process.env.INCIDENT_WEBHOOK_SECRET = original.secret;
+  });
+
+  const post = (t: Awaited<ReturnType<typeof seeded>>["t"], body: object, signature?: string) =>
+    t.fetch("/incident", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(signature ? { "X-Sidecall-Signature": signature } : {}) },
+      body: JSON.stringify(body),
+    });
+
+  async function sign(secret: string, body: object) {
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+    const sig = await crypto.subtle.sign("HMAC", key, enc.encode(JSON.stringify(body)));
+    return `sha256=${Array.from(new Uint8Array(sig), (b) => b.toString(16).padStart(2, "0")).join("")}`;
+  }
+
+  test("unsigned requests are refused unless they are a demo scenario on a DEMO_MODE deployment", async () => {
+    const { t } = await seeded();
+    const forged = { externalId: "attacker-1", assetName: "Brightline Payroll" };
+    expect((await post(t, forged)).status).toBe(401);
+    expect((await post(t, BRIGHTLINE)).status).toBe(401); // demo scenario, but DEMO_MODE off
+    process.env.DEMO_MODE = "true";
+    expect((await post(t, forged)).status).toBe(401); // DEMO_MODE only unlocks the built-in scenarios
+    const ok = await post(t, BRIGHTLINE);
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toMatchObject({ duplicate: false });
+    expect(await (await post(t, BRIGHTLINE)).json()).toMatchObject({ duplicate: true }); // replay beat
+  });
+
+  test("signed requests from a real sender are accepted; a bad signature is not", async () => {
+    const { t } = await seeded();
+    process.env.INCIDENT_WEBHOOK_SECRET = "test-secret";
+    const body = { externalId: "armadin-finding-77", assetName: "Keystone SSO" };
+    expect((await post(t, body, await sign("wrong-secret", body))).status).toBe(401);
+    expect((await post(t, body, await sign("test-secret", body))).status).toBe(200);
   });
 });
