@@ -1,0 +1,28 @@
+/* Sidecall design tokens (Tailwind v4).
+   Use from src/index.css:   @import "../brand/tokens.css";
+   Then: bg-graphite-950, text-paper, text-ash, border-line, bg-amber, text-urgent, rounded-tile, font-sans … */
+
+@theme {
+  /* Brand */
+  --color-amber: #F5A524;        /* Signal Amber: the logo, primary actions, "advisory" */
+  --color-graphite-950: #15171C; /* app background */
+  --color-graphite-900: #1C1F26; /* cards, panels */
+  --color-graphite-800: #262A33; /* raised / hover */
+  --color-line: #30353F;         /* borders, dividers (decorative only) */
+  --color-paper: #F4F2ED;        /* primary text on dark; light-mode background */
+  --color-ash: #8C919A;          /* secondary text, labels */
+
+  /* Status (product only, never in the logo). All ≥ 4.5:1 on graphite-950/900. */
+  --color-urgent: #F2665A;       /* urgent alert */
+  --color-advisory: #F5A524;     /* advisory alert (same as amber) */
+  --color-clear: #4CC38A;        /* not exposed / released / verified */
+  --color-info: #8C919A;         /* candidate / inferred / neutral */
+
+  /* Type */
+  --font-sans: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Shape: the logo's tiles have a 30% corner radius; UI echoes it softly */
+  --radius-tile: 12px;  /* cards, panels, company tiles */
+  --radius-chip: 8px;   /* badges, buttons */
+}

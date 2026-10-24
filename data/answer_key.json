@@ -1,0 +1,59 @@
+{
+  "_comment": "Planted cases for the scorecard. Nothing in convex/ reads this file. Keys are seedRef values from convex/seed.ts. Compare against `npx convex run scoring:exportOutcomes '{\"externalId\":\"...\"}'` after seed:run then the scenario's incident. expected: hold_and_flag | hold_no_flag | no_action.",
+  "scenarios": [
+    {
+      "externalId": "demo-brightline-001",
+      "assetName": "Brightline Payroll",
+      "expectedExposures": {
+        "Cedar Ridge Manufacturing": "urgent",
+        "Summit Home Health": "urgent",
+        "Bayview Veterinary Partners": "advisory"
+      },
+      "expectedNotExposed": ["Alder Freight Systems", "Granite Peak Software", "Harborline Foods", "Meridian Dental Group"],
+      "expectedTotals": { "companiesExposed": 3, "peopleExposed": 4200, "heldCents": 61200000, "paymentsHeld": 4 },
+      "cases": [
+        { "ref": "pay_C_brightline_480k", "type": "payment", "expected": "hold_and_flag", "why": "Pays an account changed by email 2 days before the incident" },
+        { "ref": "pay_B_brightline_92k", "type": "payment", "expected": "hold_no_flag", "why": "Pending to the breached vendor, long-standing verified account" },
+        { "ref": "pay_D_brightline_28k", "type": "payment", "expected": "hold_no_flag", "why": "Pending to the breached vendor, long-standing verified account" },
+        { "ref": "pay_D_brightline_12k", "type": "payment", "expected": "hold_and_flag", "why": "Pays an account changed by email 9 days before the incident" },
+        { "ref": "pay_H_brightline_35k", "type": "payment", "expected": "no_action", "why": "Company has not opted in to holds" },
+        { "ref": "pay_B_brightline_paid", "type": "payment", "expected": "no_action", "why": "Already paid last month" },
+        { "ref": "bc_brightline_7731_fraud", "type": "bankChange", "expected": "hold_and_flag", "why": "Email change 2 days before incident" },
+        { "ref": "bc_brightline_4419_fraud", "type": "bankChange", "expected": "hold_and_flag", "why": "Email change 9 days before incident" },
+        { "ref": "bc_brightline_2208_honest", "type": "bankChange", "expected": "no_action", "why": "Verified by phone 5 months ago" },
+        { "ref": "bc_brightline_0193_old_email", "type": "bankChange", "expected": "no_action", "why": "Outside the 30-day window" }
+      ]
+    },
+    {
+      "externalId": "demo-ironclad-cred-002",
+      "assetName": "Ironclad shared admin account",
+      "expectedExposures": {
+        "Cedar Ridge Manufacturing": "urgent",
+        "Granite Peak Software": "urgent",
+        "Harborline Foods": "urgent"
+      },
+      "expectedNotExposed": ["Summit Home Health", "Alder Freight Systems", "Bayview Veterinary Partners", "Meridian Dental Group"],
+      "cases": [
+        { "ref": "pay_F_ironclad_55k", "type": "payment", "expected": "no_action", "why": "A leaked credential is not the vendor's payee account" },
+        { "ref": "pay_F_ironclad_37k", "type": "payment", "expected": "no_action", "why": "A leaked credential is not the vendor's payee account" },
+        { "ref": "pay_A_ironclad_24k", "type": "payment", "expected": "no_action", "why": "A leaked credential is not the vendor's payee account" }
+      ]
+    },
+    {
+      "externalId": "demo-ironclad-msp-003",
+      "assetName": "Ironclad IT Services",
+      "expectedExposures": {
+        "Alder Freight Systems": "advisory",
+        "Summit Home Health": "advisory",
+        "Harborline Foods": "urgent"
+      },
+      "cases": [
+        { "ref": "pay_F_ironclad_55k", "type": "payment", "expected": "hold_no_flag", "why": "Pending to the breached vendor, verified account" },
+        { "ref": "pay_F_ironclad_37k", "type": "payment", "expected": "hold_and_flag", "why": "Pays an account changed by email 4 days before the incident" },
+        { "ref": "pay_A_ironclad_24k", "type": "payment", "expected": "hold_no_flag", "why": "Pending to the breached vendor, verified account" },
+        { "ref": "bc_ironclad_9902_fraud", "type": "bankChange", "expected": "hold_and_flag", "why": "Email change 4 days before incident" },
+        { "ref": "bc_ironclad_5510_honest", "type": "bankChange", "expected": "no_action", "why": "Verified by phone 7 months ago" }
+      ]
+    }
+  ]
+}

@@ -107,7 +107,9 @@ export default defineSchema({
     vendorName: v.string(),
     kind: assetKind,
     phoneOnFile: v.string(), // the number to call when verifying a held payment
-  }).index("by_name", ["name"]),
+  })
+    .index("by_name", ["name"])
+    .index("by_vendorName", ["vendorName"]),
 
   links: defineTable({
     companyId: v.id("companies"),
@@ -138,7 +140,6 @@ export default defineSchema({
     reasons: v.array(v.string()),
     evidence: v.array(evidenceItem),
   })
-    .index("by_incidentId", ["incidentId"])
     .index("by_companyId", ["companyId"])
     .index("by_incidentId_and_companyId", ["incidentId", "companyId"]),
 
@@ -163,6 +164,7 @@ export default defineSchema({
     changedAt: v.number(),
     accountLast4: v.string(),
     requestChannel,
+    seedRef: v.optional(v.string()), // stable key for data/answer_key.json
   }).index("by_assetId_and_changedAt", ["assetId", "changedAt"]),
 
   bills: defineTable({
@@ -190,6 +192,7 @@ export default defineSchema({
     holdReasons: v.optional(v.array(v.string())),
     verificationNote: v.optional(v.string()),
     decidedAt: v.optional(v.number()),
+    seedRef: v.optional(v.string()), // stable key for data/answer_key.json
   })
     .index("by_assetId_and_status", ["assetId", "status"])
     .index("by_companyId_and_status", ["companyId", "status"])
