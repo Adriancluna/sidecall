@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 20:52 by Marco's Claude
+Last updated: Oct 23, 21:03 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -24,19 +24,14 @@ Last updated: Oct 23, 20:52 by Marco's Claude
 - ✓ **Round 3 (both tasks):** (1) escalation banner: `kind: "escalation"` alerts from `getMyAlerts` show as an amber "Decision needed: …" banner at the top of the matching held payment card (company view, only while held). (2) `src/panels/TimelinePanel.tsx` on `getIncidentTimeline`: headline from `stats` ("Payments held in the same transaction as the report · alerts written in 193 ms · vendor letter in 194 ms · first acknowledgement after 12 s") + collapsible event list with +offsets; PE view under the headline, company view before the controls log (scoped by the backend). Unknown event kinds render as text. Verified on dev after `seed:run` + fire. `docs/` updated (escalation beat, timeline beat 6b, Devpost).
 - ✓ **Ledger columns (Role 1's screenshot bug):** padded, fixed-width Date / Account / Debit / Credit columns, no-wrap amounts; table scrolls inside its card on phones.
 - ✓ **Polish pass:** Ponytail over-engineering cuts (scorecard validator shrunk, one-consumer user context → prop, CSV export is a plain `<a download href=data:…>`, ErrorBoundary simplified, timeline `Stats` type inferred from the query, speculative error branch removed) and Vercel's Web Interface Guidelines audit: confirm before Reset and Reject, skip link, `color-scheme: dark`, `scroll-padding-top` for the sticky header, form `name` / `spellCheck` / `autoComplete`, font preconnect, balanced `h1`. No visual redesign. ✓ Thanks Role 1 for #44 (preview builds skipped).
+- ✓ **Round 4:** scenario picker on `/?stage` next to Fire / Replay (Brightline payroll breach · Ironclad shared login leaked · Ironclad MSP compromised; same unsigned POST); PE **Incident** selector (follows the newest unless one is picked; resets the selected company); presenter beat "Discipline (optional)"; `docs/demo-script.md` step 0 `npx convex run ops:demoReadiness --prod` + beat 6c. Verified on dev: all three fire; selector shows Brightline 3 · 4,200 · $612,000, credential leak 3 · 3,950 · $0 with Summit "separate access", MSP 3 · 4,600 · $116,000.
+- ✓ Thanks Role 1 for #48 (Role 3/4 briefs now in `handoff/`, match `main`).
 
 ## In progress
 1. Round 3 done. Next: update `docs/` once Roles 3/4 land; new asks from Role 1.
 
 ## Needs from others
-- → Role 1: **the Role 4 brief (`role-4-ai-dns.md`, given to Omar) is out of date vs `main`.** Please update it, and check the Role 3 brief the same way, before the Waterloo teammates start (~11pm). Differences found:
-  1. Says `HANDOFF.md`; the repo uses `handoff/` (his file: `handoff/role-4-ai.md`).
-  2. Says `generateAlert({ exposureId })` once per company; `convex/ai.ts` + CONTRACT.md are `({ incidentId })` once per incident, looping inside, reading `internal.alerts.getWritingContext`.
-  3. Scorecard shape `{ caught, missed, falseHolds, falseFlags, total, cases: { id, expected, actual } }` ≠ CONTRACT.md "Scorecard" (`scenarios[]`, `correctNoAction`, cases `ref/type/expected/actual/result/why`). The Proof panel validates the CONTRACT shape and would show "unreadable".
-  4. DNS links shape `{ domain, vendorName, assetKind, … }` ≠ CONTRACT.md "DNS links" (`[{ companyDomain, assetName, detail }]`); no mention of the Brightline warning.
-  5. Setup misses dev login keys (`npx @convex-dev/auth --web-server-url http://localhost:5173 --skip-git-check`) and `DEMO_MODE=true`; without them sign-in, Fire and Reset fail on his dev. Also worth pointing him at `scoring:exportOutcomes` and the signed-webhook rule.
-  Marco gave Omar a corrections block to paste meanwhile; the fixed brief should match it.
-
+- (none right now)
 ## Decisions & gotchas
 - Sign-in is invite-only (backend). The demo password `sidecall-demo` is shown on the sign-in screen on purpose: every person is simulated and judges need to switch roles. The form path sets the password on a person's first sign-in, so typing any other password the first time locks that person to it until a Reset; the quick-pick always uses the demo password.
 - Presenter flow: open `/?stage`, Reset, then sign in as Jamie Chen ("start here").

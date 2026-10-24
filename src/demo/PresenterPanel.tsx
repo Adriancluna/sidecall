@@ -61,6 +61,12 @@ const BEATS: Beat[] = [
     as: JORDAN,
   },
   {
+    title: "Discipline (optional)",
+    say: "A shared Ironclad login leaks. Summit uses Ironclad too, but with its own login, so Summit gets no alert. Same vendor isn't the same weakness.",
+    as: JAMIE,
+    tip: 'Pick "Ironclad shared login leaked" in the header, Fire, stay as Jamie: no new alert. Switch to Jordan and use the Incident menu to compare.',
+  },
+  {
     title: "Tailored alerts + vendor letter",
     say: "Urgent where a credential is shared, advisory where it's only the same vendor. One letter to the vendor fixes it for everyone.",
     as: JORDAN,
