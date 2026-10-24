@@ -36,9 +36,10 @@ export function AppShell({ me, children }: { me: CurrentUser; children: ReactNod
         <aside className="sticky top-0 hidden h-screen flex-col border-r border-line bg-graphite md:flex">
           <div className="flex h-14 shrink-0 items-center gap-2.5 px-4">
             <img src={symbolUrl} alt="Sidecall" width={20} height={20} className="size-5 shrink-0" />
-            <span className="truncate text-sm font-medium tracking-[-0.02em]">{company}</span>
-            <span className="shrink-0 rounded-full bg-raised px-2 text-[11px] leading-5 font-medium tracking-[0.2px] text-ash ring-1 ring-line">
-              {ROLE_LABEL[me.role]}
+            {/* Name over role, so long company names fit instead of truncating beside a badge. */}
+            <span className="flex min-w-0 flex-col leading-tight">
+              <span className="truncate text-sm font-medium tracking-[-0.02em]">{company}</span>
+              <span className="truncate text-xs text-ash">{ROLE_LABEL[me.role]}</span>
             </span>
           </div>
           <nav ref={setNav} aria-label="Sections" className="min-h-0 flex-1 overflow-y-auto px-2 pt-2.5 pb-2" />
