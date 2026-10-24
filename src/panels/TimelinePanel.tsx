@@ -1,0 +1,90 @@
+// Incident timeline from real timestamps (api.blastRadius.getIncidentTimeline): the Convex-track
+// proof on screen. Scoped by the backend: firm = whole portfolio, company = its own events.
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+import { Card, Empty } from "./ui";
+
+function duration(ms: number): string {
+  if (ms < 1000) return `${Math.max(0, Math.round(ms))} ms`;
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s} s`;
+  const m = Math.floor(s / 60);
+  return s % 60 ? `${m} min ${s % 60} s` : `${m} min`;
+}
+
+type Stats = {
+  holdsInReportTransaction: boolean;
+  msToFirstAlert: number | null;
+  msToVendorLetter: number | null;
+  msToFirstAcknowledgement: number | null;
+  msToFirstRelease: number | null;
+};
+
+// "Payments held in the same transaction as the report · alerts written in 97 ms · …"
+function headline(stats: Stats): string[] {
+  return [
+    stats.holdsInReportTransaction &&
+      "Payments held in the same transaction as the report",
+    stats.msToFirstAlert !== null &&
+      `alerts written in ${duration(stats.msToFirstAlert)}`,
+    stats.msToVendorLetter !== null &&
+      `vendor letter in ${duration(stats.msToVendorLetter)}`,
+    stats.msToFirstAcknowledgement !== null &&
+      `first acknowledgement after ${duration(stats.msToFirstAcknowledgement)}`,
+    stats.msToFirstRelease !== null &&
+      `first release after ${duration(stats.msToFirstRelease)}`,
+  ].filter((part): part is string => typeof part === "string");
+}
+
+export function TimelinePanel({ incidentId }: { incidentId: Id<"incidents"> }) {
+  const timeline = useQuery(api.blastRadius.getIncidentTimeline, {
+    incidentId,
+  });
+  if (timeline === undefined) {
+    return (
+      <Card title="Timeline">
+        <Empty>Loading…</Empty>
+      </Card>
+    );
+  }
+  if (timeline === null) return null;
+
+  const start = timeline.events[0]?.at ?? 0;
+  const parts = headline(timeline.stats);
+  return (
+    <Card title="Timeline">
+      {parts.length > 0 && (
+        <p className="mb-3 text-sm font-medium text-amber">
+          {parts.join(" · ")}
+        </p>
+      )}
+      <details>
+        <summary className="cursor-pointer text-sm text-ash">
+          {timeline.events.length} events, real timestamps
+        </summary>
+        <ol className="mt-2 space-y-1 text-sm">
+          {timeline.events.map((e, i) => (
+            <li
+              key={`${e.at}-${e.kind}-${i}`}
+              className="flex flex-wrap gap-x-3"
+            >
+              <span className="w-20 shrink-0 text-right font-mono text-xs text-ash tabular-nums">
+                +{duration(e.at - start)}
+              </span>
+              <span className="w-28 shrink-0 font-mono text-xs">
+                {e.kind.replace(/_/g, " ")}
+              </span>
+              <span className="min-w-0 flex-1">
+                {e.companyName && (
+                  <span className="font-medium">{e.companyName}: </span>
+                )}
+                {e.label}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </details>
+    </Card>
+  );
+}

@@ -28,9 +28,10 @@ const STATUS_LABEL = {
 type Props = {
   row: HeldPaymentRow;
   canDecide: boolean;
+  escalation?: string;
 };
 
-export function PaymentCard({ row, canDecide }: Props) {
+export function PaymentCard({ row, canDecide, escalation }: Props) {
   const { payment } = row;
   const release = useMutation(api.payments.releasePayment);
   const reject = useMutation(api.payments.rejectPayment);
@@ -87,6 +88,15 @@ export function PaymentCard({ row, canDecide }: Props) {
           {STATUS_LABEL[payment.status]}
         </Chip>
       </header>
+
+      {escalation && payment.status === "held" && (
+        <p
+          role="status"
+          className="mt-3 rounded-md border border-amber/50 bg-amber/10 px-3 py-2 text-sm text-amber"
+        >
+          {escalation}
+        </p>
+      )}
 
       {row.decision && (
         <p

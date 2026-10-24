@@ -10,6 +10,7 @@ import { ExposureAcknowledgedBy } from "./AcknowledgedBy";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
 import { ProofPanel } from "./ProofPanel";
+import { TimelinePanel } from "./TimelinePanel";
 import { VendorLetterActions } from "./VendorLetterActions";
 import { Card, Chip, Empty } from "./ui";
 
@@ -84,6 +85,8 @@ export function PortfolioView() {
           <p className="mt-2 max-w-3xl text-ash">{incident.summary}</p>
         )}
       </section>
+
+      <TimelinePanel incidentId={incident._id} />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <BlastRadiusMap

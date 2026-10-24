@@ -22,13 +22,15 @@ Private equity firms own companies that quietly share the same payroll providers
 4. **A different person must verify.** The clerk who requested a payment can't release it. A controller at that company calls the number on file, records what the vendor confirmed, and releases or rejects. Notes that don't describe the call are refused. Cash in the double-entry ledger moves only on release.
 5. **Everyone sees their part, and only their part.** Each company gets an alert written for its exposure and never learns who reported the incident. The PE firm sees the whole blast radius ("3 companies exposed · 4,200 people behind them · $612K in payments held") but never presses release: the company executes.
 6. **One letter to the vendor** replaces eight separate escalations.
-7. **Everything is on the record:** a controls log of every hold, flag, refusal, release and rejection, exportable as CSV.
+7. **It knows when to ask.** A held payment that nobody has decided as its due date gets close is escalated to the company's controllers, with an alert and an audit row.
+8. **Everything is on the record:** a controls log of every hold, flag, refusal, release and rejection, exportable as CSV.
 
 ## How we built it
 
 - **Convex** for the database, server functions, live queries, HTTP endpoint, scheduling and auth. React + Vite + TypeScript, deployed on Vercel (every merge to `main` deploys the backend and the frontend together).
 - **One webhook, one transaction:** `POST /incident` writes the incident, every exposure, every payment hold and bank-change flag, and the pending alerts atomically, then schedules the AI writer once per incident. Every browser sees the same snapshot, live, without polling.
 - **Idempotent:** replaying the same webhook (deduped on `externalId`) writes nothing new and holds nothing twice.
+- **Measured, on screen:** an incident timeline built from real timestamps shows the payments held in the same transaction as the report and alerts written within a few hundred milliseconds (about 200 ms in our dev run).
 - **Race-safe:** two people acknowledging the same alert at once: Convex serializes the transactions and exactly one wins; the UI shows who.
 - **Controls inside the mutation, not the UI:** segregation of duties, controller-only, held-status and verification-note checks all run in `releasePayment` / `rejectPayment`, and refusals are written to the audit log too.
 - **Identity from the session:** Convex Auth (password, invite-only); every query is scoped to the signed-in person, so Company A can't read Company B's data. Unsigned webhook calls are refused except the built-in demo scenarios.
@@ -58,8 +60,6 @@ Holding beats blocking as a default: a control that pauses money for a person to
 
 ## What's next
 
-- Escalate held payments nobody has decided before their due date (Sidecall knows when to ask).
-- A timeline per incident: reported → held → alerts ready → acknowledged → released, with real timestamps.
 - Ingest real offensive-security findings as incidents (signed webhook already in place).
 
 ## Built with
