@@ -16,6 +16,14 @@ const STATUS_TONE = {
   released: "ok",
 } as const;
 
+const STATUS_LABEL = {
+  held: "Held until verified",
+  paid: "Released",
+  rejected: "Rejected",
+  pending: "Pending",
+  released: "Released",
+} as const;
+
 type Props = {
   row: HeldPaymentRow;
   canDecide: boolean;
@@ -77,9 +85,24 @@ export function PaymentCard({ row, canDecide }: Props) {
           </p>
         </div>
         <Chip tone={STATUS_TONE[payment.status]}>
-          {payment.status === "held" ? "Held until verified" : payment.status}
+          {STATUS_LABEL[payment.status]}
         </Chip>
       </header>
+
+      {row.decision && (
+        <p
+          className={`mt-3 rounded-md border px-3 py-2 text-sm ${
+            row.decision.status === "paid"
+              ? "border-ok/40 bg-ok/10 text-ok"
+              : "border-line bg-panel text-paper"
+          }`}
+        >
+          {row.decision.status === "paid" ? "Released" : "Rejected"} by{" "}
+          {row.decision.byName ?? "a controller"}
+          {row.decision.note && ` · “${row.decision.note}”`}
+          {row.decision.at !== null && ` · ${dateTime(row.decision.at)}`}
+        </p>
+      )}
 
       {row.bankChange && (
         <div className="mt-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
@@ -103,7 +126,12 @@ export function PaymentCard({ row, canDecide }: Props) {
       )}
 
       {row.holdReasons.length > 0 && (
-        <ul className="mt-3 list-disc space-y-0.5 pl-5 text-sm text-ash">
+        <p className="mt-3 text-xs font-semibold text-ash">
+          {isHeld ? "Why it's held" : "Why it was held"}
+        </p>
+      )}
+      {row.holdReasons.length > 0 && (
+        <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-ash">
           {row.holdReasons.map((r) => (
             <li key={r}>{r}</li>
           ))}
@@ -114,11 +142,13 @@ export function PaymentCard({ row, canDecide }: Props) {
         <p className="mt-3 text-sm leading-relaxed">{row.notice}</p>
       )}
 
-      <p className="mt-3 text-sm">
-        Verify by calling{" "}
-        <span className="font-mono text-amber">{row.phoneOnFile}</span>, the
-        number on file. Never use a number from a recent email.
-      </p>
+      {isHeld && (
+        <p className="mt-3 text-sm">
+          Verify by calling{" "}
+          <span className="font-mono text-amber">{row.phoneOnFile}</span>, the
+          number on file. Never use a number from a recent email.
+        </p>
+      )}
 
       {canDecide && isHeld && (
         <div className="mt-4 space-y-2">

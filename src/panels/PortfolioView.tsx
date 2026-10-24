@@ -43,6 +43,10 @@ export function PortfolioView() {
   const { incident, totals } = blast;
   const selectedNode = blast.nodes.find((n) => n.companyId === selected);
   const selectedHeld = held?.filter((r) => r.payment.companyId === selected);
+  // The headline counts money still held; show what controllers have released since.
+  const releasedCents = (held ?? [])
+    .filter((r) => r.decision?.status === "paid")
+    .reduce((sum, r) => sum + r.payment.amountCents, 0);
   const nodeFor = (companyId?: Id<"companies">) =>
     blast.nodes.find((n) => n.companyId === companyId);
   // Tailored company alerts, most urgent first (the AI writes; scoring decides urgency).
@@ -67,6 +71,11 @@ export function PortfolioView() {
             {money(totals.heldCents)} in payments held
           </span>
         </h1>
+        {releasedCents > 0 && (
+          <p className="mt-1 text-sm text-ok">
+            {money(releasedCents)} released after verification
+          </p>
+        )}
         {incident.summary && (
           <p className="mt-2 max-w-3xl text-ash">{incident.summary}</p>
         )}
