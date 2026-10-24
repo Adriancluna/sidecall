@@ -1,7 +1,9 @@
 # Role 4: AI + scorecard + DNS (Waterloo #2, Omar)
-Last updated: Oct 24, 04:47 by Omar's Claude
+Last updated: Oct 24, 05:20 by Omar's Claude
 
 ## Status (this PR)
+- ✓ **`data/ai_cache.json` generated** (05:17Z, Claude Opus 5.5, dev deployment brainy-cassowary-804): 19 texts. Brightline 8 (3 alerts, 4 hold notices, 1 letter), Ironclad credential 4 (3 alerts, 1 letter, no holds), Ironclad MSP 7 (3 alerts, 3 hold notices, 1 letter). All pass `checkCopy` first try. Checked by hand against CLAUDE.md copy rules: no reporter named, no "fraud"/"block"/"cancel"/"validated", only the phone on file, Bayview's DNS link called a candidate. Re-fired all three on dev after pushing: all 19 AI rows in `alerts` match the cache (the 20th row is Role 1's escalation, not AI).
+- **Prompt fix (`prompts/writing.ts`):** the first run's Ironclad-credential vendor letter said payments were held when that incident holds none, and the credential alerts said "keep them held". The vendor letter now only mentions holds when `paymentsHeld > 0`, and alerts say a payment is held only when the backend's reasons say so. Facts keys unchanged; `npm test` 31 green.
 - **AI writing (`convex/ai.ts`):** same three exports and args; writes each batch with one `saveAlerts` call (✓ done for Role 1), live calls 5 at a time. Text comes from `data/ai_cache.json` first (used only if the facts it was written from still match: urgency, reasons, amount, account, flag), then a live call only when `AI_LIVE=true` + `ANTHROPIC_API_KEY`, then the old canned text. Live text that breaks the copy rules falls back to canned. `npm test` 25 green.
 - **Prompts + copy rules (`prompts/writing.ts`):** system prompt, one prompt per kind, cache keys, and `checkCopy` (no "fraud"/"scam"/"validated"/"block"/"cancel", no other company names, no phone number except the one on file, hold notices must say "held until verified", alerts must start "Urgent:"/"Advisory:" from the backend's urgency, no markdown).
 - **Generator (`prompts/generate.mjs`):** reseeds a DEV deployment, fires the 3 scenarios, writes `data/ai_cache.json` with Claude (Opus 5.5, plain `fetch`, no SDK). Retries a text up to 3 times if it fails the copy rules. Refuses prod.
@@ -11,12 +13,12 @@ Last updated: Oct 24, 04:47 by Omar's Claude
 - **`data/dns_links.json` (13 entries):** seed imports 4 new candidate links (Alder → Ledgerly, Summit → Ledgerly, Harborline → Keystone, Pinecrest → Relay); the other 9 pairs already exist in `seed.ts` and are skipped. Checked in convex-test: headlines unchanged (Brightline 3 · 4,200 · $612K; credential 3 · 3,950 · $0; MSP 3 · 4,600 · $116K).
 
 ## In progress
-1. Run `prompts/generate.mjs`, `scripts/scorecard/run.mjs` and `scripts/dns/scan.mjs` from a cloud session with network + keys, commit the data files.
+1. Nothing running. All Role 4 data files are real on main once this merges (scorecard + DNS findings landed in #56). Open ask from Role 2: `convex/notify.ts` real sending, not started.
 
 ## How to run (dev deployment only)
 ```
 npx convex dev --once                       # or set CONVEX_DEPLOY_KEY=dev:… (never prod:)
-ANTHROPIC_API_KEY=… node prompts/generate.mjs   # → data/ai_cache.json (~16 texts)
+ANTHROPIC_API_KEY=… node prompts/generate.mjs   # → data/ai_cache.json (19 texts)
 node scripts/scorecard/run.mjs              # → data/scorecard.json
 node scripts/dns/scan.mjs                   # → data/dns_links.json + data/dns_findings.json
 node scripts/dns/scan.mjs --seed-only       # dns_links.json only, no network
@@ -24,9 +26,8 @@ node scripts/dns/scan.mjs --seed-only       # dns_links.json only, no network
 Each Convex script runs `npx convex dev --once` first (`--no-push` skips it) and reseeds.
 
 ## Needs from others
-- → **Role 1 (blocking): please invite Omar to the sidecall Convex team** (dashboard → Team settings → Members → Invite; Omar will send you his email). Without it he has no dev deployment, so `prompts/generate.mjs`, the scorecard and the live DNS scan can't run, and `ai_cache.json` / `scorecard.json` stay empty.
-- → Role 1 (optional, nice for the evidence panel): when a `dns_links.json` entry matches a pair that is already `dns_inferred` in `seed.ts` LINKS (Alder/Summit/Harborline/Meridian → Relay Mail, Granite Peak → Keystone), set its `detail` instead of skipping, so those links show the DNS record too. Today they're skipped and carry no detail.
-- → Role 2: `data/dns_findings.json` (`[{ domain, vendor, record, evidence }]`, real public domains) will land after the scan run; Proof panel "Real" can list it. The AI vendor letter will be ~150–230 words in several paragraphs (`\n\n`), so render it with `whitespace-pre-wrap`.
+- Nothing open. Thanks: Role 1 gave Omar the dev deployment and added DNS `detail` to seeded links; Role 2 lists `dns_findings.json` in Proof and renders the letter with `whitespace-pre-wrap`.
+- → Role 2: `data/ai_cache.json` now has entries, so the Proof panel's "AI writing" line should move under **Real** on its own. Vendor letters are ~190–230 words in paragraphs.
 
 ## Decisions & gotchas
 - No new npm packages: the model is called with plain `fetch` (`prompts/writing.ts` → `callClaude`).
