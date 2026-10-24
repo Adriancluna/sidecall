@@ -1,5 +1,5 @@
 # Pegasus: response resilience + payment investigation
-Last updated: 2026-10-24 14:12 America/Los_Angeles by Pegasus
+Last updated: 2026-10-24 14:30 America/Los_Angeles by Pegasus
 
 ## Status
 - Ashwa requested implementation while keeping Hyphenate and Armadin, including resistance to repeated reports causing business disruption.
@@ -14,6 +14,7 @@ Last updated: 2026-10-24 14:12 America/Los_Angeles by Pegasus
 - Prepared `../pegasus-sign-in.command` for Ashwa to run interactively: GitHub CLI browser sign-in and Git credential setup, Vercel sign-in/link to existing team/project, and `npx convex login` (verified available in the installed CLI). Script syntax checked; no sign-ins have been completed by Pegasus, and the script contains no push/deploy commands. Latest remote handoff check remains `02b5a33`.
 - Ashwa's supplied Terminal output confirms GitHub CLI authentication succeeded as `ashwathram-prathap`; repository write permission has not yet been rechecked. The script reached Vercel login and shows only a progress spinner, with no input prompt yet; Vercel and Convex sign-ins are not confirmed. Advised waiting for the browser/login prompt instead of restarting the script. Remote handoffs checked again: main remains `02b5a33`.
 - Spinner diagnosis: npm log for `vercel login` shows repeated package-download ETIMEDOUT/ECONNRESET failures before login. Advised Control+C, then new `../pegasus-resume-sign-in.command`: runs already-installed Convex login first, retries Vercel with cached packages, visible HTTP progress, reduced concurrency and bounded request retries; no code push/deployment. Syntax checked. Remote handoffs checked with no new changes; authentication outcomes remain pending.
+- Ashwa now confirms Convex credentials saved successfully; project permissions/deployment access remain to be verified. Vercel retry is serving cached metadata quickly but hit a first-attempt TypeScript download timeout; advised allowing the configured retry, then switching connection and rerunning the resume helper if it exits with an error. This is installation/network failure, not evidence of missing account permissions. Remote handoff check unchanged at `02b5a33`.
 - Validation: 95 tests passed (54 backend, 12 MCP, 29 Pegasus), application/backend typechecks, ESLint, production build, and rehearsal-script syntax passed.
 
 ## Completed locally
