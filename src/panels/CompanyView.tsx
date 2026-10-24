@@ -64,7 +64,12 @@ export function CompanyView({ companyId, meId, role }: Props) {
   const unpaidBills = (bills ?? []).filter((b) => b.payment === null).length;
 
   const viewer = { id: meId, isController };
-  const heroPayment = handlesPayments ? pickHeroPayment(stillHeld, escalations) : undefined;
+  // A held payment leads; once decided, it stays in the hero (both signatures filled) so the release
+  // or rejection lands on the screen where it happened instead of the page jumping to another hero.
+  const lastDecided = [...(held ?? [])]
+    .filter((r) => r.decision)
+    .sort((a, b) => (b.decision?.at ?? 0) - (a.decision?.at ?? 0))[0];
+  const heroPayment = handlesPayments ? (pickHeroPayment(stillHeld, escalations) ?? lastDecided) : undefined;
   // The exposure the IT hero already shows in full; its tab entry skips the repeated steps and buttons.
   const heroExposureId = !heroPayment ? leadExposure?._id : undefined;
   // In flight before any incident (the $480K): the All clear screen names it, so the hold lands on a known payment.

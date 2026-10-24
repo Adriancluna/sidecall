@@ -23,6 +23,7 @@ export function PaymentHero({ row, escalation, viewer, others, onOpenTab }: Prop
   const decision = usePaymentDecision(row, viewer);
   const [now] = useState(() => Date.now());
   const due = dueIn(payment.dueDate, now);
+  const done = row.decision;
 
   return (
     <section
@@ -30,6 +31,13 @@ export function PaymentHero({ row, escalation, viewer, others, onOpenTab }: Prop
       className="grid items-start gap-x-16 gap-y-10 lg:grid-cols-[minmax(0,1fr)_minmax(360px,440px)]"
     >
       <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+        {done ? (
+          <StatusLine tone={done.status === "paid" ? "ok" : "danger"} state={done.status === "paid" ? "Released" : "Rejected"}>
+            <span>
+              {done.status === "paid" ? "After a call to the number on file" : "Never paid"}, by {done.byName ?? "a controller"}
+            </span>
+          </StatusLine>
+        ) : (
         <StatusLine tone="amber" state="Held until verified">
           {escalation ? (
             <span className="font-semibold text-paper">Decision needed today{due && `, ${due}`}</span>
@@ -39,6 +47,7 @@ export function PaymentHero({ row, escalation, viewer, others, onOpenTab }: Prop
           {/* The header names the company from sm up. */}
           <span className="sm:hidden">{row.companyName}</span>
         </StatusLine>
+        )}
 
         <h1 id="hero-title" className="mt-5">
           <span className="block text-display font-semibold tabular-nums">{money(payment.amountCents)}</span>
@@ -62,7 +71,7 @@ export function PaymentHero({ row, escalation, viewer, others, onOpenTab }: Prop
       <aside
         aria-label="Decision"
         className={`flex min-w-0 flex-col gap-6 self-start rounded-tile border bg-panel p-5 md:p-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 ${
-          decision.isDecider ? "border-amber/45" : "border-line"
+          decision.isDecider && !done ? "border-amber/45" : "border-line"
         }`}
       >
         <div>
@@ -71,7 +80,7 @@ export function PaymentHero({ row, escalation, viewer, others, onOpenTab }: Prop
             <Signatures row={row} decision={decision} />
           </div>
         </div>
-        {decision.isDecider ? (
+        {done ? null : decision.isDecider ? (
           <ol className="space-y-6 border-t border-line pt-6">
             <Step n={1} title={`Call ${row.vendorName} at the number on file`}>
               <PhoneOnFile phone={row.phoneOnFile} large />

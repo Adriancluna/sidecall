@@ -52,7 +52,11 @@ export function AccountChange({ row, size = "large" }: { row: HeldPaymentRow; si
           <span className="font-semibold text-danger">
             Changed by {how} · {change.daysBeforeIncident} days before the incident
           </span>
-          {large && goesHere && <span className="mt-1 block text-sm text-paper">This payment goes here.</span>}
+          {large && goesHere && (
+            <span className="mt-1 block text-sm text-paper">
+              {row.decision?.status === "paid" ? "This payment went here." : row.decision ? "This payment was stopped." : "This payment goes here."}
+            </span>
+          )}
         </span>
       </div>
       {!goesHere && (
