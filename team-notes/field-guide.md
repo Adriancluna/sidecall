@@ -76,6 +76,8 @@ The vendor (e.g. Brightline) never logs in; it gets one letter. Ordinary employe
 ## 4. One incident, start to finish
 Everything in steps 3–7 happens in **one database transaction**. That single fact is behind most of our Convex claims.
 
+This is the confirmed-response workflow; an unconfirmed signed report instead notifies linked companies immediately without holding money or changing access.
+
 1. An incident arrives (a signed webhook, or a red-team finding).
 2. Seen this ID before? If yes, return the first incident and write nothing.
 3. Find every company linked to the compromised thing.
@@ -94,10 +96,12 @@ Everything in steps 3–7 happens in **one database transaction**. That single f
 For each part: what it does, how, why it's there, the line to say, and what can go wrong.
 
 ### 5.1 Incident intake (`convex/http.ts`, `POST /incident`)
+- **Policy:** warn immediately on signed unconfirmed reports; holds and pre-approved access steps wait for firm confirmation or an explicitly enrolled detector's confirmed report; the four built-in demo scenarios remain instant.
 - **What:** the front door. A security tool, a vendor or the demo button reports "this vendor or login is compromised."
 - **How:**
-  - Real senders sign every request with a shared secret (HMAC), so nobody can post fake incidents.
+  - Real senders sign every request with a shared secret (HMAC). This authenticates the sender, not the truth of the report.
   - Each report has an ID; a second report with the same ID writes nothing.
+  - Different IDs for the same active asset/class episode add evidence receipts without repeating holds or access changes. Correlation ends on containment or 30 days without a report.
   - The four demo scenarios can be sent unsigned, but only on the demo deployment, and on production only with the presenter key.
   - A report can carry a red-team finding in our own format: the technique, the proven steps, and the shared thing at the edge.
 - **Why it matters:** idempotency (the replay beat) is a Convex judge favourite, and the signature answers "can anyone trigger this?"
@@ -105,7 +109,7 @@ For each part: what it does, how, why it's there, the line to say, and what can 
   - Same report sent twice: the second is a no-op ("duplicate"), with no second hold.
   - Unknown vendor name: refused (404).
   - A finding from a company we don't know: refused, because "sister companies" are measured from the reporter.
-  - A finding with any step not marked as proven: refused. We only accept what was actually proven.
+  - A finding with any step not marked as proven: refused. This checks the sender's declared evidence; it does not independently re-run the red-team test.
 
 ### 5.2 The link map: who shares what (`links` table)
 - **What:** the graph behind everything. Each row says "this company uses this vendor or account, in this way."
@@ -215,7 +219,7 @@ For each part: what it does, how, why it's there, the line to say, and what can 
 
 ### 5.11 Proof
 - **Planted answer key:** 18 cases with known right answers (should hold, should flag, must leave alone). Nothing in the backend reads the key; a separate script compares. Result: 0 missed, 0 false holds.
-- **95 automated tests** for the backend and app, plus **40** for the AI text rules and the scorecard. They cover the guarantees, privacy, the playbook rules and Pegasus's report handling.
+- **104 automated tests** for the backend and app, plus **40** for the AI text rules and the scorecard. They cover the guarantees, privacy, the playbook rules and Pegasus's report handling.
 - **Rehearsal script:** plays every demo beat against a live deployment with real sign-ins and checks each number.
 - **Readiness check and presenter lock:** before going on stage, one command says READY, and a presenter key stops anyone else resetting the live demo.
 - **Don't say:** "99% accurate" or any accuracy figure. Say "on our own planted cases, not a benchmark."
@@ -226,7 +230,7 @@ For each part: what it does, how, why it's there, the line to say, and what can 
 - **Dashboards per role** (Marco's council redesign): each person lands on the one thing they must do first. The firm view fits on one screen (three figures, response by company, 6 tabs).
 - **Payment investigation (Pegasus):** paste an invoice or vendor email. Sidecall pulls out vendor, invoice, amount and account, quoting the source for every field, and compares them with the trusted record. It can't approve payments or change vendor data.
 - **Owned sandbox (Pegasus):** a test resource the project owns, where "pause the shared login" really flips access from allowed to denied (Cedar's denied, Summit's still allowed). It's labelled as a sandbox, not a company's real Okta.
-- **Report handling (Pegasus):** repeated reports about the same vendor are grouped into one episode, so a flood of reports can't keep re-triggering holds, and there's a fixed review deadline. Pending (split from PR #113): close the episode on containment or inactivity, and warn companies at once on unconfirmed reports while holds and steps wait for confirmation.
+- **Report handling (Pegasus):** repeated reports about the same vendor are grouped into one episode, so a flood of reports can't keep re-triggering holds, and there's a fixed review deadline. Episodes close on containment or after 30 days without a report. Unconfirmed reports warn companies at once while holds and steps wait for confirmation; every accepted report ID has a durable replay receipt.
 
 ---
 
@@ -272,7 +276,7 @@ Practise these out loud. Short answer first; stop there unless they ask for more
 
 - **Liability: "If Sidecall acts and something breaks, isn't that on you?"** The company sets its own rules in advance, and every step is logged with who approved it, like Microsoft Defender's automation levels. Steps are reversible and capped, and payroll logins never pause automatically. We make the company's own plan run in seconds instead of days.
 - **Liability: "If you only warn, aren't you just creating more calls?"** That's why each company can pre-approve first steps. The step is already done or one click away, and the alert says exactly what to check, so the call is shorter or doesn't happen.
-- **Realism: "Is any of this real?"** Real: the backend and its guarantees, the exposure and hold logic, the playbook rules, the AI writing, the scorecard, and DNS vendor detection on real public domains. Simulated: the portfolio, payments and incidents, and the identity-provider calls behind the steps. We say that on screen.
+- **Realism: "Is any of this real?"** The backend, controls and owned sandbox authorization are real; the portfolio/payments/incidents are synthetic and external identity-provider calls are simulated. Signed unconfirmed reports warn immediately; action waits for firm confirmation or an explicitly enrolled detector's confirmed report. The four stage scenarios remain instant. The response record distinguishes sandbox checks, simulations and later Undo.
 - **Data: "How do you know which companies share a login?"** Companies report their shared logins and vendor access when they join the portfolio; AP exports show which vendors they pay; public DNS records suggest vendors as candidates. Confirmed links outweigh candidates, and candidates never trigger automatic steps.
 - **Data: "Do portfolio companies really share vendors?"** Yes, and we measured it on real ones. Public DNS of 26 companies in one real PE portfolio shows 24 on Microsoft 365, 9 on the same device-management vendor, and 3 each on the same password manager and login vendors. Same vendor isn't the same weakness, so each is a candidate until a company confirms what it actually shares. (Totals only; never name the companies.)
 - **Realism: "Has the money part ever happened for real?"** Per Omar's research: in a March 2024 SEC filing (8-K, Item 1.05), the Federal Home Loan Bank of New York reported that a vendor of one of its vendors was compromised and someone tried to fraudulently move funds; no money moved. Check the filing wording before quoting it on stage.
@@ -281,7 +285,7 @@ Practise these out loud. Short answer first; stop there unless they ask for more
 - **Armadin: "Why can't the PE firm just put every company in one red-team engagement?"** The shared login is usually discovered at the end of a test, after the scope was signed. Most portfolio companies aren't on a common engagement, and each must consent. It's a legal and organizational barrier, not a technical one.
 - **Armadin: "Show me a real chain proven across two companies."** We can't, and we say so: the portfolio is simulated. What's real is the logic, the rules, and the fact that we never claim the second company was tested.
 - **Precision: "What about false positives?"** We alert on shared access, not shared vendors. On our planted cases: 0 false holds, including an honest bank change verified by phone months ago that a cruder rule would flag.
-- **Abuse: "Couldn't an attacker send a fake incident to lock everyone out?"** Real reports must be signed with a secret. Even then, automatic steps only run where a company pre-approved them, on confirmed links, at no more than 3 companies per report, and every step can be undone.
+- **Abuse: "Couldn't an attacker send a fake incident to lock everyone out?"** Signed unconfirmed reports warn immediately without holding money or changing access; action waits for firm confirmation or an explicitly enrolled detector's confirmed report. Repeated IDs are no-ops; different IDs within an active episode do not repeat actions or extend the payment window. Automatic access steps still require company pre-approval, confirmed links and the existing three-company cap. A compromised enrolled detector remains a risk; signing is not proof of truth. Pause supports authorized Undo; revoked sandbox tokens require a new token.
 - **Privacy: "Isn't this a map of the firm's weakest points?"** Only the PE firm sees the whole map. Each company sees only itself and never learns who was hit.
 - **Finance: "What if the vendor genuinely changed banks?"** Then the controller confirms by phone and releases it. Holding costs a phone call; paying a fraudster costs the money. The payment is held, never cancelled.
 - **Finance: "Doesn't holding payroll funding hurt the workers you claim to protect?"** The hold lasts one phone call, and it escalates to the controller before the due date. The alternative is paying payroll money to an account an attacker controls, and then nobody gets paid.
@@ -311,8 +315,8 @@ Practise these out loud. Short answer first; stop there unless they ask for more
 | Firm tries to change a company's playbook | Refused and logged. The firm can only recommend. |
 | Someone signs in with the public password and presses Reset or Fire on production | Refused without the presenter key. |
 | A company opens an incident that never touched it | Sees nothing. |
-| A signed report from an outside tool (not a built-in demo scenario) | Today: recorded as an unconfirmed observation for firm review, unless that tool is enrolled for automatic response. Pending (Pegasus, split from #113): companies are warned at once; holds and steps wait for confirmation. |
-| The same vendor reported again under a new report ID | Grouped into the existing episode: nothing is re-held or re-run. |
+| A signed report from an outside tool (not a built-in demo scenario) | Warn linked companies immediately without holds or access changes; action waits for firm confirmation or an explicitly enrolled detector's confirmed report. Enrollment currently uses a deployment-wide flag and signing key, not named per-tool credentials. |
+| The same vendor reported again under a new report ID | Grouped only while the episode is uncontained and reported within 30 days: no repeated actions or extended payment window. After containment/inactivity, a fresh ID can start a genuine new episode. |
 
 ---
 
@@ -345,7 +349,7 @@ Practise these out loud. Short answer first; stop there unless they ask for more
 | ~0.2 s | Alerts written after the report | Measured on our runs |
 | 303 / 304 / 1.4 s | Companies, payments held, one transaction | "In our test suite" |
 | 18 · 0 · 0 | Planted cases, missed, false holds | Our own planted cases, not a benchmark |
-| 95 + 40 | App/backend tests + AI-text and scorecard tests | Our test suite |
+| 104 + 40 | App/backend tests + AI-text and scorecard tests | Our test suite |
 | 14 · 3 · 10 | Demo portfolio: companies, exposed in Brightline, not linked | Our demo data |
 | 26 → 24 · 9 · 3 | Real PE portfolio (public DNS, totals only): on Microsoft 365 · same device-management vendor (Jamf) · same password manager / login-MFA vendor | Omar's scan, `scripts/dns/portfolio_report.json`; never name a company |
 | 48% | Breaches involving a third party | Verizon DBIR 2026 |
@@ -367,6 +371,7 @@ Say this before a judge asks. Honesty about limits reads as competence.
 - **Real:**
   - the Convex backend and its guarantees
   - the exposure, hold and playbook rules
+  - owned sandbox authorization checks (HTTP 200→403), unaffected-resource checks, authorized Undo/replay tests and the firm-only response record; these do not verify a live identity provider
   - AI-written alerts and letters (pre-generated)
   - the scorecard against the planted answer key
   - DNS vendor detection on real public domains (the separate scan; the demo companies' DNS evidence is simulated)

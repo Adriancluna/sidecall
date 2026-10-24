@@ -1,39 +1,36 @@
-# Pegasus: response resilience + payment investigation
-Last updated: 2026-10-24 15:31 PDT by Pegasus
+# Pegasus: incident lifecycle fixes ready for review
+Last updated: 2026-10-24 16:22 PDT by Pegasus
 
 ## Status
-- Ashwa requested integration while keeping Hyphenate and Armadin, including resistance to repeated alerts disrupting business.
-- Delivered: PR #103 (https://github.com/Adriancluna/sidecall/pull/103) merged as `1a5706f`; #98's EvidencePanel overlap is resolved. Vercel production deployment `dpl_7PTibytEargWJowvRJxvUu2jDkkS` is READY, and its logs confirm successful production Convex deployment/schema validation.
-- GitHub push, Adrian's existing Vercel team/project, and Convex project access work. No ownership transfer is needed.
-- Production smoke check: signed in to https://sidecall.vercel.app as Jordan; investigation, queue export and safety panels load against the existing data. No incident fired, payment changed or reset run on production.
-- Own isolated DEV: `adriancluna23:sidecall:dev/pegasus-integration` (`tangible-koala-842`). Actual Convex deploy/codegen, demo auth and seeding succeeded; no production reset performed.
-- Validation: 95 app/backend tests + 40 prompt/scorecard tests (135 total), ESLint, app/backend typechecks, build, full live demo rehearsal and signed-in browser investigation/safety checks passed.
-- Live HTTP abuse check: 100 distinct weak-report IDs → one observation, unchanged payment queue/deadline; confirmed evidence → expected scoped hold; ten repeated confirmed IDs preserved the controller release/deadline.
-- Owned sandbox access: Cedar 200 → 403, unrelated Summit stays 200 (1,223 ms observed including CLI/network; not a production benchmark).
+- **Adrian's #115 split request is implemented in PR #116: https://github.com/Adriancluna/sidecall/pull/116.** `fix/pegasus-incident-lifecycle` includes main through `2c8b898` (the 14-company portfolio and #117 playbook polish) and carries the incident fixes, response evidence, tests and policy documentation. No purchasing tables, rate-limiter dependency/component, MCP contract changes or Bills-to-pay changes are in this branch.
+- **Automatic purchasing is preserved in draft PR #113, on hold for Adrian's freeze review.** Its earlier 158 tests and 11 live purchasing checks belong to that separate feature, not this lifecycle release. No purchasing feature was deleted from its branch. The package notice was already posted in Pegasus's prior handoff; any future release still needs Role 1 review.
+- **Role 1 review required before merge.** Main merges deploy production; Pegasus has not merged this work or changed production/Adrian DEV. Only Pegasus DEV `tangible-koala-842` received the lifecycle branch. Its synthetic purchasing data was reset using the old branch before deploying the smaller schema; the purchasing component is now unmounted there.
+- **Identity:** Pegasus is the agent alias, written without an @. The unrelated GitHub username `pegasus` belongs to "Pegasus News"; this agent's PRs/commits use `ashwathram-prathap`.
+- Teammates' chatbot and prompts are untouched.
 
-## Automatic-response status (checked after deployment)
-- The automatic response engine is implemented and deployed: confirmed incidents evaluate company playbooks immediately, apply scoped holds, and schedule pre-approved response steps without waiting for an email.
-- Production env names checked: neither `INCIDENT_WEBHOOK_SECRET`, `INCIDENT_AUTO_RESPONSE` nor `RESPONSE_SANDBOX` is configured. External detector intake/auto-confirmation and real sandbox access effects are therefore not enabled on production.
-- Built-in demo scenarios still exercise the confirmed automatic path; external-provider actions on production are simulated. Actual access denial was verified only on Pegasus's owned DEV sandbox.
-- Remaining integration: enroll an authenticated detector and connect an owned provider/resource before claiming automatic protection of real company accounts. Do not confuse automated application decisions with live external containment.
+## Role 1 review addressed
+1. Correlation ends at containment or 30 days without a report, including legacy episodes. Fresh evidence returns `correlated:true`; exact external-ID replay returns `duplicate:true`. Every accepted ID has a durable receipt, including IDs first correlated into another report.
+2. **Decision B: warn immediately, act on confirmation**, with the existing explicit detector-enrollment exception. Observations create clearly unconfirmed company warnings, no holds/response steps/validated claims/vendor letter/AI rewrite. Confirmation or dismissal closes the old warning exposures. The 4 built-in stage scenarios retain confirmed behavior.
+3. New-payment holds use the original incident's 30-day window. Repetition cannot extend it; already-held payments still require a controller's decision.
+4. Prior-action restrictions apply only within the active episode. Fresh episodes regain current pre-approval; queued work rechecks policy and episode activity.
+5. The fixed deadline says "Scheduled review" and never releases money/restores access. Firm channel notices coalesce in fixed 15-minute intervals; every accepted report remains in the live count and receipt history.
+6. The firm-only response record ties reports, relationship evidence, policy/approval, payment outcomes, execution checks and audit together, with explicit truncation. Owned sandbox checks preserve before/after access and Undo history; simulations never claim external verification.
+7. Human acknowledgment, payroll's one-click cap, company privacy and Ironclad's automatic pre-approved step are preserved.
 
-## Completed
-- Observation-only default intake, enrolled confirmed detector response, cross-ID episode correlation, fixed review escalation, preservation of payment decisions/unrelated operations, and credential-only incidents never holding vendor payments.
-- Firm evidence review/reopening and repeat-response approval safeguards; queued actions recheck current policy.
-- Source-backed payment investigation, exact reconciliation, firm-only portfolio context, company CSV export, and ambiguous AP vendor rejection.
-- Owned sandbox with actual pause/revocation and isolation/undo safeguards; external IdP actions remain labelled simulated.
-- Retained Omar's #98 "What to check" and red-team reachable/not-tested labels; evidence provenance replaces uncalibrated confidence words/meters.
-- Investigation/safety panels, regression evidence and setup/rehearsal instructions in `docs/pegasus-implementation.md` and `docs/pegasus-test-results.json`.
+## Validation
+- **104 app/backend tests + 40 prompt/scorecard tests = 144 passing**, plus application/backend typechecks, ESLint and build. Main chunk retains the ~501 kB build advisory.
+- Full original live rehearsal passed on Pegasus DEV with main's 14-company seed: $480K hold/release, acknowledgment race, new request, AP import, privacy, red-team path and automatic Cedar response. The 4 scenario inputs remain unchanged.
+- **8 new live lifecycle checks passed**, saved in `docs/pegasus-episode-rehearsal.json`: concurrent fresh reports and exact-ID replay, notice coalescing, unchanged deadline, reporter privacy, continued $38K request flow, unauthorized review refusal, confirmation holding exactly $650K, durable post-review replay and new episode after containment. Intake uses the operator-only internal mutation; this script does not claim to test HMAC transport.
+- Run `node scripts/episodes/rehearse.mjs --report <path>` after the full rehearsal on your own clean DEV. It refuses prod, Adrian DEV, deploy keys and mismatched deployment/URL, and never resets or changes flags. Data is synthetic; no live payment is sent.
+- The sandbox rehearsal passed again on this branch: it independently checks HTTP 200→403 for the target, unrelated 200, firm-only record, authorized Undo, replay and retained verification history. Previous browser verification of the same lifecycle UI remains applicable; no new UI changes were introduced by this split.
 
 ## Needs from others
-- → Role 2: read your #105 answer. Current-main navigation is preserved for a working release; when #101 lands, put firm investigation inside Payments, safety inside Timeline/close-out, and company investigation inside Held payments as you proposed. Panel props/API are unchanged.
-- → Omar (Roles 3/4): optional model extraction still needs a live run with the team's dev AI key; structured extraction and source validation are verified. Keep #98's labels when updating the map.
-- → Role 1: production signed-detector automation requires explicit `INCIDENT_AUTO_RESPONSE=true` enrollment with the signing secret; don't enable it for an untrusted detector. Sandbox provisioning is only on Pegasus DEV. Existing built-in scenarios still execute the confirmed demo path.
-- → All: read this handoff before overlapping work; keep the two track narratives, and distinguish synthetic business data, real sandbox authorization effects, and simulated external-provider actions. Read #106's data inventory before a real-data pivot; that separate proposed work is not included here.
+- **→ Role 1 / Adrian:** review lifecycle-only PR #116; automatic purchasing stays draft/held. Merge through the usual pipeline only after review. No new dependency or configuration is needed for the lifecycle fixes.
+- **→ Role 1:** #117's field-guide additions now describe the implemented lifecycle semantics and 104 + 40 passing tests; update your separate Devpost handoff's 95-test count when this lands.
+- **→ Role 2 / Marco:** use the single intake-policy line already updated in CONTRACT, field guide §5.1/§8 and `docs/devpost.md`; keep the human controller and automated company-approved response distinct. The company never learns the reporter.
+- **→ Chatbot owners (handoff only):** no chatbot edits. Lifecycle-only payment/MCP contracts remain unchanged; the optional `automatic:true` contract exists only on the held purchasing branch.
 
-## Decisions & gotchas
-- Signed transport authenticates sender, not truth; evidence references are provenance, not independently verified proof.
-- Repetition never upgrades confidence or renews review deadlines; deadline expiry escalates without releasing money/restoring access.
-- This limits repeated business side effects, not network floods; per-source credentials/ingress limits remain deployment work.
-- DEV has DEMO_MODE and RESPONSE_SANDBOX enabled; temporary detector/signing settings were removed after the HTTP test. Never reset another contributor's database or production to rehearse.
-- No live external IdP integration or live model extraction is claimed. Production deployment and read-only screens are verified; destructive/payment/response rehearsals ran only on Pegasus DEV.
+## Operational limits
+- Signed transport establishes sender identity, not truth; deployment-wide detector enrollment is not a per-tool credential registry. This prevents repeated business side effects, not network DDoS. No production detector flags changed.
+- All financial records are synthetic. The owned sandbox is a real access boundary, but no live identity-provider or Visa/bank integration is claimed.
+- Keep docs with the code PR; no docs-only main merges or self-merges. Check other handoffs before overlapping work.

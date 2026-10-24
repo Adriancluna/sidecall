@@ -165,9 +165,14 @@ export default defineSchema({
 
   // Owned test resources only. These tokens confer no access to an actual identity provider.
   sandboxResources: defineTable({
-    companyId: v.id("companies"), assetId: v.id("assets"), tokenHash: v.string(),
-    paused: v.boolean(), revoked: v.boolean(),
-  }).index("by_tokenHash", ["tokenHash"]).index("by_companyId_and_assetId", ["companyId", "assetId"]),
+    companyId: v.id("companies"),
+    assetId: v.id("assets"),
+    tokenHash: v.string(),
+    paused: v.boolean(),
+    revoked: v.boolean(),
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_companyId_and_assetId", ["companyId", "assetId"]),
 
   investigations: defineTable({
     companyId: v.id("companies"),
@@ -260,10 +265,23 @@ export default defineSchema({
     .index("by_lastReportedAt", ["lastReportedAt"])
     .index("by_assetId", ["assetId"]),
 
+  // Every accepted sender ID has its own receipt, including reports correlated into an episode.
+  incidentReports: defineTable({
+    externalId: v.string(),
+    incidentId: v.id("incidents"),
+    receivedAt: v.number(),
+    evidenceRefs: v.array(v.string()),
+    summary: v.optional(v.string()),
+    finding: v.optional(finding),
+  })
+    .index("by_externalId", ["externalId"])
+    .index("by_incidentId", ["incidentId"]),
+
   exposures: defineTable({
     incidentId: v.id("incidents"),
     companyId: v.id("companies"),
     status: exposureStatus,
+    observation: v.optional(v.boolean()), // notify-only, never a confirmed compromise
     acknowledgedBy: v.optional(v.id("users")), // the one browser that won the race
     acknowledgedAt: v.optional(v.number()),
     urgency,
@@ -332,7 +350,11 @@ export default defineSchema({
     .index("by_companyId_and_status", ["companyId", "status"])
     .index("by_heldByIncidentId", ["heldByIncidentId"])
     // The escalation cron reads only held payments not yet escalated (escalatedAt unset).
-    .index("by_status_and_escalatedAt_and_dueDate", ["status", "escalatedAt", "dueDate"])
+    .index("by_status_and_escalatedAt_and_dueDate", [
+      "status",
+      "escalatedAt",
+      "dueDate",
+    ])
     .index("by_billId", ["billId"]),
 
   // Double-entry. Bill booked: Dr expense / Cr accounts_payable.
@@ -344,8 +366,7 @@ export default defineSchema({
     paymentId: v.optional(v.id("payments")),
     billId: v.optional(v.id("bills")),
     lines: v.array(ledgerLine),
-  })
-    .index("by_companyId_and_date", ["companyId", "date"]),
+  }).index("by_companyId_and_date", ["companyId", "date"]),
 
   // ---- Notifications (docs/specs/notifications.md) ----
 
@@ -426,11 +447,28 @@ export default defineSchema({
     approvedAt: v.optional(v.number()),
     executedAt: v.optional(v.number()),
     executionMode: v.optional(v.union(v.literal("simulated"), v.literal("sandbox"))),
+    verification: v.optional(
+      v.object({
+        method: v.literal("owned_resource_state"),
+        resourceId: v.id("sandboxResources"),
+        checkedAt: v.number(),
+        accessBefore: v.boolean(),
+        accessAfter: v.boolean(),
+      }),
+    ),
     undoneBy: v.optional(v.id("users")),
     undoneAt: v.optional(v.number()),
   })
-    .index("by_incidentId_and_companyId_and_action", ["incidentId", "companyId", "action"])
-    .index("by_companyId_and_action_and_target", ["companyId", "action", "target"])
+    .index("by_incidentId_and_companyId_and_action", [
+      "incidentId",
+      "companyId",
+      "action",
+    ])
+    .index("by_companyId_and_action_and_target", [
+      "companyId",
+      "action",
+      "target",
+    ])
     .index("by_incidentId_and_status", ["incidentId", "status"]),
 
   auditLog: defineTable({

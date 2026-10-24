@@ -70,20 +70,22 @@ export async function applySandboxResponse(
   assetId: Id<"assets">,
   action: ResponseAction,
 ) {
-  if (env.RESPONSE_SANDBOX !== "true") return false;
+  if (env.RESPONSE_SANDBOX !== "true") return null;
   const resource = await ctx.db
     .query("sandboxResources")
     .withIndex("by_companyId_and_assetId", (q) =>
       q.eq("companyId", companyId).eq("assetId", assetId),
     )
     .unique();
-  if (!resource) return false;
+  if (!resource) return null;
   await ctx.db.patch(
     "sandboxResources",
     resource._id,
     action === "pause_shared_login" ? { paused: true } : { revoked: true },
   );
-  return true;
+  const after = (await ctx.db.get("sandboxResources", resource._id))!;
+  return { method: "owned_resource_state" as const, resourceId: resource._id, checkedAt: Date.now(),
+    accessBefore: !resource.paused && !resource.revoked, accessAfter: !after.paused && !after.revoked };
 }
 export async function undoSandboxResponse(
   ctx: MutationCtx,
