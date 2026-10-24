@@ -194,6 +194,7 @@ http.route({
       internal.incidents.recordIncident,
       signed
         ? {
+            transport: "legacy_hmac" as const,
             externalId,
             assetName,
             reportedByDomain: fields.reportedByDomain || parsed?.organizationDomain,
@@ -207,7 +208,14 @@ http.route({
           }
         : demo!,
     );
-    if (!result.ok) return json(404, { error: result.error });
+    if (!result.ok) {
+      if ("status" in result) {
+        const response = json(result.status, { error: result.error });
+        response.headers.set("Retry-After", String(Math.max(1, result.retryAfter)));
+        return response;
+      }
+      return json(404, { error: result.error });
+    }
     return json(200, { incidentId: result.incidentId, duplicate: result.duplicate, correlated: result.correlated });
   }),
 });

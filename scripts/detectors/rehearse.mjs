@@ -138,7 +138,8 @@ try {
   cloud = process.env.VITE_CONVEX_URL ?? "";
   deployment = cloud.match(/^https:\/\/([a-z0-9-]+)\.convex\.cloud$/)?.[1];
   requireCheck(deployment && process.env.CONVEX_DEPLOYMENT === `dev:${deployment}` &&
-    !["judicious-tiger-712", "reminiscent-caribou-128"].includes(deployment) && !process.env.CONVEX_DEPLOY_KEY,
+    !["judicious-tiger-712", "reminiscent-caribou-128"].includes(deployment) &&
+    !process.env.CONVEX_DEPLOY_KEY && !process.env.CONVEX_DEPLOYMENT_TOKEN,
   "Use your own matching DEV deployment and cloud URL; prod, Adrian DEV and all deploy keys are refused.");
   site = cloud.replace(/\.cloud$/, ".site");
   if (process.env.PRESENTER_KEY) secrets.push(process.env.PRESENTER_KEY);
@@ -148,9 +149,10 @@ try {
     signIn("jordan.ames@northpasscapital.example"),
     signIn("jamie.chen@summithomehealth.example"),
     signIn("sam.kowalski@cedarridge.example"),
+    signIn("ben.carter@granitepeak.example"),
   ]);
   [firm] = tokens;
-  const [, clerk, itLead] = tokens;
+  const [, clerk, itLead, approver] = tokens;
   requireCheck((await query("blastRadius:listIncidents")).length === 0,
     "Run the original full rehearsal first on clean DEV; this script never resets data.");
 
@@ -173,8 +175,20 @@ try {
     "Detector accepted an asset outside its registration.");
   requireCheck((await post(observer.token, { ...payload, reportedByDomain: "summithomehealth.example" })).status === 403,
     "Detector accepted a reporter outside its registration.");
+  const reporterless = { ...payload };
+  delete reporterless.reportedByDomain;
+  requireCheck((await post(observer.token, reporterless)).status === 403,
+    "Detector accepted an omitted reporter despite a nonempty reporter allowlist.");
   requireCheck((await query("blastRadius:listIncidents")).length === 0, "Rejected scope created an incident.");
-  passed("Forged asset and reporter receive HTTP 403 and create no incident");
+  passed("Forged asset, forged reporter and omitted required reporter receive HTTP 403 and create no incident");
+
+  phase = "reserved scenario and review identifiers";
+  for (const externalId of ["demo-brightline-001", `review:${runId}`]) {
+    requireCheck((await post(observer.token, { ...payload, externalId })).status === 400,
+      "Detector accepted a reserved scenario or review identifier.");
+  }
+  requireCheck((await query("blastRadius:listIncidents")).length === 0, "Reserved identifier created an incident.");
+  passed("Built-in scenario and review-prefixed detector identifiers receive HTTP 400 and create no incident");
 
   phase = "observation authority and receipt provenance";
   const first = await post(observer.token, payload);
@@ -294,6 +308,26 @@ try {
   requireCheck(historical?.undoneAt && historical.verification?.accessAfter === false,
     "Undo erased the historical verification.");
   passed("Authorized Undo restores access; replay does not repeat the action and historical verification remains");
+
+  phase = "revocation suppresses waiting company approvals";
+  const approvalPlan = await query("responses:getMyResponsePlan", { incidentId: confirmed.body.incidentId }, approver);
+  const waiting = approvalPlan.find((step) => step.action === "pause_shared_login");
+  requireCheck(waiting?.status === "awaiting_approval" && waiting.canApprove && waiting.stepId,
+    "Expected a company-authorized step awaiting approval before source revocation.");
+  await operator("detectors:revoke", { sourceId: confirmer.sourceId });
+  const blockedPlan = await query("responses:getMyResponsePlan", { incidentId: confirmed.body.incidentId }, approver);
+  const blocked = blockedPlan.find((step) => step.stepId === waiting.stepId);
+  requireCheck(blocked && !blocked.canApprove && /authorization is no longer active/.test(blocked.capNote ?? "") &&
+    !/sourceId|sourceName/.test(JSON.stringify(blocked)),
+  "Revoked-source approval is still available or exposed source identity to a company viewer.");
+  const refusedApproval = await call("mutation", "responses:approveStep", { stepId: waiting.stepId }, approver);
+  requireCheck(refusedApproval?.ok === false && refusedApproval.reason === "detector_authority_inactive",
+    "Company approval bypassed revoked detector authority.");
+  const expiredPlan = await query("responses:getMyResponsePlan", { incidentId: confirmed.body.incidentId }, approver);
+  requireCheck(expiredPlan.find((step) => step.stepId === waiting.stepId)?.status === "expired" &&
+    await access(targetToken) === 200 && await access(unrelatedToken) === 200,
+  "Refused approval did not expire safely or changed unrelated access.");
+  passed("Revocation hides waiting approval, direct approval is refused and expired, and owned access remains unchanged");
 } catch (error) {
   failure = { phase, message: error instanceof CheckError ? error.message : "Unexpected failure; details withheld to protect credentials." };
 } finally {

@@ -1,13 +1,13 @@
 // Operator-provisioned detector credentials. Authority is rechecked in the intake transaction.
 import { ConvexError, v } from "convex/values";
-import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
 import { internalAction, internalMutation, query } from "./_generated/server";
-import { components, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { incidentArgs, recordIncidentImpl } from "./incidents";
+import { incidentArgs, incidentIntakeLimits, recordIncidentImpl } from "./incidents";
 import { sha256Hex } from "./agents";
 import { DAY_MS, toHex } from "./shared";
 import { getViewer } from "./access";
+import { SCENARIOS } from "./seed";
 
 const mode = v.union(v.literal("observe"), v.literal("confirm"));
 const registration = {
@@ -17,9 +17,6 @@ const registration = {
   mode: v.optional(mode),
   expiresAt: v.optional(v.number()),
 };
-const limits = new RateLimiter(components.rateLimiter, {
-  intake: { kind: "token bucket", rate: 30, period: MINUTE, capacity: 10 },
-});
 function secret() {
   return `sc_detector_${toHex(crypto.getRandomValues(new Uint8Array(32)))}`;
 }
@@ -175,7 +172,7 @@ export const revoke = internalMutation({
       actor: "system",
       action: "policy",
       rule: "detector_revoked",
-      reason: `Operator revoked ${source.name}; new reports and queued automatic steps lose authority. Existing holds and completed actions are unchanged.`,
+      reason: `Operator revoked ${source.name}; new reports, waiting approvals and queued steps lose authority. Existing holds and completed actions are unchanged.`,
     });
     return null;
   },
@@ -183,6 +180,11 @@ export const revoke = internalMutation({
 
 export const list = query({
   args: {},
+  returns: v.array(v.object({
+    sourceId: v.id("detectorSources"), name: v.string(), assetNames: v.array(v.string()),
+    reporterDomains: v.array(v.string()), mode, createdAt: v.number(), expiresAt: v.number(),
+    revokedAt: v.union(v.number(), v.null()),
+  })),
   handler: async (ctx) => {
     if (!(await getViewer(ctx)).firm) return [];
     const sources = await ctx.db
@@ -231,7 +233,7 @@ export const ingest = internalMutation({
       source.expiresAt <= Date.now()
     )
       return denied;
-    const budget = await limits.limit(ctx, "intake", { key: source._id });
+    const budget = await incidentIntakeLimits.limit(ctx, "intake", { key: source._id });
     if (!budget.ok)
       return {
         ok: false as const,
@@ -239,10 +241,14 @@ export const ingest = internalMutation({
         error: "Detector request limit reached.",
         retryAfter: Math.ceil(budget.retryAfter / 1000),
       };
+    if (report.externalId.startsWith("review:") ||
+        Object.values(SCENARIOS).some(scenario => scenario.externalId === report.externalId))
+      return { ok: false as const, status: 400, error: "This external ID is reserved for internal review or demo scenarios." };
     if (
       !source.assetNames.includes(report.assetName) ||
-      (report.reportedByDomain !== undefined &&
-        !source.reporterDomains.includes(report.reportedByDomain))
+      (report.reportedByDomain === undefined
+        ? source.reporterDomains.length > 0
+        : !source.reporterDomains.includes(report.reportedByDomain))
     )
       return {
         ok: false as const,

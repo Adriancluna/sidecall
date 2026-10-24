@@ -82,10 +82,34 @@ describe("named detector authority", () => {
     expect((await post(source.token)).status).toBe(200);
     expect((await post(source.token, { ...event, assetName: LOGIN })).status).toBe(403);
     expect((await post(source.token, { ...event, reportedByDomain: "cedarridge.example" })).status).toBe(403);
+    expect((await post(source.token, { ...event, reportedByDomain: undefined })).status).toBe(403);
     expect((await post(source.token, { ...event, externalId: "forged-fresh", assetName: LOGIN })).status).toBe(403);
     const reports = await t.run(ctx => ctx.db.query("incidentReports").take(20));
     expect(reports).toHaveLength(1);
     expect(reports[0]).toMatchObject({ sourceId: source.sourceId, externalId: event.externalId });
+  });
+
+  test("an empty reporter allowlist permits only reporterless asset-level reports", async () => {
+    const { register, post } = await fixture();
+    const source = await register({ reporterDomains: [] });
+    expect((await post(source.token, { ...event, reportedByDomain: undefined })).status).toBe(200);
+    expect((await post(source.token, { ...event, externalId: "forbidden-reporter" })).status).toBe(403);
+  });
+
+  test("detectors cannot claim demo or review IDs and cannot pre-empt the presenter scenario", async () => {
+    vi.stubEnv("DEMO_MODE", "true");
+    vi.stubEnv("PRESENTER_KEY", "stage-test-key");
+    const { t, register, post } = await fixture();
+    const source = await register({ mode: "confirm", assetNames: [PAYROLL, LOGIN, "Ironclad IT Services"] });
+    for (const scenario of Object.values(SCENARIOS))
+      expect((await post(source.token, { ...event, externalId: scenario.externalId, assetName: scenario.assetName })).status).toBe(400);
+    expect((await post(source.token, { ...event, externalId: "review:forged-confirmation" })).status).toBe(400);
+    expect(await t.run(ctx => ctx.db.query("incidentReports").take(10))).toEqual([]);
+    expect(await t.run(ctx => ctx.db.query("incidents").take(10))).toEqual([]);
+    const stage = await t.fetch("/incident", { method: "POST", body: JSON.stringify(SCENARIOS.brightline),
+      headers: { "X-Sidecall-Presenter": "stage-test-key" } });
+    expect(stage.status).toBe(200);
+    expect(await json(stage)).toMatchObject({ duplicate: false, correlated: false });
   });
 
   test("finding-derived reporters are subject to the same source allowlist", async () => {
@@ -112,7 +136,7 @@ describe("named detector authority", () => {
     })).rejects.toThrow(/already registered/);
     await expect(t.mutation(internal.detectors.replaceKey, {
       sourceId: second.sourceId, tokenHash: first.tokenHash,
-    })).rejects.toThrow();
+    })).rejects.toThrow(/fresh credential/);
     expect(await json(await post(first.token))).toMatchObject({ assessment: "observation" });
     expect(await json(await post(second.token))).toMatchObject({ assessment: "confirmed" });
     expect(await t.run(ctx => ctx.db.query("detectorSources").take(10))).toHaveLength(2);
@@ -277,22 +301,79 @@ describe("named detector authority", () => {
     expect((await t.run(ctx => ctx.db.query("payments").take(100))).filter(p => p.status === "held")).toHaveLength(4);
   });
 
-  test("an explicit company approval remains independent of revoked detector authority", async () => {
+  test.each(["revoked", "expired"])("%s detector authority blocks and expires a waiting company approval", async loss => {
     const { t, register, post, as } = await fixture();
-    const source = await register({ mode: "confirm", assetNames: [LOGIN] });
+    const source = await register({ mode: "confirm", assetNames: [LOGIN], expiresAt: Date.now() + 1000 });
     const accepted = await json(await post(source.token, { ...event, assetName: LOGIN }));
     const incidentId = accepted.incidentId as Id<"incidents">;
     const approver = as("Ben Carter");
     const plan = await approver.query(api.responses.getMyResponsePlan, { incidentId });
     const pause = plan.find(step => step.action === "pause_shared_login");
     expect(pause?.status).toBe("awaiting_approval");
-    await t.mutation(internal.detectors.revoke, { sourceId: source.sourceId });
-    expect(await approver.mutation(api.responses.approveStep, { stepId: pause!.stepId! })).toMatchObject({ ok: true });
+    if (loss === "revoked") {
+      await t.mutation(internal.detectors.revoke, { sourceId: source.sourceId });
+      const blocked = (await approver.query(api.responses.getMyResponsePlan, { incidentId }))
+        .find(step => step.action === "pause_shared_login");
+      expect(blocked).toMatchObject({ canApprove: false });
+      expect(blocked?.capNote).toMatch(/authorization is no longer active/);
+      expect(JSON.stringify(blocked)).not.toMatch(/sourceId|sourceName/);
+    } else vi.setSystemTime(Date.now() + 1001);
+    expect(await approver.mutation(api.responses.approveStep, { stepId: pause!.stepId! }))
+      .toEqual({ ok: false, reason: "detector_authority_inactive" });
     await t.mutation(internal.responses.recordSimulated, { incidentId });
     expect((await approver.query(api.responses.getMyResponsePlan, { incidentId }))
-      .find(step => step.action === "pause_shared_login")?.status).toBe("done");
+      .find(step => step.action === "pause_shared_login")?.status).toBe("expired");
     expect((await as("Sam Kowalski").query(api.responses.getMyResponsePlan, { incidentId }))
       .find(step => step.action === "pause_shared_login")?.status).toBe("expired");
+    const audit = await t.run(ctx => ctx.db.query("auditLog")
+      .withIndex("by_incidentId", q => q.eq("incidentId", incidentId)).take(100));
+    expect(audit.some(a => a.rule === "detector_authority_inactive" && a.action === "expire")).toBe(true);
+    expect(audit.some(a => a.action === "approve" || a.action === "respond")).toBe(false);
+  });
+
+  test.each(["revoked", "expired"])("%s detector authority is rechecked after a company already approved", async loss => {
+    vi.stubEnv("DEMO_MODE", "true");
+    vi.stubEnv("RESPONSE_SANDBOX", "true");
+    const { t, register, post, as } = await fixture();
+    const sandboxToken = `sc_test_${"f".repeat(64)}`;
+    await t.mutation(internal.sandbox.provision, {
+      companyDomain: "granitepeak.example", assetName: LOGIN, tokenHash: await hash(sandboxToken),
+    });
+    const source = await register({ mode: "confirm", assetNames: [LOGIN], expiresAt: Date.now() + 1000 });
+    const accepted = await json(await post(source.token, { ...event, assetName: LOGIN }));
+    const incidentId = accepted.incidentId as Id<"incidents">;
+    const approver = as("Ben Carter");
+    const pause = (await approver.query(api.responses.getMyResponsePlan, { incidentId }))
+      .find(step => step.action === "pause_shared_login");
+    expect(await approver.mutation(api.responses.approveStep, { stepId: pause!.stepId! })).toEqual({ ok: true });
+    if (loss === "revoked") await t.mutation(internal.detectors.revoke, { sourceId: source.sourceId });
+    else vi.setSystemTime(Date.now() + 1001);
+    await t.mutation(internal.responses.recordSimulated, { incidentId });
+    const after = await t.run(ctx => ctx.db.get("responseSteps", pause!.stepId!));
+    expect(after?.approvedBy).toBeDefined();
+    expect(after?.status).toBe("expired");
+    expect(after?.executedAt).toBeUndefined();
+    expect((await t.fetch("/sandbox/resource", { headers: { Authorization: `Bearer ${sandboxToken}` } })).status).toBe(200);
+  });
+
+  test("a batched reset retains detector sources until report and incident rows are removed", async () => {
+    const { t, register, post } = await fixture();
+    const source = await register();
+    const result = await json(await post(source.token));
+    const incidentId = result.incidentId as Id<"incidents">;
+    await t.run(async ctx => {
+      for (let index = 0; index < 4000; index++) await ctx.db.insert("incidentReports", {
+        externalId: `reset-order-${index}`, sourceId: source.sourceId, incidentId,
+        receivedAt: Date.now(), evidenceRefs: [],
+      });
+    });
+    expect(await t.mutation(internal.seed.run, {})).toMatchObject({ continuing: true });
+    expect(await t.run(ctx => ctx.db.get("incidents", incidentId))).not.toBeNull();
+    expect(await t.run(ctx => ctx.db.get("detectorSources", source.sourceId))).not.toBeNull();
+    await t.mutation(internal.seed.finishReset, {});
+    expect(await t.run(ctx => ctx.db.get("incidents", incidentId))).toBeNull();
+    expect(await t.run(ctx => ctx.db.get("detectorSources", source.sourceId))).toBeNull();
+    expect((await post(source.token)).status).toBe(401);
   });
 
   test("firm receipts preserve source provenance while company views redact identifying source fields", async () => {
@@ -339,6 +420,34 @@ describe("named detector authority", () => {
 });
 
 describe("bounded intake and compatibility", () => {
+  test("legacy HMAC quota limits concurrent intake but leaves named-source and presenter budgets independent", async () => {
+    vi.stubEnv("INCIDENT_WEBHOOK_SECRET", "test-legacy-secret");
+    vi.stubEnv("INCIDENT_AUTO_RESPONSE", "false");
+    vi.stubEnv("DEMO_MODE", "true");
+    vi.stubEnv("PRESENTER_KEY", "stage-test-key");
+    const { t, register, post } = await fixture();
+    const signed = async (externalId: string) => {
+      const body = JSON.stringify({ ...event, externalId, transport: "presenter" });
+      return t.fetch("/incident", { method: "POST", body,
+        headers: { "X-Sidecall-Signature": await signature(body) } });
+    };
+    const results = await Promise.all(Array.from({ length: 12 }, (_, i) => signed(`legacy-burst-${i}`)));
+    expect(results.filter(r => r.status === 200)).toHaveLength(10);
+    expect(results.filter(r => r.status === 429)).toHaveLength(2);
+    expect(results.filter(r => r.status === 429).every(r => Number(r.headers.get("Retry-After")) > 0)).toBe(true);
+    expect(await t.run(ctx => ctx.db.query("incidentReports").take(20))).toHaveLength(10);
+    const source = await register();
+    expect((await post(source.token)).status).toBe(200);
+    const presenterBody = JSON.stringify(SCENARIOS.brightline);
+    const stage = () => t.fetch("/incident", { method: "POST", body: presenterBody,
+      headers: { "X-Sidecall-Presenter": "stage-test-key" } });
+    expect((await stage()).status).toBe(200);
+    expect(await json(await stage())).toMatchObject({ duplicate: true });
+    expect((await signed("legacy-after-other-traffic")).status).toBe(429);
+    vi.setSystemTime(Date.now() + 2001);
+    expect((await signed("legacy-refilled")).status).toBe(200);
+  });
+
   test("rejects multibyte payloads by byte length and cancels oversized streams early", async () => {
     const { t, register } = await fixture();
     const source = await register();
