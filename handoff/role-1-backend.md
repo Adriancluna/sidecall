@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 23, 19:40 by Adrian's Claude
+Last updated: Oct 23, 19:45 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Presenter URL: https://sidecall.vercel.app/?stage
@@ -8,6 +8,9 @@ Last updated: Oct 23, 19:40 by Adrian's Claude
 - ✓ Fresh-clone test passed (clone → `npm ci` → typecheck, lint, 14 tests, build, `convex dev --once`).
 - **Session-only switch ready:** deployment env `REQUIRE_SESSION=true` makes the backend ignore `actingUserId` (only signed-in users get data). Off on dev and prod until Role 2's login UI is merged.
 - **DNS importer ready:** `seed.ts` imports `data/dns_links.json` (placeholder `[]` for now) as `dns_inferred` candidate links with the DNS record shown in evidence. Tested with sample data: imports, skips duplicates and unknown domains.
+- ✓ done for Role 2: `getHeldPayments` → `bankChange.previousAccountLast4` and `bankChange.lastVerifiedAccountLast4`. For the $480K: new 7731, previous 4419 (also an email change), last verified **2208**. Show "2208 → 7731" on the red flag.
+- Reviewed Role 2's #20 (Close, audit who/incident, PE tailored alerts): tsc, lint, build, tests green.
+- Fixed: CONTRACT.md was accidentally emptied in #21; restored with all changes.
 - `npm test`: 15 tests, all green (added: signed-out refused, session beats spoofed id).
 - Everything from before: `/incident` fan-out, holds/flags, release/reject + audit + ledger, scoping, `resetDemo` (also wipes sign-ins now).
 
