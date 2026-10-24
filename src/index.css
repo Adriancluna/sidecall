@@ -1,22 +1,26 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
+/* Brand palette from brand/GUIDELINES.md. Amber is a calm heads-up; red is status-only. */
 @theme {
-  --color-light: #ffffff;
-  --color-dark: #171717;
+  --font-sans: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-graphite: #15171c;
+  --color-panel: #1d2027;
+  --color-line: #2c303a;
+  --color-paper: #f4f2ed;
+  --color-ash: #8c919a;
+  --color-amber: #f5a524;
+  --color-danger: #f26d6d;
+  --color-ok: #4cc38a;
 }
 
-@media (prefers-color-scheme: dark) {
-  body {
-    color: var(--color-light);
-    background: var(--color-dark);
-    font-family: Arial, Helvetica, sans-serif;
-  }
+body {
+  background: var(--color-graphite);
+  color: var(--color-paper);
+  font-family: var(--font-sans);
 }
 
-@media (prefers-color-scheme: light) {
-  body {
-    color: var(--color-dark);
-    background: var(--color-light);
-    font-family: Arial, Helvetica, sans-serif;
-  }
+:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 2px;
 }
