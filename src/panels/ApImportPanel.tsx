@@ -31,14 +31,13 @@ export function ApImportPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [result, setResult] = useState<Result>();
-  const [usingSample, setUsingSample] = useState(false);
   const importCompany = useMutation(api.imports.importPortfolioCompany);
-  const ready = files.vendorsCsv !== undefined && files.billsCsv !== undefined;
+  const { vendorsCsv, billsCsv } = files;
+  const ready = vendorsCsv !== undefined && billsCsv !== undefined;
+  const usingSample = vendorsCsv === sampleVendors && billsCsv === sampleBills;
   const preview = useQuery(
     api.imports.previewApImport,
-    ready
-      ? { vendorsCsv: files.vendorsCsv!, billsCsv: files.billsCsv! }
-      : "skip",
+    ready ? { vendorsCsv, billsCsv } : "skip",
   );
 
   const readFile =
@@ -47,7 +46,6 @@ export function ApImportPanel() {
       if (!file) return;
       const text = await file.text();
       setFiles((f) => ({ ...f, [key]: text }));
-      setUsingSample(false);
       setResult(undefined);
     };
 
@@ -60,8 +58,8 @@ export function ApImportPanel() {
     try {
       setResult(
         await importCompany({
-          vendorsCsv: files.vendorsCsv!,
-          billsCsv: files.billsCsv!,
+          vendorsCsv,
+          billsCsv,
           company: { ...company, headcount: Number(company.headcount) },
         }),
       );
@@ -119,7 +117,6 @@ export function ApImportPanel() {
             onClick={() => {
               setFiles({ vendorsCsv: sampleVendors, billsCsv: sampleBills });
               setCompany(SAMPLE_COMPANY);
-              setUsingSample(true);
               setResult(undefined);
             }}
             className={BUTTON_SECONDARY}
