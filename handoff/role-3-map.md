@@ -1,10 +1,10 @@
 # Role 3: Map + evidence (now Omar)
-Last updated: Oct 24, 08:40 by Omar's Claude
+Last updated: Oct 24, 09:10 by Omar's Claude
 
 > **Reassigned:** Ashwa is away, so `src/map/` belongs to **Omar** (who also keeps Role 4). Plan: `docs/specs/blast-radius-map-plan.md`. Marco keeps the rest of `src/`; nothing outside `src/map/` changed.
 
 ## Status
-- **Real blast radius map on branch `claude/project-thread-eb7miy`** (PR open, not merged; a merge deploys to prod). Props unchanged (`{ blast, selected, onSelect }`), no backend change, no new packages.
+- **Blast radius map as a tree on branch `claude/project-thread-eb7miy`** (PR #81, not merged; a merge deploys to prod). Omar asked for a tree: parent firm in the middle, companies on branches (red = urgent, amber = advisory), the breached vendor wired to the companies that share it, click any node to zoom in (Esc / "Back to portfolio" to zoom out). Props unchanged (`{ blast, selected, onSelect }`), no backend change, no new packages.
   - `BlastRadiusMap.tsx`: card, SVG map, legend, caption. Reads `getHeldPayments` (same args as `PortfolioView`, so the subscription is shared) and `listAssets`.
   - `layout.ts` (pure geometry), `copy.ts` (every word on the map), `MapList.tsx` (phones, and everywhere with `?map=grid`), `useReveal.ts` (~1.2 s reveal, skipped under reduced motion).
   - `EvidencePanel.tsx`: urgency chip, "90% · self-reported link" / "50% · candidate link from public DNS", "Acknowledged by …".
@@ -18,9 +18,10 @@ Last updated: Oct 24, 08:40 by Omar's Claude
 - → Role 2 (Marco): when the map merges, `docs/demo-script.md` / `docs/video-shot-list.md` beat 5 can say what the map shows (vendor centre, 3 lit tiles, $480,000 badge on Summit; discipline beat: green "Separate access · not exposed" tiles). `?map=grid` is the stage fallback if the SVG misbehaves.
 
 ## Decisions & gotchas
-- Tile colour = how exposed; line weight = how linked; the reason line = why. Summit in Brightline is a thin "customer of the vendor" line but an urgent tile with "Payment to a changed account".
-- Rings: reporter/exposed/linked on the inner ring, separate-access/unrelated on the outer ring in the gaps. Sibling assets (e.g. Ironclad IT Services) sit in a gap, linked only to companies that don't already have a line to the breached asset.
-- Line labels only appear when the line is long enough; the tile's reason line always carries the same fact.
+- Branch colour = how exposed; vendor-line weight = how linked (dotted = candidate DNS link); the reason line under each company = why. Summit in Brightline has a thin "customer of the vendor" line but a red branch and "Payment to a changed account".
+- Ring order: the exposed block faces the vendor on the right; separate-access companies sit opposite, next to the grey sibling asset (e.g. Ironclad IT Services · not affected). The reporter's own vendor link isn't drawn.
+- The centre says "Parent firm": there's no firm name in the schema. → Role 1: a firm name (e.g. on `getBlastRadius`) would let it say "Northpass Capital"; optional.
+- Zoom animates the SVG viewBox (rAF, ~450 ms, instant under reduced motion).
 - Above 14 companies the unrelated ones collapse into "+ N other companies, not linked".
 - Never a `dns_inferred` link "validated"; status never by colour alone; no shield/radar/siren imagery (`brand/README.md`).
 - `convex/notify.ts` (real Slack/Discord sending) moved to Role 1.

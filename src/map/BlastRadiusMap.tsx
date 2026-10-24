@@ -1,7 +1,17 @@
-// The PE firm's blast radius map: the breached vendor in the middle, every portfolio company around it, lines for how
-// each is linked and colour plus words for how exposed it is. Phones (and ?map=grid) get the same facts as a list.
+// The PE firm's blast radius map, drawn as a tree: the parent firm in the middle, each portfolio company on a branch,
+// branches red or amber for the exposed ones, and the breached vendor wired to the companies that share it.
+// Click any node to zoom in on it. Phones (and ?map=grid) get the same facts as a list.
 import { useQuery } from "convex/react";
-import { useMemo, useState, type FocusEvent, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FocusEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import type { BlastRadius } from "../panels/types";
@@ -10,6 +20,7 @@ import {
   ariaLabel,
   caption,
   moneyFacts,
+  SHARE_WORDS,
   type MapNode,
   type MoneyFacts,
   type Tone,
@@ -17,6 +28,8 @@ import {
 import {
   FONT,
   layoutBlast,
+  zoomBox,
+  type MapAsset,
   type MapLayout,
   type MapLine,
   type MapTile,
@@ -58,6 +71,16 @@ const FILL: Record<Tone, string> = {
   paper: "fill-paper",
   ash: "fill-ash",
 };
+const TEXT: Record<Tone, string> = {
+  danger: "text-danger",
+  amber: "text-amber",
+  ok: "text-ok",
+  paper: "text-paper",
+  ash: "text-ash",
+};
+
+// What the map is zoomed in on: a company, or a vendor asset.
+type Zoom = { company: Id<"companies"> } | { asset: Id<"assets"> };
 
 // Exported so the map can be rendered from fixtures without Convex.
 export function MapCard({
@@ -75,12 +98,40 @@ export function MapCard({
     [blast, assetNames, factsFor],
   );
   const [noted, setNoted] = useState<Id<"companies">>();
-  const [focused, setFocused] = useState<Id<"companies">>();
+  const [focused, setFocused] = useState<string>();
+  const [zoom, setZoom] = useState<Zoom>();
   const svgRef = useReveal(blast.incident._id, layout);
   const gridOnly =
     new URLSearchParams(window.location.search).get("map") === "grid";
+  const contained = blast.incident.containedAt != null;
+
+  const zoomTile =
+    zoom && "company" in zoom
+      ? layout.tiles.find((t) => t.node.companyId === zoom.company)
+      : undefined;
+  const zoomAsset =
+    zoom && "asset" in zoom
+      ? [layout.vendor, ...layout.siblings].find(
+          (a) => a.assetId === zoom.asset,
+        )
+      : undefined;
+  const zoomAt = zoomTile ?? zoomAsset;
+  const viewBox = zoomAt
+    ? zoomBox(zoomAt.x, zoomAt.y, layout.viewBox)
+    : layout.viewBox;
+  useZoom(svgRef, viewBox);
+
+  useEffect(() => {
+    if (!zoom) return;
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") setZoom(undefined);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoom]);
 
   const pick = (node: MapNode) => {
+    setZoom({ company: node.companyId });
     if (node.exposed) {
       setNoted(undefined);
       onSelect(node.companyId);
@@ -95,9 +146,11 @@ export function MapCard({
     );
     return edge && assetNames.get(edge.assetId);
   };
+  const captionFor = (node: MapNode) =>
+    caption(node, blast.asset.name, siblingName(node.companyId));
   const note = notedNode
-    ? caption(notedNode, blast.asset.name, siblingName(notedNode.companyId))
-    : "Select an exposed company to see why it was flagged.";
+    ? captionFor(notedNode)
+    : "Select a company to zoom in. Exposed ones open their evidence on the right.";
 
   const count = (r: MapNode["relation"]) =>
     blast.nodes.filter((n) => n.relation === r).length;
@@ -114,6 +167,12 @@ export function MapCard({
   const list = (
     <MapList layout={layout} selected={selected} onPick={pick} noted={noted} />
   );
+  const focusProps = (key: string) => ({
+    focused: focused === key,
+    onFocus: (e: FocusEvent<SVGGElement>) =>
+      e.currentTarget.matches(":focus-visible") && setFocused(key),
+    onBlur: () => setFocused(undefined),
+  });
 
   return (
     <Card
@@ -125,70 +184,69 @@ export function MapCard({
       ) : (
         <>
           <div className="sm:hidden">{list}</div>
-          <figure className="hidden sm:block">
+          <figure className="relative hidden sm:block">
             <figcaption className="sr-only">
-              Blast radius of {blast.asset.name}: {count("exposed")} companies
-              exposed out of {blast.nodes.length}.
+              Portfolio tree for {blast.asset.name}: {count("exposed")}{" "}
+              companies exposed out of {blast.nodes.length}.
             </figcaption>
-            <svg
-              ref={svgRef}
-              viewBox={layout.viewBox}
-              className="h-auto w-full select-none"
-            >
+            <svg ref={svgRef} className="h-auto w-full select-none">
               <g aria-hidden="true">
                 {layout.lines.map((l) => (
-                  <Line
-                    key={l.key}
-                    line={l}
-                    contained={blast.incident.containedAt != null}
-                  />
+                  <Line key={l.key} line={l} contained={contained} />
                 ))}
               </g>
-              <Centre
-                layout={layout}
-                contained={blast.incident.containedAt != null}
+              <Node
+                label="Zoom out to the whole portfolio"
+                x={layout.parent.x}
+                y={layout.parent.y}
+                r={layout.parent.r}
+                ring="stroke-paper"
+                reveal="centre"
+                onPick={() => setZoom(undefined)}
+                {...focusProps("parent")}
+              >
+                <text
+                  y={-9}
+                  dominantBaseline="central"
+                  textAnchor="middle"
+                  className="fill-paper"
+                  fontSize={15}
+                  fontWeight={600}
+                >
+                  Parent firm
+                </text>
+                <text
+                  y={11}
+                  dominantBaseline="central"
+                  textAnchor="middle"
+                  className="fill-ash"
+                  fontSize={12}
+                >
+                  {layout.parent.sub}
+                </text>
+              </Node>
+              <AssetNode
+                asset={layout.vendor}
+                contained={contained}
+                onPick={() => setZoom({ asset: layout.vendor.assetId })}
+                {...focusProps(layout.vendor.assetId)}
               />
               {layout.siblings.map((s) => (
-                <g key={s.assetId} aria-hidden="true" data-reveal="quiet">
-                  <circle
-                    cx={s.x}
-                    cy={s.y}
-                    r={s.r}
-                    className="fill-panel stroke-ash"
-                    strokeWidth={1.5}
-                  />
-                  {s.lines.map((text, i) => (
-                    <text
-                      key={text}
-                      x={s.x}
-                      y={
-                        s.above
-                          ? s.y - s.r - 10 - (s.lines.length - 1 - i) * 16
-                          : s.y + s.r + 17 + i * 16
-                      }
-                      textAnchor="middle"
-                      className="fill-ash stroke-panel"
-                      strokeWidth={5}
-                      paintOrder="stroke"
-                      fontSize={13}
-                    >
-                      {text}
-                    </text>
-                  ))}
-                </g>
+                <AssetNode
+                  key={s.assetId}
+                  asset={s}
+                  contained={false}
+                  onPick={() => setZoom({ asset: s.assetId })}
+                  {...focusProps(s.assetId)}
+                />
               ))}
               {layout.tiles.map((t) => (
-                <Tile
+                <CompanyNode
                   key={t.node.companyId}
                   tile={t}
                   selected={selected === t.node.companyId}
-                  focused={focused === t.node.companyId}
                   onPick={() => pick(t.node)}
-                  onFocus={(e) =>
-                    e.currentTarget.matches(":focus-visible") &&
-                    setFocused(t.node.companyId)
-                  }
-                  onBlur={() => setFocused(undefined)}
+                  {...focusProps(t.node.companyId)}
                 />
               ))}
               {layout.hiddenUnrelated && (
@@ -204,6 +262,21 @@ export function MapCard({
                 </text>
               )}
             </svg>
+            {zoomTile && (
+              <ZoomCard onBack={() => setZoom(undefined)}>
+                <CompanyDetail
+                  tile={zoomTile}
+                  note={
+                    zoomTile.node.exposed ? null : captionFor(zoomTile.node)
+                  }
+                />
+              </ZoomCard>
+            )}
+            {zoomAsset && (
+              <ZoomCard onBack={() => setZoom(undefined)}>
+                <AssetDetail asset={zoomAsset} blast={blast} layout={layout} />
+              </ZoomCard>
+            )}
           </figure>
           <Legend />
         </>
@@ -215,111 +288,158 @@ export function MapCard({
   );
 }
 
-function Centre({
-  layout,
-  contained,
+// Glides the viewBox to its new value (about half a second); instant under reduced motion.
+function useZoom(
+  svgRef: React.RefObject<SVGSVGElement | null>,
+  viewBox: string,
+) {
+  const current = useRef<number[]>(undefined);
+  useLayoutEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const to = viewBox.split(" ").map(Number);
+    const from = current.current;
+    const set = (box: number[]) => {
+      current.current = box;
+      svg.setAttribute("viewBox", box.map((n) => n.toFixed(1)).join(" "));
+    };
+    if (
+      !from ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      set(to);
+      return;
+    }
+    const start = performance.now();
+    let frame = requestAnimationFrame(function tick(now) {
+      const t = Math.min(1, (now - start) / 450);
+      const ease = 1 - (1 - t) ** 3;
+      set(from.map((f, i) => f + (to[i] - f) * ease));
+      if (t < 1) frame = requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [svgRef, viewBox]);
+}
+
+function Halo({
+  x = 0,
+  y,
+  anchor = "middle",
+  children,
+  tone = "ash",
+  bold,
 }: {
-  layout: MapLayout;
-  contained: boolean;
+  x?: number;
+  y: number;
+  anchor?: "start" | "middle";
+  children: ReactNode;
+  tone?: Tone;
+  bold?: boolean;
 }) {
-  const { x, y, r, lines, subtitle } = layout.centre;
-  const top = y - ((lines.length - 1) * 20) / 2;
   return (
-    <g aria-hidden="true" data-reveal="centre">
-      <circle
-        cx={x}
-        cy={y}
-        r={r}
-        className="fill-graphite stroke-paper"
-        strokeWidth={2}
-      />
-      {lines.map((text, i) => (
-        <text
-          key={text}
-          x={x}
-          y={top + i * 20}
-          dominantBaseline="central"
-          textAnchor="middle"
-          className="fill-paper"
-          fontSize={16}
-          fontWeight={600}
-        >
-          {text}
-        </text>
-      ))}
-      <text
-        x={x}
-        y={y + r + 18}
-        textAnchor="middle"
-        className="fill-ash stroke-panel"
-        strokeWidth={5}
-        paintOrder="stroke"
-        fontSize={13}
-      >
-        {subtitle}
-      </text>
-      {contained && (
-        <text
-          x={x}
-          y={y + r + 36}
-          textAnchor="middle"
-          className="fill-ok stroke-panel"
-          strokeWidth={5}
-          paintOrder="stroke"
-          fontSize={13}
-          fontWeight={600}
-        >
-          ✓ Contained
-        </text>
-      )}
-    </g>
+    <text
+      x={x}
+      y={y}
+      textAnchor={anchor}
+      className={`${FILL[tone]} stroke-panel`}
+      strokeWidth={5}
+      paintOrder="stroke"
+      fontSize={13}
+      fontWeight={bold ? 600 : 400}
+    >
+      {children}
+    </text>
   );
 }
 
-function Line({ line, contained }: { line: MapLine; contained: boolean }) {
-  const { edge } = line;
-  const strong = edge.shareType !== "same_vendor_only";
-  const dotted = edge.source === "dns_inferred";
-  let opacity = edge.compromised ? (line.tone === "paper" ? 0.6 : 1) : 0.4;
-  if (contained && edge.compromised) opacity *= 0.5;
+// A clickable circle: keyboard reachable, with a hover ring and an amber ring for focus or selection.
+function Node({
+  label,
+  x,
+  y,
+  r,
+  ring,
+  ringWidth = 2,
+  dash,
+  opacity = 1,
+  selected,
+  focused,
+  reveal,
+  order,
+  onPick,
+  onFocus,
+  onBlur,
+  children,
+}: {
+  label: string;
+  x: number;
+  y: number;
+  r: number;
+  ring: string;
+  ringWidth?: number;
+  dash?: string;
+  opacity?: number;
+  selected?: boolean;
+  focused: boolean;
+  reveal: string;
+  order?: number;
+  onPick: () => void;
+  onFocus: (e: FocusEvent<SVGGElement>) => void;
+  onBlur: () => void;
+  children: ReactNode;
+}) {
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      onPick();
+    }
+  };
   return (
     <g
-      data-reveal={edge.compromised ? "line" : "quiet"}
-      data-order={line.order}
+      transform={`translate(${x} ${y})`}
+      // The amber ring is the focus style; the global :focus-visible outline would box the labels too.
+      style={{ transition: "transform 400ms ease", outline: "none" }}
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
+      aria-label={label}
+      onClick={onPick}
+      onKeyDown={onKeyDown}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      className="group cursor-pointer"
+      opacity={opacity}
+      data-reveal={reveal}
+      data-order={order}
     >
-      <line
-        x1={line.x1}
-        y1={line.y1}
-        x2={line.x2}
-        y2={line.y2}
-        className={edge.compromised ? STROKE[line.tone] : "stroke-ash"}
-        strokeWidth={edge.compromised ? (strong ? 3.5 : 1.75) : 1}
-        strokeOpacity={opacity}
-        strokeDasharray={dotted ? "1.5 6" : undefined}
-        strokeLinecap={dotted ? "round" : undefined}
-        pathLength={dotted ? undefined : 1}
-        data-draw={dotted ? undefined : ""}
+      <title>{label}</title>
+      <circle
+        r={r + 6}
+        fill="none"
+        className="stroke-ash opacity-0 transition-opacity group-hover:opacity-60"
+        strokeWidth={1.5}
       />
-      {line.label && (
-        <text
-          x={line.label.x}
-          y={line.label.y}
-          dy={-6}
-          transform={`rotate(${line.label.angle} ${line.label.x} ${line.label.y})`}
-          textAnchor="middle"
-          className="fill-ash stroke-panel"
-          strokeWidth={4}
-          paintOrder="stroke"
-          fontSize={12}
-        >
-          {line.label.text}
-        </text>
+      {(selected || focused) && (
+        <circle
+          r={r + 6}
+          fill="none"
+          className="stroke-amber"
+          strokeWidth={2}
+          strokeDasharray={selected ? undefined : "4 3"}
+        />
       )}
+      <circle
+        r={r}
+        className={`fill-panel ${ring}`}
+        strokeWidth={ringWidth}
+        strokeDasharray={dash}
+      />
+      {children}
     </g>
   );
 }
 
-function Tile({
+function CompanyNode({
   tile,
   selected,
   focused,
@@ -334,78 +454,35 @@ function Tile({
   onFocus: (e: FocusEvent<SVGGElement>) => void;
   onBlur: () => void;
 }) {
-  const { node, side, x, y } = tile;
+  const { node, r, x, y } = tile;
   const relation = node.relation;
-  const half = side / 2;
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      onPick();
-    }
-  };
-  const tileStroke =
-    relation === "unrelated" ? "stroke-line" : STROKE[tile.tone];
-  const strokeWidth =
-    relation === "exposed" ? 2.5 : relation === "unrelated" ? 1 : 1.5;
   return (
-    <g
-      transform={`translate(${x} ${y})`}
-      // The amber ring below is the focus style; the global :focus-visible outline would box the labels too.
-      style={{ transition: "transform 400ms ease", outline: "none" }}
-      role="button"
-      tabIndex={0}
-      aria-pressed={selected}
-      aria-label={labelText(tile)}
-      onClick={onPick}
-      onKeyDown={onKeyDown}
-      onFocus={onFocus}
-      onBlur={onBlur}
-      className="group cursor-pointer"
+    <Node
+      label={ariaLabel(node, tile.edge, tile.facts)}
+      x={x}
+      y={y}
+      r={r}
+      ring={relation === "unrelated" ? "stroke-line" : STROKE[tile.tone]}
+      ringWidth={
+        relation === "exposed" ? 3 : relation === "unrelated" ? 1 : 1.75
+      }
+      dash={relation === "reporter" ? "5 4" : undefined}
       opacity={relation === "unrelated" ? 0.45 : 1}
-      data-reveal={
+      selected={selected}
+      focused={focused}
+      reveal={
         relation === "exposed" || relation === "reporter" ? "tile" : "quiet"
       }
-      data-order={tile.order}
+      order={tile.order}
+      onPick={onPick}
+      onFocus={onFocus}
+      onBlur={onBlur}
     >
-      <title>{labelText(tile)}</title>
-      <rect
-        x={-half - 6}
-        y={-half - 6}
-        width={side + 12}
-        height={side + 12}
-        rx={side * 0.22 + 4}
-        fill="none"
-        className="stroke-ash opacity-0 transition-opacity group-hover:opacity-60"
-        strokeWidth={1.5}
-      />
-      {(selected || focused) && (
-        <rect
-          x={-half - 6}
-          y={-half - 6}
-          width={side + 12}
-          height={side + 12}
-          rx={side * 0.22 + 4}
-          fill="none"
-          className="stroke-amber"
-          strokeWidth={2}
-          strokeDasharray={selected ? undefined : "4 3"}
-        />
-      )}
-      <rect
-        x={-half}
-        y={-half}
-        width={side}
-        height={side}
-        rx={side * 0.22}
-        className={`fill-panel ${tileStroke}`}
-        strokeWidth={strokeWidth}
-        strokeDasharray={relation === "reporter" ? "5 4" : undefined}
-      />
       <text
         dominantBaseline="central"
         textAnchor="middle"
         className="fill-paper"
-        fontSize={Math.max(11, side * 0.3)}
+        fontSize={Math.max(11, r * 0.62)}
         fontWeight={600}
       >
         {tile.initials}
@@ -413,18 +490,11 @@ function Tile({
       <g aria-hidden="true">
         {tile.lines.map((l, i) => {
           const ly = l.y - y;
-          const lx = tile.labelX - x;
           if (l.kind === "badge") {
-            const left =
-              tile.anchor === "start"
-                ? lx
-                : tile.anchor === "end"
-                  ? lx - l.width
-                  : lx - l.width / 2;
             return (
               <g key={i} data-reveal={l.tone === "amber" ? "badge" : undefined}>
                 <rect
-                  x={left}
+                  x={-l.width / 2}
                   y={ly - 10}
                   width={l.width}
                   height={20}
@@ -433,7 +503,6 @@ function Tile({
                   strokeWidth={1}
                 />
                 <text
-                  x={left + l.width / 2}
                   y={ly}
                   dominantBaseline="central"
                   textAnchor="middle"
@@ -450,11 +519,12 @@ function Tile({
           return (
             <text
               key={i}
-              x={lx}
               y={ly}
               dominantBaseline="central"
-              textAnchor={tile.anchor}
-              className={FILL[l.tone]}
+              textAnchor="middle"
+              className={`${FILL[l.tone]} stroke-panel`}
+              strokeWidth={4}
+              paintOrder="stroke"
               fontSize={FONT[l.kind]}
               fontWeight={l.kind === "name" || l.kind === "status" ? 600 : 500}
             >
@@ -463,11 +533,223 @@ function Tile({
           );
         })}
       </g>
+    </Node>
+  );
+}
+
+function AssetNode({
+  asset,
+  contained,
+  focused,
+  onPick,
+  onFocus,
+  onBlur,
+}: {
+  asset: MapAsset;
+  contained: boolean;
+  focused: boolean;
+  onPick: () => void;
+  onFocus: (e: FocusEvent<SVGGElement>) => void;
+  onBlur: () => void;
+}) {
+  const { lines, sub, r, breached } = asset;
+  const top = -((lines.length - 1) * 19) / 2;
+  return (
+    <Node
+      label={`${[...lines, ...sub].join(" ")}. Select to zoom in.`}
+      x={asset.x}
+      y={asset.y}
+      r={r}
+      ring={breached ? "stroke-danger" : "stroke-ash"}
+      ringWidth={breached ? 2.5 : 1.5}
+      focused={focused}
+      reveal={breached ? "centre" : "quiet"}
+      onPick={onPick}
+      onFocus={onFocus}
+      onBlur={onBlur}
+    >
+      {lines.map((text, i) => (
+        <text
+          key={text}
+          y={top + i * 19}
+          dominantBaseline="central"
+          textAnchor="middle"
+          className="fill-paper"
+          fontSize={15}
+          fontWeight={600}
+        >
+          {text}
+        </text>
+      ))}
+      {breached
+        ? // Beside the breached vendor, where no line runs.
+          [...sub, ...(contained ? ["✓ Contained"] : [])].map(
+            (text, i, all) => (
+              <Halo
+                key={text}
+                x={r + 12}
+                y={(i - (all.length - 1) / 2) * 16 + 4}
+                anchor="start"
+                tone={text === "✓ Contained" ? "ok" : "ash"}
+                bold={text === "✓ Contained"}
+              >
+                {text}
+              </Halo>
+            ),
+          )
+        : sub.map((text, i) => (
+            <Halo key={text} y={r + 18 + i * 16}>
+              {text}
+            </Halo>
+          ))}
+    </Node>
+  );
+}
+
+function Line({ line, contained }: { line: MapLine; contained: boolean }) {
+  const dotted = line.dash === "1.5 6";
+  let opacity = line.kind === "sibling" ? 0.4 : 1;
+  if (contained && line.kind === "vendor") opacity *= 0.5;
+  return (
+    <g
+      data-reveal={line.kind === "sibling" ? "quiet" : "line"}
+      data-order={line.order}
+    >
+      <path
+        d={line.d}
+        fill="none"
+        className={STROKE[line.tone]}
+        strokeWidth={line.width}
+        strokeOpacity={opacity}
+        strokeDasharray={line.dash}
+        strokeLinecap={dotted ? "round" : undefined}
+        pathLength={line.dash ? undefined : 1}
+        data-draw={line.dash ? undefined : ""}
+      />
     </g>
   );
 }
 
-const labelText = (t: MapTile) => ariaLabel(t.node, t.edge, t.facts);
+function ZoomCard({
+  onBack,
+  children,
+}: {
+  onBack: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="absolute top-2 left-2 w-72 max-w-[45%] rounded-lg border border-line bg-graphite/95 p-4 text-sm shadow-lg">
+      {children}
+      <button
+        type="button"
+        onClick={onBack}
+        className="mt-3 rounded-md border border-line px-2.5 py-1 text-xs text-paper hover:border-ash"
+      >
+        ← Back to portfolio <span className="text-ash">(Esc)</span>
+      </button>
+    </div>
+  );
+}
+
+function CompanyDetail({ tile, note }: { tile: MapTile; note: string | null }) {
+  const { node, edge } = tile;
+  const status = tile.lines.find((l) => l.kind === "status");
+  const why = tile.lines.find((l) => l.kind === "reason");
+  const badges = tile.lines.filter((l) => l.kind === "badge");
+  const state = tile.lines.find((l) => l.kind === "state");
+  return (
+    <>
+      <p className="font-semibold text-paper">{node.name}</p>
+      {status && (
+        <p className={`font-semibold ${TEXT[status.tone]}`}>{status.text}</p>
+      )}
+      {why && <p className="text-ash">{why.text}</p>}
+      <dl className="mt-2 space-y-1 text-xs">
+        <div className="flex gap-2">
+          <dt className="w-16 shrink-0 text-ash">People</dt>
+          <dd className="tabular-nums">{node.headcount.toLocaleString()}</dd>
+        </div>
+        {edge && (
+          <div className="flex gap-2">
+            <dt className="w-16 shrink-0 text-ash">Link</dt>
+            <dd>
+              {SHARE_WORDS[edge.shareType]}
+              {edge.compromised ? "" : " (other asset)"} ·{" "}
+              {edge.source === "dns_inferred"
+                ? "candidate from public DNS"
+                : "self-reported"}
+            </dd>
+          </div>
+        )}
+      </dl>
+      {badges.length > 0 && (
+        <p className="mt-2 flex flex-wrap gap-1.5">
+          {badges.map((b) => (
+            <span
+              key={b.text}
+              className={`rounded-full border px-2 py-0.5 text-xs font-semibold tabular-nums ${
+                b.tone === "ok"
+                  ? "border-ok text-ok"
+                  : "border-amber text-amber"
+              }`}
+            >
+              {b.text}
+            </span>
+          ))}
+        </p>
+      )}
+      {state && <p className="mt-2 text-xs text-ok">{state.text}</p>}
+      {note && <p className="mt-2 text-xs text-ash">{note}</p>}
+    </>
+  );
+}
+
+function AssetDetail({
+  asset,
+  blast,
+  layout,
+}: {
+  asset: MapAsset;
+  blast: BlastRadius;
+  layout: MapLayout;
+}) {
+  const names = new Map(
+    layout.tiles.map((t) => [t.node.companyId, t.node.name]),
+  );
+  const users = layout.lines
+    .filter((l) => l.kind !== "branch" && l.assetId === asset.assetId)
+    .map((l) => names.get(l.companyId));
+  return (
+    <>
+      <p className="font-semibold text-paper">
+        {asset.lines.join(" ") || asset.sub.slice(0, -1).join(" ")}
+      </p>
+      {asset.breached ? (
+        <>
+          <p className="font-semibold text-danger">Breached vendor asset</p>
+          <p className="text-ash">
+            {blast.asset.vendorName} · {blast.asset.kind}
+          </p>
+          <p className="mt-2 text-xs text-ash">
+            Shared by {users.length} portfolio{" "}
+            {users.length === 1 ? "company" : "companies"}: {users.join(", ")}.
+          </p>
+          <p className="mt-2 text-xs">
+            Verify by calling the number on file:{" "}
+            <span className="tabular-nums">{blast.asset.phoneOnFile}</span>
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="font-semibold text-ok">Same vendor · not affected</p>
+          <p className="mt-2 text-xs text-ash">
+            Used with separate access by {users.join(", ")}. Not alerted.
+          </p>
+        </>
+      )}
+    </>
+  );
+}
 
 function Legend() {
   const swatch = "inline-flex items-center gap-1.5";
@@ -475,67 +757,63 @@ function Legend() {
   return (
     <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-ash">
       <li className={lineSwatch}>
-        <svg width="24" height="8" aria-hidden="true">
-          <line
-            x1="1"
-            y1="4"
-            x2="23"
-            y2="4"
-            className="stroke-paper"
-            strokeWidth={3.5}
-          />
-        </svg>
+        <LineSwatch className="stroke-danger" width={3} />
+        Branch to an urgent company
+      </li>
+      <li className={lineSwatch}>
+        <LineSwatch className="stroke-amber" width={3} />
+        Branch to an advisory company
+      </li>
+      <li className={lineSwatch}>
+        <LineSwatch className="stroke-paper" width={3.5} />
         Shared login or admin access
       </li>
       <li className={lineSwatch}>
-        <svg width="24" height="8" aria-hidden="true">
-          <line
-            x1="1"
-            y1="4"
-            x2="23"
-            y2="4"
-            className="stroke-paper"
-            strokeWidth={1.75}
-          />
-        </svg>
+        <LineSwatch className="stroke-paper" width={1.75} />
         Customer of the same vendor
       </li>
       <li className={lineSwatch}>
-        <svg width="24" height="8" aria-hidden="true">
-          <line
-            x1="2"
-            y1="4"
-            x2="23"
-            y2="4"
-            className="stroke-paper"
-            strokeWidth={1.75}
-            strokeDasharray="1.5 6"
-            strokeLinecap="round"
-          />
-        </svg>
+        <LineSwatch className="stroke-paper" width={1.75} dotted />
         Candidate (public DNS, not confirmed)
       </li>
       <li className={swatch}>
-        <TileSwatch className="stroke-danger" width={2.5} />
-        Urgent
-      </li>
-      <li className={swatch}>
-        <TileSwatch className="stroke-amber" width={2.5} />
-        Advisory
-      </li>
-      <li className={swatch}>
-        <TileSwatch className="stroke-ok" width={1.5} />
+        <DotSwatch className="stroke-ok" width={1.5} />
         Separate access, not exposed
       </li>
       <li className={swatch}>
-        <TileSwatch className="stroke-paper" width={1.5} dashed />
+        <DotSwatch className="stroke-paper" width={1.5} dashed />
         Reported (firm view only)
       </li>
     </ul>
   );
 }
 
-function TileSwatch({
+function LineSwatch({
+  className,
+  width,
+  dotted,
+}: {
+  className: string;
+  width: number;
+  dotted?: boolean;
+}) {
+  return (
+    <svg width="24" height="8" aria-hidden="true">
+      <line
+        x1="2"
+        y1="4"
+        x2="23"
+        y2="4"
+        className={className}
+        strokeWidth={width}
+        strokeDasharray={dotted ? "1.5 6" : undefined}
+        strokeLinecap={dotted ? "round" : undefined}
+      />
+    </svg>
+  );
+}
+
+function DotSwatch({
   className,
   width,
   dashed,
@@ -546,12 +824,10 @@ function TileSwatch({
 }) {
   return (
     <svg width="14" height="14" aria-hidden="true">
-      <rect
-        x="2"
-        y="2"
-        width="10"
-        height="10"
-        rx="2.5"
+      <circle
+        cx="7"
+        cy="7"
+        r="5"
         className={`fill-panel ${className}`}
         strokeWidth={width}
         strokeDasharray={dashed ? "2.5 2" : undefined}

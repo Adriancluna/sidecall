@@ -1,4 +1,5 @@
-// Pure geometry for the blast radius map: where the breached vendor, the companies, the lines and the labels go. No React.
+// Pure geometry for the blast radius map, drawn as a tree: the parent firm in the middle, every portfolio company on a
+// branch around it, and the breached vendor hanging off the exposed side with a line to each company that shares it.
 import type { Id } from "../../convex/_generated/dataModel";
 import type { NodeRelation } from "../../convex/blastRadius";
 import type { BlastRadius } from "../panels/types";
@@ -7,7 +8,6 @@ import {
   mainEdge,
   moneyBadges,
   reason,
-  SHARE_WORDS,
   statusWord,
   tone,
   type MapEdge,
@@ -18,26 +18,12 @@ import {
 } from "./copy";
 
 const CX = 480;
-const CY = 300;
-const INNER = { rx: 240, ry: 165 }; // reporter, exposed, linked
-const OUTER = { rx: 380, ry: 240 }; // separate access, unrelated
-const CENTRE_MIN_R = 52;
-const SIBLING_R = 26;
+const CY = 320;
+const RING = { rx: 290, ry: 230 }; // where the companies sit around the parent
+const PARENT_R = 52;
+const SIBLING_R = 28;
 const DENSE_AT = 14; // above this many companies, unrelated ones collapse into one line of text
 const PAD = 16;
-
-const ORDER: Record<NodeRelation, number> = {
-  reporter: 0,
-  exposed: 1,
-  linked_not_exposed: 2,
-  same_vendor_separate_access: 3,
-  unrelated: 4,
-};
-const ON_INNER = new Set<NodeRelation>([
-  "reporter",
-  "exposed",
-  "linked_not_exposed",
-]);
 
 export type LabelLine =
   | {
@@ -60,47 +46,42 @@ export type MapTile = {
   facts: MoneyFacts;
   x: number;
   y: number;
-  side: number;
+  r: number;
   tone: Tone;
   initials: string;
   order: number;
-  // Labels sit on the outward side of the tile so they never cover a line into the centre.
-  anchor: "start" | "middle" | "end";
   labelX: number;
-  lines: LabelLine[];
+  lines: LabelLine[]; // above the circle on the top half of the tree, below it elsewhere
 };
 
 export type MapLine = {
   key: string;
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-  edge: MapEdge;
+  kind: "branch" | "vendor" | "sibling";
+  companyId: Id<"companies">;
+  assetId?: Id<"assets">;
+  d: string; // SVG path
   tone: Tone | "line";
+  width: number;
+  dash?: string;
   order: number;
-  label: { x: number; y: number; angle: number; text: string } | null;
 };
 
-export type MapSibling = {
+// A vendor asset drawn as its own node: the breached one, or a sibling asset of the same vendor that wasn't hit.
+export type MapAsset = {
   assetId: Id<"assets">;
   x: number;
   y: number;
   r: number;
   lines: string[];
-  above: boolean; // label above the circle, keeping it off the vendor subtitle
+  sub: string[];
+  breached: boolean;
 };
 
 export type MapLayout = {
   viewBox: string;
-  centre: {
-    x: number;
-    y: number;
-    r: number;
-    lines: string[];
-    subtitle: string;
-  };
-  siblings: MapSibling[];
+  parent: { x: number; y: number; r: number; sub: string };
+  vendor: MapAsset;
+  siblings: MapAsset[];
   tiles: MapTile[];
   lines: MapLine[];
   hiddenUnrelated: { count: number; x: number; y: number } | null;
@@ -134,40 +115,93 @@ const initialsOf = (name: string) =>
     .map((w) => w[0].toUpperCase())
     .join("");
 
-// Tile side grows with headcount, within limits (140 people → 37, 2,100 → 70).
-const tileSide = (headcount: number) =>
-  Math.max(36, Math.min(72, 26 + 0.95 * Math.sqrt(headcount)));
+// Circle radius grows with headcount, within limits (140 people → 18, 2,100 → 34).
+const nodeRadius = (headcount: number) =>
+  Math.max(18, Math.min(34, 11 + 0.5 * Math.sqrt(headcount)));
+
+const byName = (a: MapNode, b: MapNode) => a.name.localeCompare(b.name);
+const of = (nodes: MapNode[], r: NodeRelation) =>
+  nodes.filter((n) => n.relation === r).sort(byName);
+
+// Clockwise order round the ring: the exposed block (riskiest first) faces the vendor on the right, companies that
+// only use a sibling asset sit opposite it, and everyone else fills in between.
+function ringOrder(nodes: MapNode[]) {
+  const exposed = of(nodes, "exposed").sort(
+    (a, b) => b.score - a.score || byName(a, b),
+  );
+  const unrelated = of(nodes, "unrelated");
+  const half = Math.ceil(unrelated.length / 2);
+  return {
+    exposedCount: exposed.length,
+    order: [
+      ...exposed,
+      ...unrelated.slice(0, half),
+      ...of(nodes, "same_vendor_separate_access"),
+      ...unrelated.slice(half),
+      ...of(nodes, "linked_not_exposed"),
+      ...of(nodes, "reporter"),
+    ],
+  };
+}
+
+// Point on the ring (or a scaled ring) at an angle.
+const onRing = (angle: number, grow = 0) => ({
+  x: CX + (RING.rx + grow) * Math.cos(angle),
+  y: CY + (RING.ry + grow * 0.7) * Math.sin(angle),
+});
+
+type Circle = { x: number; y: number; r: number };
+
+// Where a line leaving circle c towards (x, y) crosses just outside its edge.
+function rim(c: Circle, x: number, y: number) {
+  const d = Math.hypot(x - c.x, y - c.y) || 1;
+  return `${round(c.x + ((x - c.x) / d) * (c.r + 4))} ${round(c.y + ((y - c.y) / d) * (c.r + 4))}`;
+}
+
+// A straight line between two circles, stopping short of both edges.
+const between = (a: Circle, b: Circle) => ({
+  d: `M ${rim(a, b.x, b.y)} L ${rim(b, a.x, a.y)}`,
+});
+
+// From the vendor, a branch that drops (or rises) to the company's height and comes in level, like a tree limb.
+// It keeps the vendor's lines clear of the labels under the companies nearest it.
+function limb(vendor: Circle, b: Circle) {
+  if (Math.abs(b.y - vendor.y) < 24) return between(vendor, b);
+  const cx = vendor.x;
+  const cy = b.y;
+  return {
+    d: `M ${rim(vendor, cx, cy)} Q ${round(cx)} ${round(cy)} ${rim(b, cx, cy)}`,
+  };
+}
+
+function assetLines(name: string, size: number) {
+  const lines = splitName(name, 16);
+  const r = Math.min(
+    72,
+    Math.max(40, Math.max(...lines.map((l) => textWidth(l, size))) / 2 + 12),
+  );
+  return { lines, r };
+}
 
 export function layoutBlast(
   blast: BlastRadius,
   assetNames: Map<Id<"assets">, string>,
   factsFor: (id: Id<"companies">) => MoneyFacts,
 ): MapLayout {
-  const sorted = [...blast.nodes].sort(
-    (a, b) =>
-      ORDER[a.relation] - ORDER[b.relation] ||
-      (a.relation === "exposed" ? b.score - a.score : 0) ||
-      a.name.localeCompare(b.name),
-  );
-  const dense = sorted.length > DENSE_AT;
-  const shown = dense
-    ? sorted.filter((n) => n.relation !== "unrelated")
-    : sorted;
-  const compact = shown.length > DENSE_AT;
+  const dense = blast.nodes.length > DENSE_AT;
+  const shownNodes = dense
+    ? blast.nodes.filter((n) => n.relation !== "unrelated")
+    : blast.nodes;
+  const compact = shownNodes.length > DENSE_AT;
+  const { order, exposedCount } = ringOrder(shownNodes);
+  const step = (2 * Math.PI) / Math.max(order.length, 1);
+  const first = (-(Math.max(exposedCount, 1) - 1) / 2) * step; // centres the exposed block on angle 0
   const bounds = new Bounds();
 
-  // Each ring spreads its own companies evenly; the outer ring sits half a step round so its tiles fall in the gaps.
-  const inner = shown.filter((n) => ON_INNER.has(n.relation));
-  const outer = shown.filter((n) => !ON_INNER.has(n.relation));
-  const tiles = shown.map((node, i): MapTile => {
-    const onInner = ON_INNER.has(node.relation);
-    const group = onInner ? inner : outer;
-    const k = group.indexOf(node) + (onInner || inner.length === 0 ? 0 : 0.5);
-    const angle = -Math.PI / 2 + (k * 2 * Math.PI) / group.length;
-    const ring = onInner ? INNER : OUTER;
-    const x = round(CX + ring.rx * Math.cos(angle));
-    const y = round(CY + ring.ry * Math.sin(angle));
-    const side = compact ? 28 : tileSide(node.headcount);
+  const tiles = order.map((node, i): MapTile => {
+    const angle = first + i * step;
+    const { x, y } = onRing(angle);
+    const r = compact ? 14 : nodeRadius(node.headcount);
     const edge = mainEdge(blast.edges, node.companyId);
     const facts = factsFor(node.companyId);
     const t = tone(node);
@@ -202,182 +236,174 @@ export function layoutBlast(
         l.kind === "badge" ? l.width : textWidth(l.text, FONT[l.kind]),
       ),
     );
-    const sin = Math.sin(angle);
-    const gap = side / 2 + 10;
-    let anchor: MapTile["anchor"] = "middle";
-    let labelX = x;
-    let top: number;
-    if (sin < -0.35) {
-      top = y - gap - blockH;
-    } else if (sin > 0.35) {
-      top = y + gap;
-    } else {
-      anchor = Math.cos(angle) >= 0 ? "start" : "end";
-      labelX = anchor === "start" ? x + gap : x - gap;
-      top = y - blockH / 2;
-    }
+    // Branches come in from the parent, so labels go outward: above on the top half, below everywhere else.
+    const top = Math.sin(angle) < -0.25 ? y - r - 8 - blockH : y + r + 8;
     let cursor = top;
     const lines = texts.map((l, k) => {
       const line = { ...l, y: round(cursor + heights[k] / 2) };
       cursor += heights[k];
       return line;
     });
-    const left =
-      anchor === "start"
-        ? labelX
-        : anchor === "end"
-          ? labelX - blockW
-          : labelX - blockW / 2;
-    bounds.add(left, top, left + blockW, top + blockH);
-    bounds.add(x - side / 2, y - side / 2, x + side / 2, y + side / 2);
+    bounds.add(x - blockW / 2, top, x + blockW / 2, top + blockH);
+    bounds.add(x - r, y - r, x + r, y + r);
 
     return {
       node,
       edge,
       facts,
-      x,
-      y,
-      side,
+      x: round(x),
+      y: round(y),
+      r,
       tone: t,
       initials: initialsOf(node.name),
       order: i,
-      anchor,
-      labelX: round(labelX),
+      labelX: round(x),
       lines,
     };
   });
 
-  // The breached asset sits in the middle, in a circle just big enough for its name.
-  const centreLines = splitName(blast.asset.name, 16);
-  const centreR = Math.min(
-    80,
-    Math.max(
-      CENTRE_MIN_R,
-      Math.max(...centreLines.map((l) => textWidth(l, 16))) / 2 + 14,
-    ),
+  const parent = {
+    x: CX,
+    y: CY,
+    r: PARENT_R,
+    sub: `${blast.nodes.length.toLocaleString()} companies`,
+  };
+  bounds.add(CX - PARENT_R, CY - PARENT_R, CX + PARENT_R, CY + PARENT_R);
+
+  // The breached vendor hangs off the right, facing the exposed block.
+  const v = assetLines(blast.asset.name, 15);
+  const vendorAt = onRing(0, 230);
+  const vendor: MapAsset = {
+    assetId: blast.asset._id,
+    x: round(vendorAt.x),
+    y: round(vendorAt.y),
+    r: v.r,
+    lines: v.lines,
+    sub: [blast.asset.vendorName, `${blast.asset.kind} · breached`],
+    breached: true,
+  };
+  // Its vendor name and kind sit to its right, where no line runs.
+  const subW = Math.max(...vendor.sub.map((t) => textWidth(t, 13)), 90);
+  bounds.add(
+    vendor.x - vendor.r,
+    vendor.y - vendor.r,
+    vendor.x + vendor.r + 12 + subW,
+    vendor.y + vendor.r,
   );
 
-  const tileById = new Map(tiles.map((t) => [t.node.companyId, t]));
   const lines: MapLine[] = [];
+  for (const t of tiles) {
+    const g = between(parent, t);
+    const exposed = t.node.relation === "exposed";
+    lines.push({
+      key: `branch-${t.node.companyId}`,
+      kind: "branch",
+      companyId: t.node.companyId,
+      ...g,
+      tone: exposed ? t.tone : "line",
+      width: exposed ? 3 : 1.5,
+      dash: t.node.relation === "reporter" ? "5 4" : undefined,
+      order: t.order,
+    });
+  }
 
-  // Other assets of the same vendor (e.g. "Ironclad IT Services" when its shared admin account was hit).
-  const siblings: MapSibling[] = [];
+  // Lines from the vendor to every company that shares it (the reporter's own link stays off the picture).
+  const tileById = new Map(tiles.map((t) => [t.node.companyId, t]));
+  for (const edge of blast.edges) {
+    const t = tileById.get(edge.companyId);
+    if (!t || !edge.compromised || t.node.relation === "reporter") continue;
+    // Weight says how they share it, dots mark a candidate link; the node's reason line says it in words.
+    lines.push({
+      key: `vendor-${edge.companyId}`,
+      kind: "vendor",
+      companyId: edge.companyId,
+      assetId: edge.assetId,
+      ...limb(vendor, t),
+      tone: t.node.exposed ? t.tone : "ash",
+      width: edge.shareType === "same_vendor_only" ? 1.75 : 3.5,
+      dash: edge.source === "dns_inferred" ? "1.5 6" : undefined,
+      order: t.order,
+    });
+  }
+
+  // Other assets of the same vendor (e.g. "Ironclad IT Services" when its shared admin account was hit), placed
+  // outside the companies that use only them, with a faint line to each.
+  const siblings: MapAsset[] = [];
   const siblingIds = [
     ...new Set(blast.edges.filter((e) => !e.compromised).map((e) => e.assetId)),
   ];
-  // Each sits in a gap between inner tiles, on the side of the companies that only use it.
-  const step = (2 * Math.PI) / Math.max(inner.length, 1);
-  const gaps = inner.map((_, k) => -Math.PI / 2 + (k + 0.5) * step);
   for (const assetId of siblingIds) {
-    const linked = blast.edges
+    const users = blast.edges
       .filter((e) => e.assetId === assetId)
       .map((e) => tileById.get(e.companyId))
-      .filter((t): t is MapTile => t !== undefined);
-    if (linked.length === 0) continue;
-    const only = linked.filter((t) => !t.edge?.compromised);
-    const towards = only.length > 0 ? only : linked;
+      .filter((t): t is MapTile => t !== undefined && !t.edge?.compromised);
+    if (users.length === 0) continue;
     const mean = Math.atan2(
-      towards.reduce((s, t) => s + (t.y - CY) / INNER.ry, 0),
-      towards.reduce((s, t) => s + (t.x - CX) / INNER.rx, 0),
+      users.reduce((s, t) => s + (t.y - CY) / RING.ry, 0),
+      users.reduce((s, t) => s + (t.x - CX) / RING.rx, 0),
     );
-    const turn = (a: number) =>
-      Math.abs(Math.atan2(Math.sin(a - mean), Math.cos(a - mean)));
-    const gap = gaps.length
-      ? gaps.reduce((best, a) => (turn(a) < turn(best) ? a : best))
-      : mean;
-    gaps.splice(gaps.indexOf(gap), 1);
-    const reach = Math.max(0.7, (centreR + SIBLING_R + 24) / INNER.ry);
-    const sx = CX + INNER.rx * reach * Math.cos(gap);
-    const sy = CY + INNER.ry * reach * Math.sin(gap);
-    const label = [
-      ...splitName(assetNames.get(assetId) ?? "Same vendor", 20),
-      "not affected",
-    ];
-    const above = sy < CY;
-    siblings.push({
+    const at = onRing(mean, 190);
+    const sibling: MapAsset = {
       assetId,
-      x: round(sx),
-      y: round(sy),
+      x: round(at.x),
+      y: round(at.y),
       r: SIBLING_R,
-      lines: label,
-      above,
-    });
-    const labelH = 8 + label.length * 16;
+      lines: [],
+      sub: [
+        ...splitName(assetNames.get(assetId) ?? "Same vendor", 20),
+        "not affected",
+      ],
+      breached: false,
+    };
+    siblings.push(sibling);
     bounds.add(
-      sx - 90,
-      sy - SIBLING_R - (above ? labelH : 0),
-      sx + 90,
-      sy + SIBLING_R + (above ? 0 : labelH),
+      sibling.x - 90,
+      sibling.y - sibling.r,
+      sibling.x + 90,
+      sibling.y + sibling.r + 60,
     );
-  }
-  const siblingById = new Map(siblings.map((s) => [s.assetId, s]));
-
-  for (const edge of blast.edges) {
-    const tile = tileById.get(edge.companyId);
-    if (!tile) continue;
-    // A company tied to the breached asset already has its line; a second, faint one would only add noise.
-    if (!edge.compromised && tile.edge?.compromised) continue;
-    const from = edge.compromised
-      ? { x: CX, y: CY, r: centreR }
-      : siblingById.get(edge.assetId);
-    if (!from) continue;
-    const ux = (tile.x - from.x) / Math.hypot(tile.x - from.x, tile.y - from.y);
-    const uy = (tile.y - from.y) / Math.hypot(tile.x - from.x, tile.y - from.y);
-    // Stop at the tile's square edge, not its centre.
-    const toEdge = tile.side / 2 / Math.max(Math.abs(ux), Math.abs(uy));
-    const x1 = from.x + ux * (from.r + 4);
-    const y1 = from.y + uy * (from.r + 4);
-    const x2 = tile.x - ux * (toEdge + 4);
-    const y2 = tile.y - uy * (toEdge + 4);
-    let label: MapLine["label"] = null;
-    const length = Math.hypot(x2 - x1, y2 - y1);
-    const text =
-      edge.source === "dns_inferred"
-        ? "candidate · DNS"
-        : SHARE_WORDS[edge.shareType].toLowerCase();
-    // Only label a line long enough to hold its words; the tile's reason line says it anyway.
-    if (edge.compromised && !compact && textWidth(text, 12) + 24 < length) {
-      let angle = (Math.atan2(uy, ux) * 180) / Math.PI;
-      if (angle > 90) angle -= 180;
-      if (angle < -90) angle += 180;
-      label = {
-        x: round(x1 + (x2 - x1) * 0.5),
-        y: round(y1 + (y2 - y1) * 0.5),
-        angle: round(angle),
-        text,
-      };
+    for (const t of users) {
+      lines.push({
+        key: `sibling-${assetId}-${t.node.companyId}`,
+        kind: "sibling",
+        companyId: t.node.companyId,
+        assetId,
+        ...between(sibling, t),
+        tone: "ash",
+        width: 1,
+        order: t.order,
+      });
     }
-    lines.push({
-      key: `${edge.companyId}-${edge.assetId}`,
-      x1: round(x1),
-      y1: round(y1),
-      x2: round(x2),
-      y2: round(y2),
-      edge,
-      tone: edge.compromised ? tile.tone : "line",
-      order: tile.order,
-      label,
-    });
   }
-
-  const subtitle = `${blast.asset.vendorName} · ${blast.asset.kind}`;
-  bounds.add(CX - 140, CY - centreR, CX + 140, CY + centreR + 44);
 
   let hiddenUnrelated: MapLayout["hiddenUnrelated"] = null;
-  if (dense && sorted.length > shown.length) {
+  if (dense && blast.nodes.length > shownNodes.length) {
     const y = bounds.maxY + 28;
-    hiddenUnrelated = { count: sorted.length - shown.length, x: CX, y };
+    hiddenUnrelated = {
+      count: blast.nodes.length - shownNodes.length,
+      x: CX,
+      y,
+    };
     bounds.add(CX - 160, y - 14, CX + 160, y + 8);
   }
 
   return {
     viewBox: bounds.viewBox(),
-    centre: { x: CX, y: CY, r: centreR, lines: centreLines, subtitle },
+    parent,
+    vendor,
     siblings,
     tiles,
     lines,
     hiddenUnrelated,
   };
+}
+
+// The viewBox for zooming in on one node: a window around it, wide enough for its label and card.
+export function zoomBox(x: number, y: number, full: string) {
+  const [, , w, h] = full.split(" ").map(Number);
+  const zw = Math.min(w, 600);
+  const zh = (zw * h) / w;
+  return `${round(x - zw * 0.6)} ${round(y - zh / 2)} ${round(zw)} ${round(zh)}`;
 }
 
 export const FONT: Record<LabelLine["kind"], number> = {

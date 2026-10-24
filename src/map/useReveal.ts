@@ -1,4 +1,5 @@
-// Assembles the map once per incident (~1.2 s): vendor, then lines drawn outward, then exposed tiles and their money.
+// Assembles the map once per incident (~1.2 s): parent and vendor, then branches drawn outward, then exposed companies
+// and their money.
 // Web Animations API on data-reveal marks; nothing sweeps or pulses (no radar), and reduced motion skips it all.
 import { useEffect, useRef } from "react";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -68,9 +69,6 @@ export function useReveal(incidentId: Id<"incidents">, layout: MapLayout) {
       } else {
         run(el, [{ opacity: 0 }, { opacity: 1 }], at(el), 350);
       }
-      const label = el.querySelector("text");
-      if (label)
-        run(label, [{ opacity: 0 }, { opacity: 1 }], at(el) + 300, 250);
     }
     for (const el of root.querySelectorAll('[data-reveal="tile"]')) {
       run(el, fade(el), at(el) + 250, 250);
