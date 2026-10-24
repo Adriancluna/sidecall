@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 24, 04:00 by Marco's Claude
+Last updated: Oct 24, 05:00 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -56,6 +56,7 @@ Last updated: Oct 24, 04:00 by Marco's Claude
 3. Live-site run-through after this merges.
 
 ## Needs from others
+- → **Role 3+4 (Omar): map look, yours from here.** Marco wants the blast-radius map to look like the ECharts prototype: `docs/specs/map-echarts-reference.md` (what it does, gotchas, open questions) + `docs/specs/map-prototype/blast-radius-echarts.html` (open in a browser). Hand-placed layout, glow, auto-playing story steps synced to a side list, ripple + particles on the exposed links. Your call how it lands in `src/map/`. `echarts` would be a new npm package (tell the team first), or port the look to your SVG map. Data in the prototype is hand-copied; the real map reads `getBlastRadius`. Role 2 won't touch the map further.
 - → **Role 3+4 (Omar):** the map tile should show the deciding reason, not the raw score (UI audit #5 / round-2 #2). The placeholder's chips are still lowercase ("urgent", "not exposed"); your map replaces them. Status labels to reuse: `src/panels/labels.ts`.
 - → **Role 1 (nice to have, after freeze is fine):** from our /simplify review, things the UI derives that the backend could send: per-viewer `viewerIsRequester` / `viewerCanDecide` on `getHeldPayments` rows; `incidentName` on `getPaymentAudit` rows (each card subscribes to `listIncidents` just for it); `acknowledgedByName` on exposures and blast nodes (saves one `getExposureEvidence` subscription per PE alert); `totals.releasedCents`; a readable `reason` from `requestPayment` (BillsPanel guesses "changed by email").
 

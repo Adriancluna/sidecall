@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Blast Radius Network</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root { --bg:#15171C; --panel:#1C1F26; --line:#30353F; --paper:#F4F2ED; --ash:#8C919A; --amber:#F5A524; --urgent:#F2665A; --ok:#4CC38A; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--paper); font-family:Manrope, system-ui, sans-serif; }
+  .stage { display:grid; grid-template-columns: 1fr 280px; gap:16px; padding:16px; min-height:100vh; }
+  @media (max-width: 1180px) { .stage { grid-template-columns: 1fr; } .frame { min-height: 620px; } }
+  .frame { position:relative; background:radial-gradient(ellipse at 50% 50%, #221a1a 0%, #15171C 62%); border:1px solid var(--line); border-radius:16px; overflow:hidden; min-height:560px; }
+  #chart { position:absolute; inset:0; }
+  .title { position:absolute; left:24px; top:18px; z-index:2; pointer-events:none; }
+  .title p { margin:0; color:var(--ash); font-size:13px; }
+  .title h1 { margin:4px 0 0; font-size:24px; font-weight:800; letter-spacing:-0.01em; }
+  .title h1 span { color:var(--amber); }
+  .card { position:absolute; left:20px; bottom:20px; z-index:2; width:340px; max-width:calc(100% - 40px); background:rgba(21,23,28,.9); border:1px solid var(--line); border-radius:14px; padding:14px 16px; }
+  .card small { color:var(--ash); font-size:11px; letter-spacing:.08em; text-transform:uppercase; }
+  .card b { display:block; font-size:16px; margin:4px 0 2px; }
+  .card span { color:var(--ash); font-size:13px; line-height:1.45; }
+  .bar { height:3px; background:var(--line); border-radius:2px; margin-top:10px; overflow:hidden; }
+  .bar i { display:block; height:100%; background:var(--amber); width:0; animation:fill linear forwards; }
+  @keyframes fill { to { width:100%; } }
+  .legend { position:absolute; left:20px; right:20px; bottom:14px; z-index:2; display:flex; flex-wrap:wrap; gap:6px 16px; font-size:12px; color:var(--ash); pointer-events:none; }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:-1px; }
+  .legend s { display:inline-block; width:22px; border-top:3px solid var(--ash); margin-right:6px; vertical-align:3px; text-decoration:none; }
+  .legend s.thin { border-top-width:1.5px; } .legend s.dash { border-top-style:dashed; border-top-width:2px; }
+  .hint { color:var(--ash); font-size:12px; }
+  aside { display:flex; flex-direction:column; gap:10px; }
+  .scenes { display:flex; gap:8px; flex-wrap:wrap; }
+  button { background:var(--panel); color:var(--paper); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font:inherit; font-size:13px; cursor:pointer; }
+  button[aria-pressed="true"] { border-color:var(--amber); color:var(--amber); }
+  ol { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  li { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px 12px; cursor:pointer; transition:border-color .4s, opacity .4s; opacity:.55; }
+  li.on { border-color:var(--c); opacity:1; }
+  li h3 { margin:0; font-size:14px; display:flex; align-items:center; gap:8px; }
+  li h3::before { content:""; width:10px; height:10px; border-radius:50%; background:var(--c); box-shadow:0 0 10px var(--c); }
+  li p { margin:4px 0 0; font-size:12.5px; color:var(--ash); line-height:1.4; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="frame">
+    <div class="title"><p id="kicker"></p><h1 id="headline"></h1></div>
+    <div id="chart" role="img" aria-label="Blast radius network"></div>
+    <div class="legend">
+      <span><i style="background:var(--urgent)"></i>Urgent</span><span><i style="background:var(--amber)"></i>Advisory</span>
+      <span><i style="background:var(--ok)"></i>Not exposed · own login</span><span><i style="background:#2b2f38;border:1px solid var(--ash)"></i>Not linked</span>
+      <span><s></s>Shared login or admin access</span><span><s class="thin"></s>Same vendor only</span><span><s class="dash"></s>DNS candidate</span>
+    </div>
+  </div>
+  <aside>
+    <div class="scenes">
+      <button data-scene="brightline" aria-pressed="true">Brightline payroll breach</button>
+      <button data-scene="ironcladAdmin">Ironclad shared login leaked</button>
+      <button id="play" aria-pressed="false">Pause</button>
+      <span class="hint">← → to step, space to pause</span>
+    </div>
+    <ol id="layers"></ol>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<script>
+// Seed data mirrored from convex/seed.ts (prototype only).
+const COMPANIES = {
+  A: "Alder Freight Systems", B: "Cedar Ridge Manufacturing", C: "Summit Home Health", D: "Bayview Veterinary Partners",
+  E: "Granite Peak Software", F: "Harborline Foods", G: "Meridian Dental Group", H: "Pinecrest Staffing",
+};
+const HEADCOUNT = { A: 1800, B: 2100, C: 1600, D: 500, E: 650, F: 1200, G: 900, H: 140 };
+const ASSETS = { brightline: "Brightline Payroll", ironcladMsp: "Ironclad IT Services", ironcladAdmin: "Ironclad admin login", keystone: "Keystone SSO", relay: "Relay Mail", ledgerly: "Ledgerly AP Portal" };
+const LINKS = [
+  ["H","brightline","shared_admin_access","self_reported"],["B","brightline","shared_credential","self_reported"],
+  ["C","brightline","same_vendor_only","self_reported"],["D","brightline","same_vendor_only","dns_inferred"],
+  ["A","ironcladMsp","same_vendor_only","self_reported"],["C","ironcladMsp","same_vendor_only","self_reported"],
+  ["F","ironcladMsp","same_vendor_only","self_reported"],["H","ironcladMsp","shared_admin_access","self_reported"],
+  ["B","ironcladAdmin","shared_credential","self_reported"],["E","ironcladAdmin","shared_credential","self_reported"],
+  ["F","ironcladAdmin","shared_admin_access","self_reported"],["H","ironcladAdmin","shared_credential","self_reported"],
+  ["A","keystone","shared_credential","self_reported"],["G","keystone","shared_credential","self_reported"],
+  ["E","keystone","same_vendor_only","dns_inferred"],["A","relay","same_vendor_only","dns_inferred"],
+  ["C","relay","same_vendor_only","dns_inferred"],["F","relay","same_vendor_only","dns_inferred"],
+  ["G","relay","same_vendor_only","dns_inferred"],["B","ledgerly","same_vendor_only","self_reported"],
+  ["D","ledgerly","same_vendor_only","self_reported"],
+];
+const SHARE = { shared_credential: "Shared login", shared_admin_access: "Vendor has admin access", same_vendor_only: "Same vendor only" };
+
+const C = { urgent:"#F2665A", advisory:"#F5A524", safe:"#4CC38A", reporter:"#F4F2ED", none:"#8C919A", vendor:"#5b6170" };
+
+// Each scene: who sits where (normalized 0..1, hand-placed like the reference) and the story layers.
+const SCENES = {
+  brightline: {
+    kicker: "Incident · Brightline Payroll compromised",
+    headline: '3 companies exposed · 4,200 people · <span>$612K held</span>',
+    status: { B:"urgent", C:"urgent", D:"advisory", H:"reporter", A:"none", E:"none", F:"none", G:"none" },
+    reason: { B:"Shares Brightline's login", C:"Payment to an account changed 2 days before the incident", D:"Same vendor, found from DNS (candidate)", H:"Reported the incident (firm view only)" },
+    held: { C: "$480,000 held" },
+    pos: { brightline:[.50,.50], B:[.80,.14], C:[.88,.62], D:[.64,.96], H:[.20,.28],
+           A:[.06,.64], E:[.32,.02], F:[.26,.96], G:[.92,.82],
+           ironcladMsp:[.08,.98], ironcladAdmin:[.10,.08], keystone:[.02,.42], relay:[.58,.02], ledgerly:[.99,.36] },
+    layers: [
+      { key:"vendor", color:C.urgent, title:"The compromised vendor", body:"Brightline Payroll, the payroll provider several companies share, reports a breach." },
+      { key:"urgent", color:C.urgent, title:"Genuinely exposed", body:"Cedar Ridge shares Brightline's login. Summit is about to pay $480,000 to a bank account changed by email two days before the breach." },
+      { key:"advisory", color:C.advisory, title:"Same vendor, lower risk", body:"Bayview only uses Brightline, found from public DNS. Advisory, and we call that link a candidate." },
+      { key:"money", color:C.advisory, title:"The money is held", body:"Summit's $480,000 is held until a controller calls the number on file. Cash moves only on release." },
+      { key:"quiet", color:C.none, title:"Discipline over noise", body:"Alder, Granite Peak, Harborline and Meridian don't share Brightline. They get no alert." },
+    ],
+  },
+  ironcladAdmin: {
+    kicker: "Incident · Ironclad's shared admin login leaked",
+    headline: '3 companies exposed · 3,950 people · <span>$0 held</span>',
+    status: { B:"urgent", E:"urgent", F:"urgent", H:"reporter", A:"safe", C:"safe", D:"none", G:"none" },
+    reason: { B:"Shares the admin login", E:"Shares the admin login", F:"Ironclad has admin access", H:"Reported the incident (firm view only)", A:"Uses Ironclad, own login", C:"Uses Ironclad, own login" },
+    held: {},
+    pos: { ironcladAdmin:[.50,.50], B:[.80,.14], E:[.90,.56], F:[.68,.96], H:[.20,.28],
+           A:[.08,.66], C:[.30,.96], D:[.86,.86], G:[.96,.04],
+           ironcladMsp:[.12,.98], brightline:[.36,.02], keystone:[.02,.42], relay:[.60,.02], ledgerly:[.99,.32] },
+    layers: [
+      { key:"vendor", color:C.urgent, title:"The leaked login", body:"An admin account Ironclad Managed IT shares across clients is exposed." },
+      { key:"urgent", color:C.urgent, title:"Genuinely exposed", body:"Cedar Ridge, Granite Peak and Harborline use that same login or let Ironclad in with it." },
+      { key:"safe", color:C.safe, title:"Same vendor, not exposed", body:"Alder and Summit use Ironclad too, but with their own logins. A leaked shared login can't reach them." },
+      { key:"quiet", color:C.none, title:"Discipline over noise", body:"Same vendor isn't the same weakness. Only the three companies that share the login are alerted." },
+    ],
+  },
+};
+
+const chart = echarts.init(document.getElementById("chart"), null, { renderer: "canvas" });
+let sceneKey = "brightline", layer = 0, timer = 0, playing = true;
+const STEP = 3600;
+const STATUS_TAG = { urgent: "URGENT", advisory: "ADVISORY", safe: "NOT EXPOSED · OWN LOGIN", reporter: "REPORTED IT · FIRM VIEW ONLY", none: "NOT LINKED" };
+
+function inLayer(scene, id, key) {
+  const s = scene.status[id];
+  if (key === "vendor") return id === sceneKey;
+  if (key === "urgent") return s === "urgent" || id === sceneKey;
+  if (key === "advisory") return s === "advisory" || id === sceneKey;
+  if (key === "safe") return s === "safe" || id === sceneKey;
+  if (key === "money") return !!scene.held[id] || id === sceneKey;
+  if (key === "quiet") return s === "none";
+  return false;
+}
+
+// The same quadratic curve ECharts draws for a graph edge (source → target), sampled as a
+// polyline so the particles ride exactly on the drawn link.
+function curve([x1, y1], [x2, y2], k, n = 32) {
+  const cx = (x1 + x2) / 2 - (y1 - y2) * k, cy = (y1 + y2) / 2 - (x2 - x1) * k;
+  return Array.from({ length: n + 1 }, (_, i) => {
+    const t = i / n, u = 1 - t;
+    return [u * u * x1 + 2 * u * t * cx + t * t * x2, u * u * y1 + 2 * u * t * cy + t * t * y2];
+  });
+}
+
+// One render per step (not per frame): ECharts' own effects (ripple, flowing particles)
+// carry the motion, and re-setting the option every frame would restart them.
+let renders = 0;
+function render() {
+  renders++; // fresh effect series ids so ECharts rebuilds particle paths instead of reusing stale ones
+  const scene = SCENES[sceneKey];
+  const key = scene.layers[layer].key;
+  const w = chart.getWidth(), h = chart.getHeight();
+  const mx = Math.min(180, w * 0.2);
+  const L = mx, R = w - mx, T = Math.min(140, h * 0.22), B = h - 70;
+  const place = ([nx, ny]) => [L + nx * (R - L), T + ny * (B - T)];
+  const vendorXY = place(scene.pos[sceneKey]);
+
+  // Corner anchors keep the graph's coordinates 1:1 with pixels, the same space as the grid below.
+  const nodes = [
+    { id: "_a0", name: "", x: 0, y: 0, symbolSize: 0, label: { show: false } },
+    { id: "_a1", name: "", x: w, y: h, symbolSize: 0, label: { show: false } },
+  ];
+  for (const [id, name] of Object.entries(ASSETS)) {
+    const breached = id === sceneKey;
+    const [x, y] = place(scene.pos[id]);
+    nodes.push({
+      id, name, x, y, symbol: breached ? "circle" : "roundRect",
+      symbolSize: breached ? 72 : 12,
+      itemStyle: {
+        color: breached ? { type: "radial", x: .5, y: .5, r: .5, colorStops: [{ offset: 0, color: "#5a2622" }, { offset: 1, color: "#2a1716" }] } : "#262A33",
+        borderColor: breached ? C.urgent : "#3a3f4a", borderWidth: breached ? 3 : 1,
+        shadowBlur: breached ? 50 : 0, shadowColor: C.urgent, opacity: breached ? 1 : 0.45,
+      },
+      label: breached ? { show: true, position: "inside", color: "#F4F2ED", fontFamily: "Manrope", fontSize: 12.5, fontWeight: 800, width: 64, overflow: "break", lineHeight: 15 } : { show: false },
+      tip: breached ? "Compromised" : "Another shared vendor, not affected",
+      z: breached ? 10 : 1,
+    });
+  }
+  for (const [id, name] of Object.entries(COMPANIES)) {
+    const s = scene.status[id];
+    const on = inLayer(scene, id, key);
+    const color = C[s];
+    const [x, y] = place(scene.pos[id]);
+    const size = 18 + Math.sqrt(HEADCOUNT[id]) / 2.2;
+    const right = x > w * 0.5; // labels point away from the centre
+    const sub = STATUS_TAG[s];
+    nodes.push({
+      id, name, x, y, symbolSize: on ? size + 8 : size,
+      itemStyle: {
+        color: s === "none" ? "#2b2f38" : color,
+        borderColor: on ? "#F4F2ED" : "rgba(244,242,237,.12)", borderWidth: on ? 2.5 : 1,
+        shadowBlur: on && s !== "none" ? 36 : 0, shadowColor: color,
+        opacity: on ? 1 : s === "none" ? 0.5 : 0.38,
+      },
+      label: {
+        show: true, position: right ? "right" : "left", distance: 12, align: right ? "left" : "right",
+        formatter: [`{n|${name}}`, `{s|${sub}}`, scene.held[id] ? `{h|${scene.held[id]}}` : null].filter(Boolean).join("\n"),
+        rich: {
+          n: { color: on ? "#F4F2ED" : "rgba(244,242,237,.5)", fontFamily: "Manrope", fontSize: on ? 15 : 12.5, fontWeight: on ? 800 : 600, lineHeight: 20 },
+          s: { color: on ? color : "rgba(140,145,154,.6)", fontFamily: "Manrope", fontSize: 10, fontWeight: 800, lineHeight: 15 },
+          h: { color: "#15171C", backgroundColor: C.advisory, padding: [3, 7], borderRadius: 4, fontFamily: "Manrope", fontSize: 11.5, fontWeight: 800, lineHeight: 26 },
+        },
+      },
+      tip: scene.reason[id] ?? `No link to ${ASSETS[sceneKey]}`,
+      z: on ? 10 : 2,
+    });
+  }
+
+  const pts = Object.fromEntries(nodes.map((n) => [n.id, [n.x, n.y]]));
+  const links = LINKS.map(([c, a, share, src]) => {
+    const hot = a === sceneKey;
+    const s = scene.status[c];
+    const on = hot && inLayer(scene, c, key);
+    const color = hot ? C[s] : "#5b6170";
+    return {
+      source: c, target: a, share, src,
+      lineStyle: {
+        color, type: src === "dns_inferred" ? "dashed" : "solid",
+        width: hot ? (share === "same_vendor_only" ? 2 : 5) + (on ? 1.5 : 0) : 1,
+        opacity: hot ? (on ? 0.95 : 0.3) : 0.07, curveness: hot ? 0.14 : 0.22,
+        shadowBlur: on ? 24 : 0, shadowColor: color,
+      },
+    };
+  });
+
+  // Particles flow from the compromised vendor out to every company in the current step.
+  const flows = LINKS.filter(([c, a]) => a === sceneKey && inLayer(scene, c, key) && scene.status[c] !== "reporter")
+    .map(([c]) => ({ coords: curve(pts[c], vendorXY, 0.14).reverse(), color: C[scene.status[c]] }));
+
+  chart.setOption({
+    animationDurationUpdate: 700, animationEasingUpdate: "cubicOut",
+    grid: { left: 0, right: 0, top: 0, bottom: 0 },
+    xAxis: { type: "value", min: 0, max: w, show: false },
+    yAxis: { type: "value", min: 0, max: h, inverse: true, show: false },
+    tooltip: {
+      backgroundColor: "rgba(21,23,28,.96)", borderColor: "#30353F", textStyle: { color: "#F4F2ED", fontFamily: "Manrope" },
+      formatter: (p) => p.seriesType !== "graph" || (!p.data.name && p.dataType === "node") ? "" : p.dataType === "edge"
+        ? `${COMPANIES[p.data.source]} → ${ASSETS[p.data.target]}<br/><span style="color:#8C919A">${SHARE[p.data.share]} · ${p.data.src === "dns_inferred" ? "DNS candidate" : "self-reported"}</span>`
+        : `<b>${p.data.name}</b><br/><span style="color:#8C919A">${p.data.tip}</span>`,
+    },
+    series: [
+      { id: "ripple" + renders, type: "effectScatter", coordinateSystem: "cartesian2d", data: [vendorXY], symbolSize: 72, z: 0,
+        rippleEffect: { brushType: "stroke", scale: key === "vendor" ? 4.2 : 2.6, period: key === "vendor" ? 2.2 : 3.2, number: key === "vendor" ? 3 : 2 },
+        itemStyle: { color: C.urgent, opacity: 0.55 }, silent: true },
+      { id: "graph", type: "graph", layout: "none", roam: false, left: 0, top: 0, right: 0, bottom: 0,
+        data: nodes, links, emphasis: { disabled: true }, z: 2 },
+      { id: "flow" + renders, type: "lines", coordinateSystem: "cartesian2d", z: 3, silent: true,
+        data: flows.map((f) => ({ coords: f.coords, lineStyle: { color: f.color } })),
+        polyline: true, lineStyle: { width: 0 },
+        effect: { show: true, period: 1.4, trailLength: 0, symbol: "circle", symbolSize: 6, color: "#F4F2ED", loop: true } },
+    ],
+  }, { replaceMerge: ["series"] });
+}
+
+function renderSide() {
+  const scene = SCENES[sceneKey];
+  document.getElementById("kicker").textContent = scene.kicker;
+  document.getElementById("headline").innerHTML = scene.headline;
+  const ol = document.getElementById("layers");
+  ol.replaceChildren(...scene.layers.map((l, i) => {
+    const li = document.createElement("li");
+    li.style.setProperty("--c", l.color);
+    li.className = i === layer ? "on" : "";
+    li.innerHTML = `<h3>${i + 1}. ${l.title}</h3><p>${l.body}</p>` + (i === layer && playing ? `<div class="bar"><i style="animation-duration:${STEP}ms"></i></div>` : "");
+    li.onclick = () => go(i);
+    return li;
+  }));
+}
+
+function go(i) {
+  layer = i;
+  renderSide();
+  render();
+  clearTimeout(timer);
+  if (playing) timer = setTimeout(() => go((layer + 1) % SCENES[sceneKey].layers.length), STEP);
+}
+
+document.querySelectorAll("[data-scene]").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-scene]").forEach((x) => x.setAttribute("aria-pressed", x === b));
+  sceneKey = b.dataset.scene;
+  go(0);
+}));
+const playBtn = document.getElementById("play");
+playBtn.addEventListener("click", () => {
+  playing = !playing;
+  playBtn.textContent = playing ? "Pause" : "Play";
+  playBtn.setAttribute("aria-pressed", String(!playing));
+  go(layer);
+});
+document.addEventListener("keydown", (e) => {
+  const n = SCENES[sceneKey].layers.length;
+  if (e.key === "ArrowRight") go((layer + 1) % n);
+  if (e.key === "ArrowLeft") go((layer - 1 + n) % n);
+  if (e.key === " ") { e.preventDefault(); playBtn.click(); }
+});
+new ResizeObserver(() => { chart.resize(); render(); }).observe(document.getElementById("chart"));
+if (matchMedia("(prefers-reduced-motion: reduce)").matches) { playing = false; playBtn.textContent = "Play"; }
+go(0);
+</script>
+</body>
+</html>
