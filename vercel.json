@@ -3,5 +3,5 @@
   "framework": "vite",
   "buildCommand": "npx convex deploy --cmd 'npm run build'",
   "outputDirectory": "dist",
-  "ignoreCommand": "[ \"$VERCEL_ENV\" != \"production\" ]"
+  "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" != \"main\" ]"
 }
