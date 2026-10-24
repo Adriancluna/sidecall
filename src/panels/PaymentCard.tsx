@@ -1,14 +1,12 @@
 // One held payment. Company controllers can release/reject; the PE firm only reads (canDecide=false).
 // Refusals are expected outcomes (segregation of duties), shown inline, not as errors.
+import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
+import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
-import type { HeldPaymentRow } from "../demo/contract";
-import {
-  usePaymentAudit,
-  useRejectPayment,
-  useReleasePayment,
-} from "../demo/mockBackend";
+import { useActingUser } from "../demo/actingAsContext";
 import { dateTime, money } from "./format";
+import type { HeldPaymentRow } from "./types";
 import { Chip } from "./ui";
 
 const STATUS_TONE = {
@@ -27,9 +25,13 @@ type Props = {
 
 export function PaymentCard({ row, actingUser, canDecide }: Props) {
   const { payment } = row;
-  const release = useReleasePayment();
-  const reject = useRejectPayment();
-  const audit = usePaymentAudit(payment._id);
+  const { user: viewer } = useActingUser();
+  const release = useMutation(api.payments.releasePayment);
+  const reject = useMutation(api.payments.rejectPayment);
+  const audit = useQuery(
+    api.payments.getPaymentAudit,
+    viewer ? { paymentId: payment._id, actingUserId: viewer._id } : "skip",
+  );
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string>();
@@ -39,17 +41,12 @@ export function PaymentCard({ row, actingUser, canDecide }: Props) {
     setBusy(true);
     setRefusal(undefined);
     try {
+      const args = { paymentId: payment._id, actingUserId: actingUser._id };
+      const trimmed = note.trim();
       const res =
         action === "release"
-          ? await release({
-              paymentId: payment._id,
-              actingUserId: actingUser._id,
-              verificationNote: note.trim(),
-            })
-          : await reject({
-              paymentId: payment._id,
-              actingUserId: actingUser._id,
-            });
+          ? await release({ ...args, verificationNote: trimmed })
+          : await reject(trimmed ? { ...args, note: trimmed } : args);
       if (!res.ok) setRefusal(res.reason);
     } catch (err) {
       setRefusal(

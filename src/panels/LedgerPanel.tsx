@@ -1,6 +1,7 @@
 // Double-entry ledger for one company. Optional for the demo: if Hyphenate is lukewarm, stop rendering this.
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
-import { useLedger } from "../demo/mockBackend";
 import { dateTime, money } from "./format";
 import { Card, Empty } from "./ui";
 
@@ -14,29 +15,24 @@ const ACCOUNT_LABEL: Record<
   equity: "Equity",
 };
 
-export function LedgerPanel({ companyId }: { companyId: Id<"companies"> }) {
-  const entries = useLedger(companyId);
-  const balance = (account: "cash" | "accounts_payable") =>
-    entries
-      ?.flatMap((e) => e.lines)
-      .filter((l) => l.account === account)
-      .reduce((sum, l) => sum + l.debitCents - l.creditCents, 0);
-  const cash = balance("cash");
-  const payable = balance("accounts_payable");
+// Company users always get their own ledger; the firm would pass companyId.
+export function LedgerPanel({ actingUserId }: { actingUserId: Id<"users"> }) {
+  const ledger = useQuery(api.payments.getLedger, { actingUserId });
 
   return (
     <Card
       title="Ledger"
       aside={
-        cash !== undefined && (
+        ledger && (
           <span className="text-sm">
-            Cash {money(cash)} · AP {money(0 - (payable ?? 0))}
+            Cash {money(ledger.balances.cash)} · AP{" "}
+            {money(ledger.balances.accounts_payable)}
           </span>
         )
       }
     >
-      {!entries?.length ? (
-        <Empty>No entries.</Empty>
+      {!ledger?.entries.length ? (
+        <Empty>{ledger === undefined ? "Loading…" : "No entries."}</Empty>
       ) : (
         <table className="w-full text-sm">
           <thead className="text-left text-xs text-ash">
@@ -49,7 +45,7 @@ export function LedgerPanel({ companyId }: { companyId: Id<"companies"> }) {
             </tr>
           </thead>
           <tbody>
-            {entries.flatMap((e) =>
+            {ledger.entries.flatMap((e) =>
               e.lines.map((l, i) => (
                 <tr
                   key={`${e._id}-${i}`}

@@ -1,30 +1,33 @@
 // PE firm view: the only view allowed to name the reporting company.
+import { useQuery } from "convex/react";
 import { useState } from "react";
+import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import {
-  useBlastRadius,
-  useCompanies,
-  useHeldPayments,
-  useListIncidents,
-  useVendorLetter,
-} from "../demo/mockBackend";
 import { BlastRadiusMap } from "../map/BlastRadiusMap";
 import { EvidencePanel } from "../map/EvidencePanel";
-import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
 import { dateTime, money } from "./format";
+import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
 import { Card, Chip, Empty } from "./ui";
 
-export function PortfolioView() {
-  const incidents = useListIncidents();
-  const incident = incidents?.[incidents.length - 1];
-  const blast = useBlastRadius(incident?._id);
-  const held = useHeldPayments({ incidentId: incident?._id });
-  const letter = useVendorLetter(incident?._id);
-  const companies = useCompanies();
+export function PortfolioView({ actingUserId }: { actingUserId: Id<"users"> }) {
+  const incidents = useQuery(api.blastRadius.listIncidents, { actingUserId });
+  const incidentId = incidents?.[0]?._id; // newest first
+  const blast = useQuery(
+    api.blastRadius.getBlastRadius,
+    incidentId ? { incidentId, actingUserId } : "skip",
+  );
+  const held = useQuery(
+    api.payments.getHeldPayments,
+    incidentId ? { incidentId, actingUserId } : "skip",
+  );
+  const letter = useQuery(
+    api.alerts.getIncidentAlerts,
+    incidentId ? { incidentId, actingUserId } : "skip",
+  )?.find((a) => a.kind === "vendor_letter");
   const [selected, setSelected] = useState<Id<"companies">>();
 
   if (incidents === undefined) return <Empty>Loading…</Empty>;
-  if (!incident || !blast) {
+  if (!incidentId) {
     return (
       <Card>
         <Empty>
@@ -34,11 +37,9 @@ export function PortfolioView() {
       </Card>
     );
   }
+  if (!blast) return <Empty>Loading…</Empty>;
 
-  const { totals } = blast;
-  const reporter = companies?.find(
-    (c) => c._id === incident.reportedByCompanyId,
-  )?.name;
+  const { incident, totals } = blast;
   const selectedNode = blast.nodes.find((n) => n.companyId === selected);
 
   return (
@@ -47,8 +48,8 @@ export function PortfolioView() {
         <p className="text-sm text-ash">
           {blast.asset.name} ({blast.asset.kind}) ·{" "}
           {dateTime(incident.createdAt)}
-          {reporter &&
-            ` · reported by ${reporter} (visible to the PE firm only)`}
+          {incident.reportedByName &&
+            ` · reported by ${incident.reportedByName} (visible to the PE firm only)`}
         </p>
         <h1 className="mt-1 text-3xl font-semibold tracking-tight md:text-4xl">
           {totals.companiesExposed} companies exposed ·{" "}
@@ -69,8 +70,9 @@ export function PortfolioView() {
           onSelect={setSelected}
         />
         <EvidencePanel
-          exposureId={selectedNode?.exposureId}
+          exposureId={selectedNode?.exposureId ?? undefined}
           companyName={selectedNode?.name}
+          actingUserId={actingUserId}
         />
       </div>
 

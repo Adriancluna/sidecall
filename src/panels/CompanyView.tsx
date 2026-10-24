@@ -1,23 +1,22 @@
-// A portfolio company's own view. Never shows which company reported the incident.
+// A portfolio company's own view. The backend never sends which company reported the incident.
+import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
+import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
-import type { CompanyAlertRow } from "../demo/contract";
-import {
-  useAcknowledgeExposure,
-  useCompanies,
-  useCompanyAlerts,
-  useHeldPayments,
-} from "../demo/mockBackend";
-import { LedgerPanel } from "./LedgerPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
+import { LedgerPanel } from "./LedgerPanel";
 import { Card, Chip, Empty } from "./ui";
 
 type Props = { companyId: Id<"companies">; actingUser: Doc<"users"> };
 
 export function CompanyView({ companyId, actingUser }: Props) {
-  const company = useCompanies()?.find((c) => c._id === companyId);
-  const alerts = useCompanyAlerts(companyId);
-  const held = useHeldPayments({ companyId });
+  const actingUserId = actingUser._id;
+  const company = useQuery(api.blastRadius.listCompanies, {})?.find(
+    (c) => c._id === companyId,
+  );
+  const exposures = useQuery(api.blastRadius.getMyExposures, { actingUserId });
+  const alerts = useQuery(api.alerts.getMyAlerts, { actingUserId });
+  const held = useQuery(api.payments.getHeldPayments, { actingUserId });
 
   return (
     <div className="space-y-6">
@@ -34,14 +33,22 @@ export function CompanyView({ companyId, actingUser }: Props) {
       </header>
 
       <Card title="Alerts">
-        {alerts === undefined ? (
+        {exposures === undefined ? (
           <Empty>Loading…</Empty>
-        ) : alerts.length === 0 ? (
+        ) : exposures.length === 0 ? (
           <Empty>No alerts. Nothing you share is affected.</Empty>
         ) : (
           <div className="space-y-3">
-            {alerts.map((row) => (
-              <AlertItem key={row.exposure._id} row={row} />
+            {exposures.map((exposure) => (
+              <AlertItem
+                key={exposure._id}
+                exposure={exposure}
+                alert={alerts?.find(
+                  (a) =>
+                    a.kind === "company_alert" && a.exposureId === exposure._id,
+                )}
+                actingUserId={actingUserId}
+              />
             ))}
           </div>
         )}
@@ -56,25 +63,30 @@ export function CompanyView({ companyId, actingUser }: Props) {
         />
       )}
 
-      <LedgerPanel companyId={companyId} />
+      <LedgerPanel actingUserId={actingUserId} />
     </div>
   );
 }
 
-function AlertItem({ row }: { row: CompanyAlertRow }) {
-  const acknowledge = useAcknowledgeExposure();
+type AlertItemProps = {
+  exposure: Doc<"exposures">;
+  alert?: Doc<"alerts">;
+  actingUserId: Id<"users">;
+};
+
+function AlertItem({ exposure, alert, actingUserId }: AlertItemProps) {
+  const acknowledge = useMutation(api.incidents.acknowledgeExposure);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>();
-  const { exposure, alert } = row;
 
   const onAcknowledge = async () => {
     setBusy(true);
     try {
-      const res = await acknowledge({ exposureId: exposure._id });
+      const res = await acknowledge({ exposureId: exposure._id, actingUserId });
       setMessage(
         res.ok
           ? undefined
-          : `Not acknowledged: ${res.reason.replace("_", " ")}`,
+          : `Not acknowledged: ${res.reason.replace(/_/g, " ")}`,
       );
     } catch (err) {
       setMessage(

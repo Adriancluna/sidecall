@@ -1,9 +1,18 @@
 // Placeholder from Role 2 so the layout works today. Role 3 owns this file and replaces its insides;
 // keep the props: the getBlastRadius result, the selected company, and a select callback.
 import type { Id } from "../../convex/_generated/dataModel";
-import type { BlastRadius } from "../demo/contract";
+import type { BlastRadius } from "../panels/types";
 import { money } from "../panels/format";
 import { Card, Chip } from "../panels/ui";
+
+// Why a company that is not exposed still appears on the map.
+const RELATION_LABEL: Record<string, string> = {
+  reporter: "reported",
+  exposed: "exposed",
+  linked_not_exposed: "linked, not exposed",
+  same_vendor_separate_access: "separate access",
+  unrelated: "not exposed",
+};
 
 const SHARE_LABEL = {
   shared_credential: "shared credential",
@@ -23,8 +32,10 @@ export function BlastRadiusMap({ blast, selected, onSelect }: Props) {
     <Card title="Blast radius">
       <ul className="grid gap-2 sm:grid-cols-2">
         {nodes.map((n) => {
-          const edge = blast.edges.find((e) => e.companyId === n.companyId);
-          const isReporter = n.companyId === blast.incident.reportedByCompanyId;
+          const edge =
+            blast.edges.find(
+              (e) => e.companyId === n.companyId && e.compromised,
+            ) ?? blast.edges.find((e) => e.companyId === n.companyId);
           return (
             <li key={n.companyId}>
               <button
@@ -46,7 +57,7 @@ export function BlastRadiusMap({ blast, selected, onSelect }: Props) {
                   )}
                   {!n.exposed && (
                     <Chip tone="muted">
-                      {isReporter ? "reported" : "not exposed"}
+                      {RELATION_LABEL[n.relation] ?? n.relation}
                     </Chip>
                   )}
                 </div>

@@ -1,5 +1,6 @@
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { useExposureEvidence } from "../demo/mockBackend";
 import { Card, Empty } from "../panels/ui";
 
 // Placeholder from Role 2 so the layout works today. Role 3 owns this file and replaces its insides;
@@ -7,11 +8,16 @@ import { Card, Empty } from "../panels/ui";
 export function EvidencePanel({
   exposureId,
   companyName,
+  actingUserId,
 }: {
   exposureId?: Id<"exposures">;
   companyName?: string;
+  actingUserId: Id<"users">;
 }) {
-  const evidence = useExposureEvidence(exposureId);
+  const evidence = useQuery(
+    api.blastRadius.getExposureEvidence,
+    exposureId ? { exposureId, actingUserId } : "skip",
+  );
   if (!exposureId || !evidence) {
     return (
       <Card title="Evidence">

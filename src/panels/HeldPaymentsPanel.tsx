@@ -1,5 +1,5 @@
 import type { Doc } from "../../convex/_generated/dataModel";
-import type { HeldPaymentRow } from "../demo/contract";
+import type { HeldPaymentRow } from "./types";
 import { PaymentCard } from "./PaymentCard";
 import { Card, Empty } from "./ui";
 

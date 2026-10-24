@@ -9,7 +9,7 @@ function CurrentView() {
   const { user } = useActingUser();
   if (!user) return null;
   return user.role === "pe_partner" || !user.companyId ? (
-    <PortfolioView />
+    <PortfolioView actingUserId={user._id} />
   ) : (
     // key: switching who you act as starts with clean local state (no stale refusal or note)
     <CompanyView key={user._id} companyId={user.companyId} actingUser={user} />
