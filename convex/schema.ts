@@ -126,6 +126,7 @@ export default defineSchema({
     assetId: v.id("assets"),
     shareType,
     source: linkSource,
+    detail: v.optional(v.string()), // dns_inferred: the record that suggested it, e.g. "MX → mx.relaymail.example"
   })
     .index("by_assetId", ["assetId"])
     .index("by_companyId", ["companyId"]),

@@ -261,6 +261,23 @@ describe("identity", () => {
   });
 });
 
+describe("REQUIRE_SESSION", () => {
+  /* eslint-disable @convex-dev/no-process-env */
+  afterEach(() => {
+    delete process.env.REQUIRE_SESSION;
+  });
+  test("when on, actingUserId alone no longer works", async () => {
+    const { t, userId } = await seeded();
+    const clerk = await userId("Jamie Chen");
+    await expect(t.query(api.blastRadius.getMyExposures, { actingUserId: clerk })).resolves.toEqual([]);
+    process.env.REQUIRE_SESSION = "true";
+    await expect(t.query(api.blastRadius.getMyExposures, { actingUserId: clerk })).rejects.toThrow(/Not signed in/);
+    const signedIn = t.withIdentity({ subject: `${clerk}|session` });
+    await expect(signedIn.query(api.blastRadius.getMyExposures, {})).resolves.toEqual([]);
+  });
+  /* eslint-enable @convex-dev/no-process-env */
+});
+
 // Tests set the deployment env var directly; convex-test exposes process.env as the typed env.
 /* eslint-disable @convex-dev/no-process-env */
 describe("demo reset", () => {
