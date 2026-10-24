@@ -94,6 +94,27 @@ const sharedUnrecognized = count(unknown)
     const [kind, host] = key.split("|");
     return { kind, host, companies };
   });
+// Tools that hold admin reach into a company (devices, remote access, logins, passwords,
+// money). Several siblings on one of these is the pattern Sidecall cares about, still only a
+// candidate: each company has its own account unless someone confirms otherwise.
+const HIGH_TRUST = [
+  ["TXT token|jamf-site-verification", "Jamf", "device management"],
+  ["TXT token|logmein-verification-code", "LogMeIn", "remote access"],
+  ["TXT token|teamviewer-sso-verification", "TeamViewer", "remote access"],
+  ["TXT token|duo_sso_verification", "Duo", "login and MFA"],
+  ["Okta", "Okta", "login and MFA"],
+  ["Auth0", "Auth0", "login and MFA"],
+  ["OneLogin", "OneLogin", "login and MFA"],
+  ["TXT token|1password-site-verification", "1Password", "password manager"],
+  ["SPF include|sent-via.netsuite.com", "NetSuite", "finance and AP"],
+];
+const highTrust = HIGH_TRUST.map(([key, tool, kind]) => ({
+  tool,
+  kind,
+  companies: (byVendor.get(key) ?? unknown.get(key))?.size ?? 0,
+}))
+  .filter((t) => t.companies >= 2)
+  .sort((a, b) => b.companies - a.companies || a.tool.localeCompare(b.tool));
 // Siblings that share at least one recognized vendor with at least one other sibling.
 const sharing = new Set(
   [...byVendor.values()].filter((s) => s.size >= 2).flatMap((s) => [...s]),
@@ -110,14 +131,27 @@ const report = {
   companiesListed: domains.length,
   companiesWithRecords: N,
   companiesSharingAVendor: sharing.size,
+  highTrust,
   vendors,
   sharedUnrecognized,
-  line: `Of ${N} companies on one PE firm's public portfolio page, public DNS shows ${top.join(", ")}. ${sharing.size} of ${N} share at least one vendor with a sister company. Same vendor isn't the same weakness: each of these is a candidate link until someone confirms what is actually shared.`,
+  line: `Of ${N} companies in one real PE portfolio, public DNS shows ${top.join(", ")}${
+    highTrust.length
+      ? `, and ${highTrust
+          .slice(0, 3)
+          .map(
+            (t) => `${t.companies} with the same ${t.kind} vendor (${t.tool})`,
+          )
+          .join(", ")}`
+      : ""
+  }. Same vendor isn't the same weakness: each one is a candidate link until a company confirms what it actually shares.`,
 };
 writeFileSync(out, JSON.stringify(report, null, 2) + "\n");
 console.log(
   `\nportfolio_report.json: ${N} of ${domains.length} domains resolved`,
 );
+if (highTrust.length) console.log("High-trust tools on 2+ siblings:");
+for (const t of highTrust)
+  console.log(`  ${t.companies}  ${t.tool} (${t.kind})`);
 for (const v of vendors) console.log(`  ${v.companies}  ${v.vendor}`);
 if (sharedUnrecognized.length) console.log("Shared, not in vendors.mjs:");
 for (const u of sharedUnrecognized)
