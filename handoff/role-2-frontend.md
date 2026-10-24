@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 22:08 by Marco's Claude
+Last updated: Oct 23, 23:30 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -37,14 +37,17 @@ Last updated: Oct 23, 22:08 by Marco's Claude
 - ✓ **Live full-demo check on prod after #60** (all of #44–#60 now deployed): Reset → Jamie fire → $480K held + `••2208 → ••7731` + escalation banner + timeline "…alerts written in 224 ms" → $38K bill held + flagged → release refused → Jordan headline, tailored alerts, vendor letter, controls log, Proof (DNS + scorecard) → Rosa release (cash $5.00M → $4.52M, AP → $38K) → contained badge → Reset. Prod left clean.
 - ✓ `PRODUCT.md` (repo root, Impeccable init): users (judges first), purpose, positioning, brand commitments, evidence, WCAG 2.2 AA. Read before UI work.
 - ✓ `docs/` + presenter: after the $38K request the PE headline is **$650K** (not $612K); script/shot list/presenter updated; optional beat 2c "It reached their Slack" (outbox).
+- ✓ **Design review (gstack /design-review) on dev, desktop + 375px**, five small fixes: controls log keeps the Reason column readable (rule ids wrap at underscores); bill status chips say "Held until verified" like payment cards; phone header is no longer sticky and hides the "Signed in as" label; user switcher wide enough for "Jordan Ames (Northpass Capital) · PE firm". No layout or copy changes otherwise.
 
 ## In progress
-1. MCP Tasks 6–8 after Role 1's Task 1 lands (agent label, copy, clip).
-2. `docs/` `[after 11pm]` lines once Role 3's map and Role 4's AI cache land; new asks from Role 1.
+1. **AP import card in the PE view** (Role 1's ask from #66): next.
+2. MCP Tasks 6–8 after Role 1's Task 1 lands (agent label, copy, clip).
+3. `docs/` `[after 11pm]` lines once Role 3's map and Role 4's AI cache land; new asks from Role 1.
 
 ## Needs from others
 - → **Role 4:** notifications UI is live against Role 1's API; `convex/notify.ts` real sending (per the spec) is the remaining piece. Outbox shows `sent` / `failed` automatically once it lands.
 - → **Role 4:** `data/ai_cache.json` on `main` still has 0 entries (`generatedAt: null`), so the demo shows placeholder alert text. Please run `prompts/generate.mjs` and commit the cache; the Proof panel moves "AI writing" to Real automatically.
+- → **Role 4:** outbox text runs the header into the body with no separator ("Sidecall alert Urgent: …", "Sidecall: payment held until verified Your $480,000 …"). A colon or line break after the header in `convex/notify.ts` would fix it.
 - → **Role 1: MCP agent access is a GO (Marco + Adrian agreed), as a timeboxed stretch.** Plan: `docs/specs/mcp-implementation-plan.md` (#63). Start at **Gate 0** once the must-haves and the convex-reviewer pass are done; hard stops at T+45 / T+100 / T+120 min as written there; Task 5 only if T+100 is hit early. Never live on stage: recorded clip only. Post Task 1 (`getPaymentAudit` `actorName`) here when it lands; Role 2 then does Tasks 6–8 (agent label in the payment audit, copy, recorded clip with your token).
 
 ## Decisions & gotchas
