@@ -3,11 +3,12 @@ import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
+import type { CurrentUser } from "../auth/currentUser";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
 import { LedgerPanel } from "./LedgerPanel";
 import { Card, Chip, Empty } from "./ui";
 
-type Props = { companyId: Id<"companies">; actingUser: Doc<"users"> };
+type Props = { companyId: Id<"companies">; actingUser: CurrentUser };
 
 export function CompanyView({ companyId, actingUser }: Props) {
   const actingUserId = actingUser._id;

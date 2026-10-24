@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
-import { useActingUser } from "../demo/actingAsContext";
+import { useCurrentUser, type CurrentUser } from "../auth/currentUser";
 import { dateTime, money } from "./format";
 import type { HeldPaymentRow } from "./types";
 import { Chip } from "./ui";
@@ -19,13 +19,13 @@ const STATUS_TONE = {
 
 type Props = {
   row: HeldPaymentRow;
-  actingUser?: Doc<"users">;
+  actingUser?: CurrentUser;
   canDecide: boolean;
 };
 
 export function PaymentCard({ row, actingUser, canDecide }: Props) {
   const { payment } = row;
-  const { user: viewer } = useActingUser();
+  const viewer = useCurrentUser();
   const release = useMutation(api.payments.releasePayment);
   const reject = useMutation(api.payments.rejectPayment);
   const audit = useQuery(
