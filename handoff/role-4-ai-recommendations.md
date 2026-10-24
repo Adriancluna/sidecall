@@ -38,7 +38,7 @@ The backend for breach fix advice is written and tested. What's left is review, 
   ```
 
 **3. Follow-ups (optional, ask Omar before starting):**
-- When the stop-loss PR lands, switch `prompts/breachFix.ts` to import `Recommendation` / `AdviceBrief` from `prompts/advice.ts` instead of its local copy. It's a type-only change; the shapes are identical.
+- Both PRs carry the same `prompts/advice.ts` (shared types + `checkAdvice`), byte for byte, so whichever merges second has nothing to resolve there. `prompts/breachFix.ts` imports its types from it.
 - A **firm rollup** (`scope: "portfolio"`): one brief per incident listing each exposed company's open "now" items, for the PE view. `AdviceBrief` already allows `scope: "portfolio"` and `companyId: null`. Keep the rule that the firm reads but never acts.
 - Don't send this text through `notify.ts` (Slack). Alerts already go out, and this text is a plan to work through, not a notice.
 

@@ -1,39 +1,17 @@
 // Role 4: breach fix advice. After an incident lands, what one exposed company should do now:
 // secure the shared access, verify payments and sign-ins, recover, and tell the right people.
 // Shared by convex/ai.ts (the getBreachFixAdvice query) and prompts/generateBreachFix.mjs
-// (pre-generates data/ai_breach_fix.json off stage). No runtime imports, so Node runs it as-is.
+// (pre-generates data/ai_breach_fix.json off stage). Type-only imports, so Node runs it as-is.
 //
 // Fixed rules below pick every recommendation, its owner, priority and status from backend rows.
 // The AI only writes the summary paragraph and the one-line "why" of each recommendation, from
 // the same facts, pre-generated. Nothing here decides exposure, urgency or holds, and nothing on
 // stage calls the model: a query reads the cache, else the canned text.
 
-// ---- Shared shapes (agreed with the stop-loss thread; prompts/advice.ts will hold the same) ----
+// ---- Shared shapes (prompts/advice.ts, shared with the stop-loss advice) ----
 
-export type PlaybookAction = "hold_payments" | "pause_shared_login" | "revoke_vendor_tokens";
-export type PlaybookMode = "notify" | "prepare" | "act";
-
-export type Recommendation = {
-  id: string; // stable catalog id, e.g. "rotate_login"
-  title: string;
-  why: string; // one sentence: the fact behind it (AI-written when cached)
-  steps: string[]; // concrete actions, in order (always from the rules below)
-  priority: "now" | "soon" | "later";
-  owner: "firm" | "controller" | "it" | "ap_clerk";
-  playbookAction: PlaybookAction | null; // the matching pre-approved step, when there is one
-  recommendedMode: PlaybookMode | null; // stop-loss only; fix advice leaves it null
-  phase?: "secure" | "verify" | "recover" | "notify";
-  status?: "done" | "ready" | "todo"; // live: done = already happened, ready = one click away
-};
-
-export type AdviceBrief<CompanyId = string> = {
-  scope: "company" | "portfolio";
-  companyId: CompanyId | null;
-  companyName: string | null;
-  summary: string;
-  source: "cache" | "canned";
-  recommendations: Recommendation[];
-};
+import type { AdviceBrief, Recommendation } from "./advice";
+export type { AdviceBrief, PlaybookAction, PlaybookMode, Recommendation } from "./advice";
 
 // ---- Inputs ----
 
