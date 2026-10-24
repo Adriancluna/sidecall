@@ -5,7 +5,7 @@ import { env, internalAction, internalMutation, internalQuery } from "./_generat
 import { internal } from "./_generated/api";
 import { ConvexError, v } from "convex/values";
 import { SCENARIOS } from "./seed";
-import { DAY_MS, MAX_FANOUT } from "./shared";
+import { DAY_MS, HOUR_MS, MAX_FANOUT } from "./shared";
 
 
 type Check = { name: string; ok: boolean; detail: string };
@@ -42,9 +42,10 @@ export const readinessChecks = internalQuery({
     );
     add(
       "Escalation will show",
-      big?.dueDate !== undefined && big.dueDate - now > 0 && big.dueDate - now <= DAY_MS,
+      // Seeded due in 20h: "due in about 18–20 hours" is the story; older than ~2h and it drifts.
+      big?.dueDate !== undefined && big.dueDate - now >= 18 * HOUR_MS && big.dueDate - now <= 20.1 * HOUR_MS,
       big?.dueDate
-        ? `$480K due in ${((big.dueDate - now) / (60 * 60 * 1000)).toFixed(1)}h (needs 0–24h; Reset refreshes it)`
+        ? `$480K due in ${((big.dueDate - now) / HOUR_MS).toFixed(1)}h (needs 18–20h: Reset within 2h of going on stage)`
         : "no due date: Reset to reseed",
     );
 
@@ -54,8 +55,9 @@ export const readinessChecks = internalQuery({
     const ageDays = emailChange ? (now - emailChange.changedAt) / DAY_MS : null;
     add(
       "Bank-change story fresh",
-      ageDays !== null && ageDays < 3,
-      ageDays !== null ? `7731 changed ${ageDays.toFixed(1)} days ago (story says 2; Reset if ≥ 3)` : "missing: reseed",
+      // Hold reasons round to whole days, so from 2.5 days on "2 days before the breach" reads "3 days".
+      ageDays !== null && ageDays < 2.5,
+      ageDays !== null ? `7731 changed ${ageDays.toFixed(1)} days ago (story says 2; Reset if ≥ 2.5)` : "missing: reseed",
     );
 
     const incidents = await ctx.db.query("incidents").take(20);
@@ -95,7 +97,16 @@ export const readinessChecks = internalQuery({
         .join("; "),
     );
 
-    const blocking = checks.filter((c) => !c.ok && c.name !== "No incident yet");
+    add(
+      "Presenter lock",
+      env.PRESENTER_KEY !== undefined,
+      env.PRESENTER_KEY !== undefined
+        ? "on: Reset and the stage Fire need the presenter key"
+        : "off: anyone signed in can Reset. On prod run `npx convex env set PRESENTER_KEY <secret> --prod`",
+    );
+
+    // Advisory only: a fresh dev deployment has no incident and no lock, and that's fine there.
+    const blocking = checks.filter((c) => !c.ok && c.name !== "No incident yet" && c.name !== "Presenter lock");
     return { ready: blocking.length === 0, checks };
   },
 });

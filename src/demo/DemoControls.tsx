@@ -64,14 +64,35 @@ const SITE_URL =
 const BUTTON =
   "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50";
 
-async function postIncident(scenario: Scenario): Promise<{
+// The presenter key (PRESENTER_KEY on prod) lives in this browser only. Storage can be blocked
+// (private windows), so every read and write is guarded.
+const KEY_STORAGE = "sidecall-presenter-key";
+function loadKey(): string {
+  try {
+    return window.localStorage.getItem(KEY_STORAGE) ?? "";
+  } catch {
+    return "";
+  }
+}
+function saveKey(key: string) {
+  try {
+    window.localStorage.setItem(KEY_STORAGE, key);
+  } catch {
+    // kept in memory for this page only
+  }
+}
+
+async function postIncident(scenario: Scenario, presenterKey: string): Promise<{
   incidentId: string;
   duplicate: boolean;
 }> {
   if (!SITE_URL) throw new Error("VITE_CONVEX_URL is not set");
   const res = await fetch(`${SITE_URL}/incident`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(presenterKey ? { "X-Sidecall-Presenter": presenterKey } : {}),
+    },
     body: JSON.stringify(scenario.body),
   });
   const body = (await res.json()) as {
@@ -80,6 +101,9 @@ async function postIncident(scenario: Scenario): Promise<{
     error?: string;
   };
   if (!res.ok || !body.incidentId) {
+    if (body.error?.includes("presenter-only")) {
+      throw new Error("the live demo's scenarios are run by the presenter. Explore any person's dashboard instead.");
+    }
     throw new Error(body.error ?? `HTTP ${res.status}`);
   }
   return { incidentId: body.incidentId, duplicate: body.duplicate === true };
@@ -90,6 +114,7 @@ export function DemoControls() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string>();
   const [scenario, setScenario] = useState<Scenario>(SCENARIOS[0]);
+  const [presenterKey, setPresenterKey] = useState(loadKey);
 
   const run = async (label: string, action: () => Promise<string>) => {
     setBusy(true);
@@ -103,7 +128,7 @@ export function DemoControls() {
   };
 
   const send = async () => {
-    const res = await postIncident(scenario);
+    const res = await postIncident(scenario, presenterKey);
     return res.duplicate
       ? "duplicate, nothing new written."
       : "incident recorded.";
@@ -160,7 +185,7 @@ export function DemoControls() {
                 "Reset the demo? This wipes every incident, hold and sign-in and reseeds the portfolio.",
               ) &&
               void run("Reset", async () => {
-                await resetDemo({});
+                await resetDemo(presenterKey ? { presenterKey } : {});
                 return "portfolio reseeded.";
               })
             }
@@ -168,6 +193,22 @@ export function DemoControls() {
           >
             Reset
           </button>
+        )}
+        {IS_STAGE && (
+          <label className="flex items-center gap-2 text-xs text-ash">
+            Presenter key
+            <input
+              type="password"
+              autoComplete="off"
+              value={presenterKey}
+              onChange={(e) => {
+                setPresenterKey(e.target.value);
+                saveKey(e.target.value);
+              }}
+              placeholder="only needed on prod"
+              className="w-32 rounded-md border border-line bg-graphite px-2 py-1 text-sm text-paper"
+            />
+          </label>
         )}
         <p className="min-w-0 flex-1 basis-64 text-xs text-ash" aria-live="polite">
           {status ?? scenario.about}

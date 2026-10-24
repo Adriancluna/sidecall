@@ -2,7 +2,7 @@
 // session; no function accepts a user id from the client.
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
-import { query } from "./_generated/server";
+import { env, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { userRole } from "./schema";
@@ -62,3 +62,11 @@ export const me = query({
     };
   },
 });
+
+// The demo password is printed on the sign-in screen, so being signed in doesn't make you the
+// presenter. Where PRESENTER_KEY is set (prod), the stage-only actions (Reset, the unsigned demo
+// Fire) also need that key, so a curious visitor can't wipe or pre-empt a live demo.
+export function isPresenter(key: string | undefined | null): boolean {
+  const expected = env.PRESENTER_KEY;
+  return !expected || key === expected;
+}

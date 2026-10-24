@@ -699,6 +699,20 @@ describe("demo reset", () => {
     await expect(presenter.mutation(api.seed.resetDemo, {})).resolves.toMatchObject({ companies: 8, continuing: false });
   });
 
+  test("with a presenter key set, a signed-in visitor can't reset; the presenter can", async () => {
+    const { as } = await seeded();
+    process.env.DEMO_MODE = "true";
+    process.env.PRESENTER_KEY = "stage-secret";
+    try {
+      const visitor = await as("Jordan Ames (Northpass Capital)");
+      await expect(visitor.mutation(api.seed.resetDemo, {})).rejects.toThrow(/presenter-only/);
+      await expect(visitor.mutation(api.seed.resetDemo, { presenterKey: "guess" })).rejects.toThrow(/presenter-only/);
+      await expect(visitor.mutation(api.seed.resetDemo, { presenterKey: "stage-secret" })).resolves.toMatchObject({ companies: 8 });
+    } finally {
+      delete process.env.PRESENTER_KEY;
+    }
+  });
+
   test("a reset too big for one transaction finishes in follow-up runs", async () => {
     vi.useFakeTimers();
     const { t } = await seeded();
@@ -795,6 +809,28 @@ describe("POST /incident", () => {
       ctx.db.query("incidents").withIndex("by_externalId", (q) => q.eq("externalId", "armadin:ARM-2026-0412")).unique(),
     );
     expect(incident?.finding).toMatchObject({ findingId: "ARM-2026-0412", technique: { id: "T1078", name: "Valid Accounts" } });
+  });
+
+  test("with a presenter key set, the unsigned stage Fire needs it; signed senders don't", async () => {
+    const { t } = await seeded();
+    process.env.DEMO_MODE = "true";
+    process.env.PRESENTER_KEY = "stage-secret";
+    process.env.INCIDENT_WEBHOOK_SECRET = "test-secret";
+    try {
+      const res = await post(t, BRIGHTLINE);
+      expect(res.status).toBe(401);
+      expect(await res.json()).toMatchObject({ error: expect.stringMatching(/presenter-only/) });
+      const presenter = await t.fetch("/incident", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Sidecall-Presenter": "stage-secret" },
+        body: JSON.stringify(BRIGHTLINE),
+      });
+      expect(presenter.status).toBe(200);
+      const body = { externalId: "real-sender-1", assetName: "Keystone SSO" };
+      expect((await post(t, body, await sign("test-secret", body))).status).toBe(200);
+    } finally {
+      delete process.env.PRESENTER_KEY;
+    }
   });
 
   test("an unsigned demo request runs the stored scenario, never the body's own finding", async () => {

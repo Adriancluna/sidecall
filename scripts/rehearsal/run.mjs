@@ -5,6 +5,7 @@
 //
 //   node scripts/rehearsal/run.mjs                       # your dev deployment (.env.local)
 //   node scripts/rehearsal/run.mjs --url https://<prod>.convex.cloud   # e.g. production, before judging
+//   PRESENTER_KEY=... node scripts/rehearsal/run.mjs --url ...         # where the presenter lock is on
 //
 // Exit code 0 = every beat passed.
 import { readFileSync } from "node:fs";
@@ -35,6 +36,7 @@ function deploymentUrl() {
 }
 
 const cloud = deploymentUrl().replace(/\/$/, "");
+const PRESENTER_KEY = process.env.PRESENTER_KEY ?? "";
 const site = cloud.replace(/\.convex\.cloud$/, ".convex.site");
 
 async function call(kind, path, args = {}, token) {
@@ -69,7 +71,10 @@ async function signIn(email) {
 async function postIncident(body = BRIGHTLINE) {
   const res = await fetch(`${site}/incident`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(PRESENTER_KEY ? { "X-Sidecall-Presenter": PRESENTER_KEY } : {}),
+    },
     body: JSON.stringify(body),
   });
   return { status: res.status, body: await res.json() };
@@ -84,7 +89,7 @@ const dollars = (cents) => `$${(cents / 100).toLocaleString("en-US")}`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function reset() {
-  await mutation("seed:resetDemo", {}, await signIn(EMAIL.jamie));
+  await mutation("seed:resetDemo", PRESENTER_KEY ? { presenterKey: PRESENTER_KEY } : {}, await signIn(EMAIL.jamie));
 }
 
 console.log(`Rehearsal against ${cloud}\n`);

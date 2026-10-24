@@ -1,7 +1,7 @@
 Vendor ID,Invoice No,Description,Amount Due,Due Date
-V-100,INV-88213,November payroll funding,"$64,000.00",2026-10-26
-V-100,INV-88219,Payroll processing fees,"$2,400.00",2026-10-30
-V-110,IC-5521,"Managed IT retainer, November","$8,500.00",2026-11-01
-V-130,NW-20931,Orthopedic implant restock,"$23,400.00",2026-10-29
-V-140,CL-778,"Linen service, October","$3,150.00",2026-11-05
-V-120,RM-1102,Email hosting (annual),"$1,200.00",2026-11-15
+V-100,INV-88213,November payroll funding,"$64,000.00",2026-10-31
+V-100,INV-88219,Payroll processing fees,"$2,400.00",2026-11-04
+V-110,IC-5521,"Managed IT retainer, November","$8,500.00",2026-11-06
+V-130,NW-20931,Orthopedic implant restock,"$23,400.00",2026-11-03
+V-140,CL-778,"Linen service, October","$3,150.00",2026-11-10
+V-120,RM-1102,Email hosting (annual),"$1,200.00",2026-11-20
