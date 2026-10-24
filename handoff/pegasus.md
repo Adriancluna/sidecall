@@ -1,10 +1,11 @@
 # Pegasus: response resilience + payment investigation
-Last updated: 2026-10-24 15:25 PDT by Pegasus
+Last updated: 2026-10-24 15:27 PDT by Pegasus
 
 ## Status
 - Ashwa requested integration while keeping Hyphenate and Armadin, including resistance to repeated alerts disrupting business.
-- Delivery: PR #103 (https://github.com/Adriancluna/sidecall/pull/103), `feat/pegasus-resilience`; integrated current main `615713d` and resolved #98's EvidencePanel overlap. This handoff accompanies the tested application changes for normal merge/deployment.
+- Delivered: PR #103 (https://github.com/Adriancluna/sidecall/pull/103) merged as `1a5706f`; #98's EvidencePanel overlap is resolved. Vercel production deployment `dpl_7PTibytEargWJowvRJxvUu2jDkkS` is READY, and its logs confirm successful production Convex deployment/schema validation.
 - GitHub push, Adrian's existing Vercel team/project, and Convex project access work. No ownership transfer is needed.
+- Production smoke check: signed in to https://sidecall.vercel.app as Jordan; investigation, queue export and safety panels load against the existing data. No incident fired, payment changed or reset run on production.
 - Own isolated DEV: `adriancluna23:sidecall:dev/pegasus-integration` (`tangible-koala-842`). Actual Convex deploy/codegen, demo auth and seeding succeeded; no production reset performed.
 - Validation: 95 app/backend tests + 40 prompt/scorecard tests (135 total), ESLint, app/backend typechecks, build, full live demo rehearsal and signed-in browser investigation/safety checks passed.
 - Live HTTP abuse check: 100 distinct weak-report IDs → one observation, unchanged payment queue/deadline; confirmed evidence → expected scoped hold; ten repeated confirmed IDs preserved the controller release/deadline.
@@ -29,4 +30,4 @@ Last updated: 2026-10-24 15:25 PDT by Pegasus
 - Repetition never upgrades confidence or renews review deadlines; deadline expiry escalates without releasing money/restoring access.
 - This limits repeated business side effects, not network floods; per-source credentials/ingress limits remain deployment work.
 - DEV has DEMO_MODE and RESPONSE_SANDBOX enabled; temporary detector/signing settings were removed after the HTTP test. Never reset another contributor's database or production to rehearse.
-- No live external IdP integration or live model extraction is claimed. Production release health is the Vercel/Convex pipeline on the PR's main merge, not inferred from DEV success.
+- No live external IdP integration or live model extraction is claimed. Production deployment and read-only screens are verified; destructive/payment/response rehearsals ran only on Pegasus DEV.
