@@ -12,6 +12,7 @@ import { SignInScreen } from "./auth/SignInScreen";
 import { PresenterPanel } from "./demo/PresenterPanel";
 import { IS_STAGE } from "./demo/stage";
 import { AppShell } from "./layout/AppShell";
+import { ErrorBoundary } from "./layout/ErrorBoundary";
 import { CompanyView } from "./panels/CompanyView";
 import { PortfolioView } from "./panels/PortfolioView";
 import { Empty } from "./panels/ui";
@@ -53,7 +54,9 @@ export default function App() {
         <SignInScreen />
       </Unauthenticated>
       <Authenticated>
-        <SignedIn />
+        <ErrorBoundary>
+          <SignedIn />
+        </ErrorBoundary>
       </Authenticated>
       {IS_STAGE && <PresenterPanel />}
     </>

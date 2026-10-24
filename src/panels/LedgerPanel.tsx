@@ -34,41 +34,43 @@ export function LedgerPanel() {
       {!ledger?.entries.length ? (
         <Empty>{ledger === undefined ? "Loading…" : "No entries."}</Empty>
       ) : (
-        <table className="w-full text-sm">
-          <thead className="text-left text-xs text-ash">
-            <tr>
-              <th className="py-1 font-medium">Date</th>
-              <th className="py-1 font-medium">Memo</th>
-              <th className="py-1 font-medium">Account</th>
-              <th className="py-1 text-right font-medium">Debit</th>
-              <th className="py-1 text-right font-medium">Credit</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ledger.entries.flatMap((e) =>
-              e.lines.map((l, i) => (
-                <tr
-                  key={`${e._id}-${i}`}
-                  className={i === 0 ? "border-t border-line" : ""}
-                >
-                  <td className="py-1 text-ash">
-                    {i === 0 ? dateTime(e.date) : ""}
-                  </td>
-                  <td className="py-1">{i === 0 ? e.memo : ""}</td>
-                  <td className={`py-1 ${l.creditCents ? "pl-4" : ""}`}>
-                    {ACCOUNT_LABEL[l.account]}
-                  </td>
-                  <td className="py-1 text-right tabular-nums">
-                    {l.debitCents ? money(l.debitCents) : ""}
-                  </td>
-                  <td className="py-1 text-right tabular-nums">
-                    {l.creditCents ? money(l.creditCents) : ""}
-                  </td>
-                </tr>
-              )),
-            )}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-sm">
+            <thead className="text-left text-xs text-ash">
+              <tr>
+                <th className="py-1 font-medium">Date</th>
+                <th className="py-1 font-medium">Memo</th>
+                <th className="py-1 font-medium">Account</th>
+                <th className="py-1 text-right font-medium">Debit</th>
+                <th className="py-1 text-right font-medium">Credit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ledger.entries.flatMap((e) =>
+                e.lines.map((l, i) => (
+                  <tr
+                    key={`${e._id}-${i}`}
+                    className={i === 0 ? "border-t border-line" : ""}
+                  >
+                    <td className="py-1 text-ash">
+                      {i === 0 ? dateTime(e.date) : ""}
+                    </td>
+                    <td className="py-1">{i === 0 ? e.memo : ""}</td>
+                    <td className={`py-1 ${l.creditCents ? "pl-4" : ""}`}>
+                      {ACCOUNT_LABEL[l.account]}
+                    </td>
+                    <td className="py-1 text-right tabular-nums">
+                      {l.debitCents ? money(l.debitCents) : ""}
+                    </td>
+                    <td className="py-1 text-right tabular-nums">
+                      {l.creditCents ? money(l.creditCents) : ""}
+                    </td>
+                  </tr>
+                )),
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </Card>
   );

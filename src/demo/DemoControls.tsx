@@ -2,6 +2,7 @@
 import { useMutation } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
+import { friendlyError } from "../layout/errors";
 import { IS_STAGE } from "./stage";
 
 // Mirrors SCENARIOS.brightline in convex/seed.ts (not imported: that file is server code).
@@ -55,9 +56,7 @@ export function DemoControls() {
     try {
       setStatus(`${label}: ${await action()}`);
     } catch (err) {
-      setStatus(
-        `${label} failed: ${err instanceof Error ? err.message : "unknown error"}`,
-      );
+      setStatus(`${label} failed: ${friendlyError(err)}`);
     } finally {
       setBusy(false);
     }

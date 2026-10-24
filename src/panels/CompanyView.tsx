@@ -2,6 +2,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
+import { friendlyError } from "../layout/errors";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { AcknowledgedBy } from "./AcknowledgedBy";
 import { ControlsLogPanel } from "./ControlsLogPanel";
@@ -99,9 +100,7 @@ function AlertItem({ exposure, alert }: AlertItemProps) {
           : `Not ${action === "acknowledge" ? "acknowledged" : "closed"}: ${res.reason.replace(/_/g, " ")}`,
       );
     } catch (err) {
-      setMessage(
-        err instanceof Error ? err.message : "Something went wrong. Try again.",
-      );
+      setMessage(friendlyError(err));
     } finally {
       setBusy(false);
     }

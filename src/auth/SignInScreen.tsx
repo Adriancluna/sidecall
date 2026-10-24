@@ -38,7 +38,7 @@ export function SignInScreen() {
   };
 
   return (
-    <main className="mx-auto grid min-h-screen max-w-5xl content-center gap-8 px-6 py-12 lg:grid-cols-[320px_1fr]">
+    <main className="mx-auto grid min-h-screen max-w-5xl content-center gap-8 px-4 py-12 md:px-6 lg:grid-cols-[320px_1fr]">
       <section>
         <img
           src={logoUrl}
