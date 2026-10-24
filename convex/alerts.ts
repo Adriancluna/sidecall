@@ -107,7 +107,7 @@ export const getWritingContext = internalQuery({
 
 // A company's own alerts.
 export const getMyAlerts = query({
-  args: { actingUserId: v.id("users") },
+  args: { actingUserId: v.optional(v.id("users")) },
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx, args.actingUserId);
     if (viewer.firm) return [];
@@ -121,7 +121,7 @@ export const getMyAlerts = query({
 
 // PE firm view: every alert for an incident, including the vendor letter.
 export const getIncidentAlerts = query({
-  args: { incidentId: v.id("incidents"), actingUserId: v.id("users") },
+  args: { incidentId: v.id("incidents"), actingUserId: v.optional(v.id("users")) },
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx, args.actingUserId);
     if (!viewer.firm) return [];

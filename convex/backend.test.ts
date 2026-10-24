@@ -239,6 +239,28 @@ describe("scoping", () => {
   });
 });
 
+describe("identity", () => {
+  test("signed-out calls with no actingUserId are refused", async () => {
+    const { t } = await seeded();
+    await expect(t.query(api.blastRadius.getMyExposures, {})).rejects.toThrow(/Not signed in/);
+  });
+
+  test("a signed-in session beats a spoofed actingUserId", async () => {
+    const { t, fire, userId } = await seeded();
+    await fire();
+    const clerk = await userId("Jamie Chen");
+    // Convex Auth puts "<userId>|<sessionId>" in the JWT subject.
+    const asClerk = t.withIdentity({ subject: `${clerk}|session` });
+    const [row] = await asClerk.query(api.payments.getHeldPayments, {});
+    const result = await asClerk.mutation(api.payments.releasePayment, {
+      paymentId: row.payment._id,
+      actingUserId: await userId("Rosa Alvarez"), // claims to be the controller
+      verificationNote: "spoof",
+    });
+    expect(result).toMatchObject({ ok: false, reason: expect.stringMatching(/requested/) });
+  });
+});
+
 // Tests set the deployment env var directly; convex-test exposes process.env as the typed env.
 /* eslint-disable @convex-dev/no-process-env */
 describe("demo reset", () => {

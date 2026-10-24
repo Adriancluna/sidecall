@@ -13,7 +13,14 @@ import { recordIncidentImpl } from "./incidents";
 const DAY = 24 * 60 * 60 * 1000;
 const usd = (dollars: number) => Math.round(dollars * 100);
 
+// Auth tables are cleared too: their rows point at users that a reseed replaces.
 const TABLES: TableNames[] = [
+  "authSessions",
+  "authRefreshTokens",
+  "authAccounts",
+  "authVerificationCodes",
+  "authVerifiers",
+  "authRateLimits",
   "auditLog",
   "ledgerEntries",
   "alerts",
@@ -124,6 +131,10 @@ const PAYMENTS: {
 
 const OPENING_CASH = usd(5_000_000);
 
+// "Jamie Chen" at summithomehealth.example -> jamie.chen@summithomehealth.example
+const demoEmail = (name: string, domain: string) =>
+  `${name.toLowerCase().replace(/[^a-z ]/g, "").trim().replace(/\s+/g, ".")}@${domain}`;
+
 export const SCENARIOS = {
   brightline: {
     externalId: "demo-brightline-001",
@@ -182,11 +193,33 @@ async function seedAll(ctx: MutationCtx) {
 
   const clerkIds = {} as Record<CompanyKey, Id<"users">>;
   for (const [key, people] of Object.entries(USERS) as [CompanyKey, (typeof USERS)[CompanyKey]][]) {
-    clerkIds[key] = await ctx.db.insert("users", { companyId: companyIds[key], name: people.clerk, role: "ap_clerk" });
-    await ctx.db.insert("users", { companyId: companyIds[key], name: people.controller, role: "controller" });
-    if (people.it) await ctx.db.insert("users", { companyId: companyIds[key], name: people.it, role: "it" });
+    const domain = COMPANIES[key].domain;
+    clerkIds[key] = await ctx.db.insert("users", {
+      companyId: companyIds[key],
+      name: people.clerk,
+      role: "ap_clerk",
+      email: demoEmail(people.clerk, domain),
+    });
+    await ctx.db.insert("users", {
+      companyId: companyIds[key],
+      name: people.controller,
+      role: "controller",
+      email: demoEmail(people.controller, domain),
+    });
+    if (people.it) {
+      await ctx.db.insert("users", {
+        companyId: companyIds[key],
+        name: people.it,
+        role: "it",
+        email: demoEmail(people.it, domain),
+      });
+    }
   }
-  await ctx.db.insert("users", { name: "Jordan Ames (Northpass Capital)", role: "pe_partner" });
+  await ctx.db.insert("users", {
+    name: "Jordan Ames (Northpass Capital)",
+    role: "pe_partner",
+    email: "jordan.ames@northpasscapital.example",
+  });
 
   for (const change of BANK_CHANGES) {
     await ctx.db.insert("bankDetailChanges", {

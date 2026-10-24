@@ -143,25 +143,25 @@ async function checkDecision(
   return { ok: false, reason };
 }
 
-// TODO(auth): drop actingUserId and derive the user from ctx.auth once login lands.
 export const releasePayment = mutation({
   args: {
     paymentId: v.id("payments"),
-    actingUserId: v.id("users"),
+    actingUserId: v.optional(v.id("users")),
     verificationNote: v.string(),
   },
   handler: async (ctx, args): Promise<Decision> => {
     const payment = await ctx.db.get("payments", args.paymentId);
     if (!payment) return { ok: false, reason: "Payment not found." };
 
-    const check = await checkDecision(ctx, payment, args.actingUserId, "release");
+    const actor = (await getViewer(ctx, args.actingUserId)).user._id;
+    const check = await checkDecision(ctx, payment, actor, "release");
     if (!check.ok) return check;
 
     const note = args.verificationNote.trim();
     if (note.length === 0) {
       await ctx.db.insert("auditLog", {
         at: Date.now(),
-        actor: args.actingUserId,
+        actor,
         action: "refused",
         companyId: payment.companyId,
         paymentId: payment._id,
@@ -175,7 +175,7 @@ export const releasePayment = mutation({
     const now = Date.now();
     await ctx.db.patch("payments", payment._id, {
       status: "paid",
-      approvedBy: args.actingUserId,
+      approvedBy: actor,
       verificationNote: note,
       decidedAt: now,
     });
@@ -192,7 +192,7 @@ export const releasePayment = mutation({
     });
     await ctx.db.insert("auditLog", {
       at: now,
-      actor: args.actingUserId,
+      actor,
       action: "release",
       companyId: payment.companyId,
       paymentId: payment._id,
@@ -207,27 +207,28 @@ export const releasePayment = mutation({
 export const rejectPayment = mutation({
   args: {
     paymentId: v.id("payments"),
-    actingUserId: v.id("users"),
+    actingUserId: v.optional(v.id("users")),
     note: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<Decision> => {
     const payment = await ctx.db.get("payments", args.paymentId);
     if (!payment) return { ok: false, reason: "Payment not found." };
 
-    const check = await checkDecision(ctx, payment, args.actingUserId, "reject");
+    const actor = (await getViewer(ctx, args.actingUserId)).user._id;
+    const check = await checkDecision(ctx, payment, actor, "reject");
     if (!check.ok) return check;
 
     const now = Date.now();
     await ctx.db.patch("payments", payment._id, {
       status: "rejected",
-      approvedBy: args.actingUserId,
+      approvedBy: actor,
       verificationNote: args.note,
       decidedAt: now,
     });
     // No ledger entry: the bill stays in accounts payable, cash never moves.
     await ctx.db.insert("auditLog", {
       at: now,
-      actor: args.actingUserId,
+      actor,
       action: "reject",
       companyId: payment.companyId,
       paymentId: payment._id,
@@ -243,7 +244,7 @@ export const rejectPayment = mutation({
 // Company users only ever get their own company's rows. Never includes who reported the incident.
 export const getHeldPayments = query({
   args: {
-    actingUserId: v.id("users"),
+    actingUserId: v.optional(v.id("users")),
     incidentId: v.optional(v.id("incidents")),
     companyId: v.optional(v.id("companies")), // firm only; company users are pinned to their own
   },
@@ -315,7 +316,7 @@ export const getHeldPayments = query({
 });
 
 export const getPaymentAudit = query({
-  args: { paymentId: v.id("payments"), actingUserId: v.id("users") },
+  args: { paymentId: v.id("payments"), actingUserId: v.optional(v.id("users")) },
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx, args.actingUserId);
     const payment = await ctx.db.get("payments", args.paymentId);
@@ -329,7 +330,7 @@ export const getPaymentAudit = query({
 
 export const getLedger = query({
   args: {
-    actingUserId: v.id("users"),
+    actingUserId: v.optional(v.id("users")),
     companyId: v.optional(v.id("companies")), // firm only; company users get their own
   },
   handler: async (ctx, args) => {

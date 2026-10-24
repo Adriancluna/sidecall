@@ -11,6 +11,7 @@
 import type * as access from "../access.js";
 import type * as ai from "../ai.js";
 import type * as alerts from "../alerts.js";
+import type * as auth from "../auth.js";
 import type * as blastRadius from "../blastRadius.js";
 import type * as http from "../http.js";
 import type * as incidents from "../incidents.js";
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   access: typeof access;
   ai: typeof ai;
   alerts: typeof alerts;
+  auth: typeof auth;
   blastRadius: typeof blastRadius;
   http: typeof http;
   incidents: typeof incidents;
