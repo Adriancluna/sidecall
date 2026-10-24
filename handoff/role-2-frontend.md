@@ -28,10 +28,11 @@ Last updated: Oct 23, 21:03 by Marco's Claude
 - ✓ Thanks Role 1 for #48 (Role 3/4 briefs now in `handoff/`, match `main`).
 
 ## In progress
-1. Round 3 done. Next: update `docs/` once Roles 3/4 land; new asks from Role 1.
+1. Rounds 1–4 done. Next: update `docs/` once Roles 3/4 land (map, AI text, scorecard, `dns_findings.json` for the Proof panel); new asks from Role 1.
 
 ## Needs from others
 - (none right now)
+
 ## Decisions & gotchas
 - Sign-in is invite-only (backend). The demo password `sidecall-demo` is shown on the sign-in screen on purpose: every person is simulated and judges need to switch roles. The form path sets the password on a person's first sign-in, so typing any other password the first time locks that person to it until a Reset; the quick-pick always uses the demo password.
 - Presenter flow: open `/?stage`, Reset, then sign in as Jamie Chen ("start here").
