@@ -4,7 +4,6 @@ import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
-import { useCurrentUser, type CurrentUser } from "../auth/currentUser";
 import { dateTime, money } from "./format";
 import type { HeldPaymentRow } from "./types";
 import { Chip } from "./ui";
@@ -19,25 +18,19 @@ const STATUS_TONE = {
 
 type Props = {
   row: HeldPaymentRow;
-  actingUser?: CurrentUser;
   canDecide: boolean;
 };
 
-export function PaymentCard({ row, actingUser, canDecide }: Props) {
+export function PaymentCard({ row, canDecide }: Props) {
   const { payment } = row;
-  const viewer = useCurrentUser();
   const release = useMutation(api.payments.releasePayment);
   const reject = useMutation(api.payments.rejectPayment);
-  const audit = useQuery(
-    api.payments.getPaymentAudit,
-    viewer ? { paymentId: payment._id, actingUserId: viewer._id } : "skip",
-  );
+  const audit = useQuery(api.payments.getPaymentAudit, {
+    paymentId: payment._id,
+  });
   // Audit rows carry ids; resolve who acted and which incident for the reader.
   const users = useQuery(api.blastRadius.listUsers, {});
-  const incidents = useQuery(
-    api.blastRadius.listIncidents,
-    viewer ? { actingUserId: viewer._id } : "skip",
-  );
+  const incidents = useQuery(api.blastRadius.listIncidents, {});
   const actorName = (actor: Doc<"auditLog">["actor"]) =>
     actor === "system"
       ? "System"
@@ -51,11 +44,10 @@ export function PaymentCard({ row, actingUser, canDecide }: Props) {
   const [refusal, setRefusal] = useState<string>();
 
   const decide = async (action: "release" | "reject") => {
-    if (!actingUser) return;
     setBusy(true);
     setRefusal(undefined);
     try {
-      const args = { paymentId: payment._id, actingUserId: actingUser._id };
+      const args = { paymentId: payment._id };
       const trimmed = note.trim();
       const res =
         action === "release"
