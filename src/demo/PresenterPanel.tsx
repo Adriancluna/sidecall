@@ -3,12 +3,9 @@
 import { useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
-import { useSwitchTo } from "../auth/useSignInAs";
+import { DEMO_START_EMAIL, useSwitchTo } from "../auth/useSignInAs";
 
-const JAMIE = {
-  name: "Jamie Chen",
-  email: "jamie.chen@summithomehealth.example",
-};
+const JAMIE = { name: "Jamie Chen", email: DEMO_START_EMAIL };
 const ROSA = {
   name: "Rosa Alvarez",
   email: "rosa.alvarez@summithomehealth.example",

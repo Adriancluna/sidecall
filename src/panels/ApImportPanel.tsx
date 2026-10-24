@@ -11,6 +11,7 @@ import { DEMO_PASSWORD } from "../auth/useSignInAs";
 import { friendlyError } from "../layout/errors";
 import { money } from "./format";
 import { Card, Chip, Empty } from "./ui";
+import { BUTTON_PRIMARY, BUTTON_SECONDARY, FIELD } from "./styles";
 
 type Result = FunctionReturnType<typeof api.imports.importPortfolioCompany>;
 type Files = { vendorsCsv: string; billsCsv: string };
@@ -24,23 +25,19 @@ const SAMPLE_COMPANY = {
   controllerName: "Daniel Okoro",
 };
 
-const field =
-  "w-full rounded-md border border-line bg-graphite px-2 py-1.5 text-sm text-paper";
-
 export function ApImportPanel() {
   const [files, setFiles] = useState<Partial<Files>>({});
   const [company, setCompany] = useState(SAMPLE_COMPANY);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [result, setResult] = useState<Result>();
-  const [usingSample, setUsingSample] = useState(false);
   const importCompany = useMutation(api.imports.importPortfolioCompany);
-  const ready = files.vendorsCsv !== undefined && files.billsCsv !== undefined;
+  const { vendorsCsv, billsCsv } = files;
+  const ready = vendorsCsv !== undefined && billsCsv !== undefined;
+  const usingSample = vendorsCsv === sampleVendors && billsCsv === sampleBills;
   const preview = useQuery(
     api.imports.previewApImport,
-    ready
-      ? { vendorsCsv: files.vendorsCsv!, billsCsv: files.billsCsv! }
-      : "skip",
+    ready ? { vendorsCsv, billsCsv } : "skip",
   );
 
   const readFile =
@@ -49,7 +46,6 @@ export function ApImportPanel() {
       if (!file) return;
       const text = await file.text();
       setFiles((f) => ({ ...f, [key]: text }));
-      setUsingSample(false);
       setResult(undefined);
     };
 
@@ -62,8 +58,8 @@ export function ApImportPanel() {
     try {
       setResult(
         await importCompany({
-          vendorsCsv: files.vendorsCsv!,
-          billsCsv: files.billsCsv!,
+          vendorsCsv,
+          billsCsv,
           company: { ...company, headcount: Number(company.headcount) },
         }),
       );
@@ -84,7 +80,7 @@ export function ApImportPanel() {
         inputMode={key === "headcount" ? "numeric" : undefined}
         value={company[key]}
         onChange={(e) => setCompany({ ...company, [key]: e.target.value })}
-        className={`${field} mt-1`}
+        className={`${FIELD} mt-1 w-full`}
       />
     </label>
   );
@@ -121,10 +117,9 @@ export function ApImportPanel() {
             onClick={() => {
               setFiles({ vendorsCsv: sampleVendors, billsCsv: sampleBills });
               setCompany(SAMPLE_COMPANY);
-              setUsingSample(true);
               setResult(undefined);
             }}
-            className="rounded-md border border-line px-3 py-1.5 text-sm hover:border-ash"
+            className={BUTTON_SECONDARY}
           >
             Use sample files
           </button>
@@ -149,7 +144,7 @@ export function ApImportPanel() {
         <button
           type="submit"
           disabled={!ready || busy || preview === null}
-          className="rounded-md bg-amber px-3 py-1.5 text-sm font-semibold text-graphite hover:bg-amber/90 disabled:opacity-50"
+          className={BUTTON_PRIMARY}
         >
           {busy ? "Importing…" : "Import"}
         </button>

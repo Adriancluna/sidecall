@@ -3,7 +3,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { Component, useEffect, type ReactNode } from "react";
 import { Card } from "../panels/ui";
-import { SESSION_ENDED, friendlyError } from "./errors";
+import { isSessionEnded, friendlyError } from "./errors";
 
 type State = { error: unknown };
 
@@ -21,8 +21,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
   render() {
     const { error } = this.state;
     if (error === null) return this.props.children;
-    const message = error instanceof Error ? error.message : "";
-    return SESSION_ENDED.test(message) ? (
+    return isSessionEnded(error) ? (
       <SessionEnded />
     ) : (
       <Notice text={friendlyError(error)} reload />

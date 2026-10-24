@@ -3,6 +3,8 @@ import { useConvexAuth } from "convex/react";
 
 // Shared password for the seeded demo users (CONTRACT.md "Sign-in"). Simulated people only.
 export const DEMO_PASSWORD = "sidecall-demo";
+// The demo opens on the money moment: the AP clerk who requested the $480K payment (convex/seed.ts).
+export const DEMO_START_EMAIL = "jamie.chen@summithomehealth.example";
 
 // First sign-in for an email has to create the password account, so fall back to signUp.
 // The backend is invite-only: an email that isn't a seeded user is refused either way.

@@ -5,6 +5,7 @@ import type { FunctionReturnType } from "convex/server";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { Card, Empty } from "./ui";
+import { humanize } from "./format";
 
 function duration(ms: number): string {
   if (ms < 1000) return `${Math.max(0, Math.round(ms))} ms`;
@@ -70,7 +71,7 @@ export function TimelinePanel({ incidentId }: { incidentId: Id<"incidents"> }) {
                 +{duration(e.at - start)}
               </span>
               <span className="w-28 shrink-0 font-mono text-xs">
-                {e.kind.replace(/_/g, " ")}
+                {humanize(e.kind)}
               </span>
               <span className="min-w-0 flex-1">
                 {e.companyName && (

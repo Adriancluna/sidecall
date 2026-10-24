@@ -11,11 +11,12 @@ import { ApImportPanel } from "./ApImportPanel";
 import { ContainPanel } from "./ContainPanel";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
+import { EXPOSURE_STATUS, PAYMENT_STATUS, URGENCY } from "./labels";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { ProofPanel } from "./ProofPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { VendorLetterActions } from "./VendorLetterActions";
-import { Card, Chip, Empty } from "./ui";
+import { Card, Chip, Empty, LookChip } from "./ui";
 
 export function PortfolioView() {
   const incidents = useQuery(api.blastRadius.listIncidents, {});
@@ -55,15 +56,15 @@ export function PortfolioView() {
   if (!blast) return <Empty>Loading…</Empty>;
 
   const { incident, totals } = blast;
-  const current = incidents.find((i) => i._id === incident._id);
-  const selectedNode = blast.nodes.find((n) => n.companyId === selected);
+  const nodeById = new Map(blast.nodes.map((n) => [n.companyId, n]));
+  const nodeFor = (companyId?: Id<"companies">) =>
+    companyId ? nodeById.get(companyId) : undefined;
+  const selectedNode = nodeFor(selected);
   const selectedHeld = held?.filter((r) => r.payment.companyId === selected);
   // The headline counts money still held; show what controllers have released since.
   const releasedCents = (held ?? [])
     .filter((r) => r.decision?.status === "paid")
     .reduce((sum, r) => sum + r.payment.amountCents, 0);
-  const nodeFor = (companyId?: Id<"companies">) =>
-    blast.nodes.find((n) => n.companyId === companyId);
   // Tailored company alerts, most urgent first (the AI writes; scoring decides urgency).
   const companyAlerts = (alerts ?? [])
     .filter((a) => a.kind === "company_alert")
@@ -94,7 +95,7 @@ export function PortfolioView() {
           </label>
         )}
         <p className="text-sm text-ash">
-          {current?.containedAt != null && (
+          {incident.containedAt !== undefined && (
             <span className="mr-2 inline-block align-middle">
               <Chip tone="ok">Contained</Chip>
             </span>
@@ -149,12 +150,8 @@ export function PortfolioView() {
                         {money(r.payment.amountCents)}
                       </span>
                       <span className="flex gap-1">
-                        {r.bankChange && <Chip tone="danger">bank change</Chip>}
-                        <Chip
-                          tone={r.payment.status === "held" ? "amber" : "muted"}
-                        >
-                          {r.payment.status}
-                        </Chip>
+                        {r.bankChange && <Chip tone="danger">Bank change</Chip>}
+                        <LookChip look={PAYMENT_STATUS[r.payment.status]} />
                       </span>
                     </li>
                   ))}
@@ -175,17 +172,15 @@ export function PortfolioView() {
               >
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span className="font-medium">{node?.name}</span>
-                  {node?.urgency && (
-                    <Chip tone={node.urgency === "urgent" ? "danger" : "amber"}>
-                      {node.urgency}
-                    </Chip>
+                  {node?.urgency && <LookChip look={URGENCY[node.urgency]} />}
+                  {node?.status && (
+                    <Chip tone="muted">{EXPOSURE_STATUS[node.status]}</Chip>
                   )}
-                  {node?.status && <Chip tone="muted">{node.status}</Chip>}
                   {alert.exposureId && (
                     <ExposureAcknowledgedBy exposureId={alert.exposureId} />
                   )}
                 </div>
-                <p className="text-sm leading-relaxed">
+                <p className="max-w-prose text-sm leading-relaxed">
                   {alert.status === "ready" ? alert.body : "Writing alert…"}
                 </p>
               </li>
@@ -197,7 +192,6 @@ export function PortfolioView() {
       <HeldPaymentsPanel
         title={`Payments held · ${totals.paymentsHeld}`}
         rows={held}
-        canDecide={false}
         intro="The firm sees every hold. Only a controller at the portfolio company can release or reject."
       />
 
@@ -233,7 +227,7 @@ export function PortfolioView() {
       <ContainPanel
         key={incident._id}
         incidentId={incident._id}
-        containedAt={current?.containedAt ?? null}
+        containedAt={incident.containedAt ?? null}
       />
 
       <ProofPanel />

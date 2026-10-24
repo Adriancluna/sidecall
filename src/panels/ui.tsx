@@ -1,5 +1,6 @@
 // Small shared building blocks for the panels.
 import type { ReactNode } from "react";
+import type { Look } from "./labels";
 
 export function Card({
   title,
@@ -27,6 +28,8 @@ export function Card({
   );
 }
 
+export type Tone = keyof typeof TONE;
+
 const TONE = {
   danger: "border-danger/40 bg-danger/10 text-danger",
   amber: "border-amber/40 bg-amber/10 text-amber",
@@ -34,13 +37,7 @@ const TONE = {
   muted: "border-line bg-graphite text-ash",
 } as const;
 
-export function Chip({
-  tone,
-  children,
-}: {
-  tone: keyof typeof TONE;
-  children: ReactNode;
-}) {
+export function Chip({ tone, children }: { tone: Tone; children: ReactNode }) {
   return (
     <span
       className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${TONE[tone]}`}
@@ -48,6 +45,11 @@ export function Chip({
       {children}
     </span>
   );
+}
+
+// A status chip from a labels.ts entry.
+export function LookChip({ look }: { look: Look }) {
+  return <Chip tone={look.tone}>{look.label}</Chip>;
 }
 
 export function Empty({ children }: { children: ReactNode }) {

@@ -8,18 +8,22 @@ import { AcknowledgedBy } from "./AcknowledgedBy";
 import { BillsPanel } from "./BillsPanel";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
+import { EXPOSURE_STATUS, URGENCY } from "./labels";
 import { LedgerPanel } from "./LedgerPanel";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { TimelinePanel } from "./TimelinePanel";
-import { Card, Chip, Empty } from "./ui";
+import { Card, Chip, Empty, LookChip } from "./ui";
+import { humanize } from "./format";
+import { BUTTON_SECONDARY } from "./styles";
 
 type Props = {
   companyId: Id<"companies">;
   meId: Id<"users">;
-  isController: boolean;
+  role: Doc<"users">["role"];
 };
 
-export function CompanyView({ companyId, meId, isController }: Props) {
+export function CompanyView({ companyId, meId, role }: Props) {
+  const isController = role === "controller";
   const company = useQuery(api.blastRadius.listCompanies, {})?.find(
     (c) => c._id === companyId,
   );
@@ -33,8 +37,26 @@ export function CompanyView({ companyId, meId, isController }: Props) {
         : [],
     ),
   );
+  const alertByExposure = new Map(
+    (alerts ?? []).flatMap((a) =>
+      a.kind === "company_alert" && a.exposureId
+        ? [[a.exposureId, a] as const]
+        : [],
+    ),
+  );
   const held = useQuery(api.payments.getHeldPayments, {});
   const latestIncident = useQuery(api.blastRadius.listIncidents, {})?.[0];
+  // Clerks and controllers act on payments, so the decision leads (it's the money moment);
+  // IT acts on alerts, so Acknowledge stays on top and "Decision needed" isn't theirs.
+  const handlesPayments = role === "ap_clerk" || isController;
+  const heldPanel = held && held.length > 0 && (
+    <HeldPaymentsPanel
+      title="Payments held until verified"
+      rows={held}
+      escalations={handlesPayments ? escalations : undefined}
+      viewer={{ id: meId, isController }}
+    />
+  );
 
   return (
     <div className="space-y-6">
@@ -50,16 +72,7 @@ export function CompanyView({ companyId, meId, isController }: Props) {
         )}
       </header>
 
-      {/* The decision comes first: it's the money moment and needs no scrolling. */}
-      {held && held.length > 0 && (
-        <HeldPaymentsPanel
-          title="Payments held until verified"
-          rows={held}
-          escalations={escalations}
-          canDecide
-          viewer={{ id: meId, isController }}
-        />
-      )}
+      {handlesPayments && heldPanel}
 
       <Card title="Alerts">
         {exposures === undefined ? (
@@ -72,15 +85,14 @@ export function CompanyView({ companyId, meId, isController }: Props) {
               <AlertItem
                 key={exposure._id}
                 exposure={exposure}
-                alert={alerts?.find(
-                  (a) =>
-                    a.kind === "company_alert" && a.exposureId === exposure._id,
-                )}
+                alert={alertByExposure.get(exposure._id)}
               />
             ))}
           </div>
         )}
       </Card>
+
+      {!handlesPayments && heldPanel}
 
       <BillsPanel />
 
@@ -121,7 +133,7 @@ function AlertItem({ exposure, alert }: AlertItemProps) {
       setMessage(
         res.ok
           ? undefined
-          : `Not ${action === "acknowledge" ? "acknowledged" : "closed"}: ${res.reason.replace(/_/g, " ")}`,
+          : `Not ${action === "acknowledge" ? "acknowledged" : "closed"}: ${humanize(res.reason)}`,
       );
     } catch (err) {
       setMessage(friendlyError(err));
@@ -130,18 +142,14 @@ function AlertItem({ exposure, alert }: AlertItemProps) {
     }
   };
 
-  const button =
-    "rounded-md border border-line px-3 py-1.5 text-sm hover:border-ash disabled:opacity-50";
   return (
     <article className="rounded-lg border border-line bg-graphite p-4">
       <div className="mb-2 flex items-center gap-2">
-        <Chip tone={exposure.urgency === "urgent" ? "danger" : "amber"}>
-          {exposure.urgency}
-        </Chip>
-        <Chip tone="muted">{exposure.status}</Chip>
+        <LookChip look={URGENCY[exposure.urgency]} />
+        <Chip tone="muted">{EXPOSURE_STATUS[exposure.status]}</Chip>
         <AcknowledgedBy userId={exposure.acknowledgedBy} />
       </div>
-      <p className="text-sm leading-relaxed">
+      <p className="max-w-prose text-sm leading-relaxed">
         {alert?.status === "ready" ? alert.body : "Writing your alert…"}
       </p>
       {exposure.status !== "closed" && (
@@ -151,7 +159,7 @@ function AlertItem({ exposure, alert }: AlertItemProps) {
               type="button"
               disabled={busy}
               onClick={() => void change("acknowledge")}
-              className={button}
+              className={BUTTON_SECONDARY}
             >
               Acknowledge
             </button>
@@ -160,7 +168,7 @@ function AlertItem({ exposure, alert }: AlertItemProps) {
             type="button"
             disabled={busy}
             onClick={() => void change("close")}
-            className={button}
+            className={BUTTON_SECONDARY}
           >
             Close
           </button>

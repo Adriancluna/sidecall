@@ -8,7 +8,7 @@ type Finding = {
   record: string;
   evidence: string;
 };
-export type DomainFindings = {
+type DomainFindings = {
   domain: string;
   vendors: { vendor: string; records: string[] }[];
 };

@@ -1,45 +1,35 @@
 // One held payment. Company users see the Release form (the backend refuses the requester and
-// non-controllers, which is demo beat 3); the PE firm only reads (canDecide=false).
+// non-controllers, which is demo beat 3); the PE firm only reads (no viewer).
 // Refusals are expected outcomes (segregation of duties), shown inline, not as errors.
 import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
-import { friendlyError } from "../layout/errors";
+import { refusalOf } from "../layout/errors";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
-import { dateTime, money } from "./format";
+import { dateTime, humanize, money } from "./format";
+import { PAYMENT_STATUS } from "./labels";
 import type { HeldPaymentRow } from "./types";
-import { Chip } from "./ui";
-
-const STATUS_TONE = {
-  held: "amber",
-  paid: "ok",
-  rejected: "danger",
-  pending: "muted",
-  released: "ok",
-} as const;
-
-const STATUS_LABEL = {
-  held: "Held until verified",
-  paid: "Released",
-  rejected: "Rejected",
-  pending: "Pending",
-  released: "Released",
-} as const;
+import { LookChip } from "./ui";
+import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "./styles";
 
 // Who is looking, so the instructions address the right person (the backend enforces the rules).
 export type Viewer = { id: Id<"users">; isController: boolean };
 
 type Props = {
   row: HeldPaymentRow;
-  canDecide: boolean;
   escalation?: string;
   viewer?: Viewer;
 };
 
 const HOUR = 3_600_000;
 
-export function PaymentCard({ row, canDecide, escalation, viewer }: Props) {
+export function PaymentCard({ row, escalation, viewer }: Props) {
   const { payment } = row;
+  const canDecide = viewer !== undefined;
+  // Mirrors the backend rule (controller, not the requester) only to word the card and skip a
+  // pointless dialog; releasePayment/rejectPayment still enforce it.
+  const isRequester = viewer?.id === payment.requestedBy;
+  const isDecider = viewer?.isController === true && !isRequester;
   const release = useMutation(api.payments.releasePayment);
   const reject = useMutation(api.payments.rejectPayment);
   const audit = useQuery(api.payments.getPaymentAudit, {
@@ -54,34 +44,32 @@ export function PaymentCard({ row, canDecide, escalation, viewer }: Props) {
   // Captured once: "due in about N hours" doesn't need to tick.
   const [now] = useState(() => Date.now());
   const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"release" | "reject">();
   const [refusal, setRefusal] = useState<string>();
 
   const decide = async (action: "release" | "reject") => {
     // Both decisions are final and go on the record: confirm, naming where the money would go.
     const changed = row.bankChange
-      ? `, an account changed by ${row.bankChange.requestChannel.replace("_", " ")} ${row.bankChange.daysBeforeIncident} days before the incident`
+      ? `, an account changed by ${humanize(row.bankChange.requestChannel)} ${row.bankChange.daysBeforeIncident} days before the incident`
       : "";
     const question =
       action === "release"
         ? `Release ${money(payment.amountCents)} to ${row.vendorName} account ••${payment.accountLast4}${changed}?`
         : `Reject the ${money(payment.amountCents)} payment to ${row.vendorName}? This is final.`;
-    if (!window.confirm(question)) return;
-    setBusy(true);
+    // Everyone else goes straight to the backend's refusal (demo beat 3), with no dialog.
+    if (isDecider && !window.confirm(question)) return;
+    setBusy(action);
     setRefusal(undefined);
-    try {
-      const args = { paymentId: payment._id };
-      const trimmed = note.trim();
-      const res =
+    const args = { paymentId: payment._id };
+    const trimmed = note.trim();
+    setRefusal(
+      await refusalOf(() =>
         action === "release"
-          ? await release({ ...args, verificationNote: trimmed })
-          : await reject(trimmed ? { ...args, note: trimmed } : args);
-      if (!res.ok) setRefusal(res.reason);
-    } catch (err) {
-      setRefusal(friendlyError(err));
-    } finally {
-      setBusy(false);
-    }
+          ? release({ ...args, verificationNote: trimmed })
+          : reject(trimmed ? { ...args, note: trimmed } : args),
+      ),
+    );
+    setBusy(undefined);
   };
 
   const isHeld = payment.status === "held";
@@ -95,12 +83,12 @@ export function PaymentCard({ row, canDecide, escalation, viewer }: Props) {
       Waiting on {row.companyName}'s controller to verify by calling {phone},
       the number on file.
     </>
-  ) : viewer?.id === payment.requestedBy ? (
+  ) : isRequester ? (
     <>
       You requested this payment, so a controller must release it after calling{" "}
       {phone}, the number on file.
     </>
-  ) : viewer?.isController ? (
+  ) : isDecider ? (
     <>
       Call {row.vendorName} at {phone}, the number on file, never one from a
       recent email. Then release or reject.
@@ -111,31 +99,38 @@ export function PaymentCard({ row, canDecide, escalation, viewer }: Props) {
       releases or rejects.
     </>
   );
-  const hoursLeft =
-    payment.dueDate === undefined
-      ? undefined
-      : Math.max(0, Math.round((payment.dueDate - now) / HOUR));
+  const msLeft =
+    payment.dueDate === undefined ? undefined : payment.dueDate - now;
+  const hours = msLeft === undefined ? undefined : Math.round(msLeft / HOUR);
+  const dueIn =
+    msLeft === undefined || hours === undefined
+      ? ""
+      : msLeft < HOUR
+        ? " · due within the hour"
+        : ` · due in about ${hours} ${hours === 1 ? "hour" : "hours"}`;
   return (
     <article className="rounded-lg border border-line bg-graphite p-4">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <p className="text-4xl font-semibold tracking-tight tabular-nums md:text-5xl">
+          {/* Big for the person deciding; smaller in the firm's grid so the headline leads. */}
+          <p
+            className={`font-semibold tracking-tight tabular-nums ${viewer ? "text-4xl md:text-5xl" : "text-2xl"}`}
+          >
             {money(payment.amountCents)}
           </p>
           <p className="text-sm text-ash">
-            {row.companyName} → {row.vendorName} · account ••
-            {payment.accountLast4}
+            {row.companyName} → {row.vendorName}
+            {/* With a bank change, the block below already shows the account. */}
+            {!row.bankChange && ` · account ••${payment.accountLast4}`}
           </p>
         </div>
-        <Chip tone={STATUS_TONE[payment.status]}>
-          {STATUS_LABEL[payment.status]}
-        </Chip>
+        <LookChip look={PAYMENT_STATUS[payment.status]} />
       </header>
 
       {escalation && isHeld && (
         <p role="status" className="mt-3 text-sm font-semibold text-amber">
           Decision needed
-          {hoursLeft !== undefined && ` · due in about ${hoursLeft} hours`}
+          {dueIn}
         </p>
       )}
 
@@ -158,16 +153,18 @@ export function PaymentCard({ row, canDecide, escalation, viewer }: Props) {
         <div className="mt-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
           <p className="font-mono text-base">
             {/* "Old" = last account confirmed by phone; fall back to the change before this one. */}
-            ••
-            {row.bankChange.lastVerifiedAccountLast4 ??
-              row.bankChange.previousAccountLast4 ??
-              "????"}{" "}
+            <span className="text-ash">
+              ••
+              {row.bankChange.lastVerifiedAccountLast4 ??
+                row.bankChange.previousAccountLast4 ??
+                "????"}
+            </span>{" "}
             → ••{row.bankChange.accountLast4}
           </p>
           <p className="mt-1">
             Vendor bank details changed {row.bankChange.daysBeforeIncident} days
             before the incident, requested by{" "}
-            {row.bankChange.requestChannel.replace("_", " ")}.
+            {humanize(row.bankChange.requestChannel)}.
             {row.bankChange.lastVerifiedAccountLast4 &&
               ` ••${row.bankChange.lastVerifiedAccountLast4} is the last account confirmed by phone.`}{" "}
             This payment goes to ••{payment.accountLast4}.
@@ -218,19 +215,19 @@ export function PaymentCard({ row, canDecide, escalation, viewer }: Props) {
           <div className="flex gap-2">
             <button
               type="button"
-              disabled={busy || note.trim() === ""}
+              disabled={busy !== undefined || note.trim() === ""}
               onClick={() => void decide("release")}
-              className="rounded-md bg-amber px-3 py-1.5 text-sm font-semibold text-graphite disabled:opacity-50"
+              className={BUTTON_PRIMARY}
             >
-              Release payment
+              {busy === "release" ? "Releasing…" : "Release payment"}
             </button>
             <button
               type="button"
-              disabled={busy}
+              disabled={busy !== undefined}
               onClick={() => void decide("reject")}
-              className="rounded-md border border-line px-3 py-1.5 text-sm hover:border-ash disabled:opacity-50"
+              className={BUTTON_SECONDARY}
             >
-              Reject
+              {busy === "reject" ? "Rejecting…" : "Reject"}
             </button>
           </div>
         </div>

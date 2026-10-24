@@ -6,15 +6,10 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { friendlyError } from "../layout/errors";
 import { money } from "./format";
-import { Card, Chip, Empty } from "./ui";
+import { PAYMENT_STATUS } from "./labels";
+import { Card, Empty, LookChip } from "./ui";
 
-const STATUS = {
-  pending: { tone: "muted", label: "Pending" },
-  held: { tone: "amber", label: "Held until verified" },
-  paid: { tone: "ok", label: "Paid" },
-  released: { tone: "ok", label: "Released" },
-  rejected: { tone: "danger", label: "Rejected" },
-} as const;
+const TEXT_TONE = { amber: "text-amber", danger: "text-danger", ok: "text-ok" };
 
 const shortDate = (ms: number) =>
   new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -52,7 +47,7 @@ type RowProps = {
   vendorName: string;
   amountCents: number;
   dueDate: number;
-  status?: keyof typeof STATUS;
+  status?: keyof typeof PAYMENT_STATUS;
 };
 
 function BillRow({
@@ -96,11 +91,6 @@ function BillRow({
     }
   };
 
-  const textTone = {
-    amber: "text-amber",
-    danger: "text-danger",
-    ok: "text-ok",
-  };
   return (
     <li className="py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -115,7 +105,7 @@ function BillRow({
             {money(amountCents)}
           </span>
           {status ? (
-            <Chip tone={STATUS[status].tone}>{STATUS[status].label}</Chip>
+            <LookChip look={PAYMENT_STATUS[status]} />
           ) : (
             <button
               type="button"
@@ -129,7 +119,7 @@ function BillRow({
         </div>
       </div>
       {result && (
-        <p role="status" className={`mt-2 text-sm ${textTone[result.tone]}`}>
+        <p role="status" className={`mt-2 text-sm ${TEXT_TONE[result.tone]}`}>
           {result.text}
         </p>
       )}

@@ -5,9 +5,11 @@ import { useMutation, useQuery } from "convex/react";
 import { useState, type FormEvent } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { friendlyError } from "../layout/errors";
+import { friendlyError, refusalOf } from "../layout/errors";
 import { dateTime } from "./format";
-import { Card, Chip, Empty } from "./ui";
+import { OUTBOX_STATUS } from "./labels";
+import { Card, Empty, LookChip } from "./ui";
+import { BUTTON_PRIMARY, FIELD } from "./styles";
 
 type Scope = "company" | "firm";
 type Kind = "slack" | "discord" | "webhook";
@@ -17,14 +19,6 @@ const EVENTS: Record<Scope, Event[]> = {
   company: ["alert", "hold", "escalation"],
   firm: ["incident", "contained"],
 };
-
-const STATUS_TONE = {
-  queued: "muted",
-  sending: "muted",
-  simulated: "amber",
-  sent: "ok",
-  failed: "danger",
-} as const;
 
 type Props = {
   scope: Scope;
@@ -42,12 +36,7 @@ export function NotificationsPanel({ scope, canManage, incidentId }: Props) {
     run: () => Promise<{ ok: boolean; reason?: string }>,
     done: string,
   ) => {
-    try {
-      const res = await run();
-      setMessage(res.ok ? done : (res.reason ?? "Refused."));
-    } catch (err) {
-      setMessage(friendlyError(err));
-    }
+    setMessage((await refusalOf(run)) ?? done);
   };
 
   const mine = channels?.filter((c) => c.scope === scope);
@@ -158,8 +147,6 @@ function AddChannel({
     }
   };
 
-  const field =
-    "rounded-md border border-line bg-graphite px-2 py-1.5 text-sm text-paper";
   return (
     <details className="text-sm">
       <summary className="cursor-pointer text-ash">Connect a channel</summary>
@@ -172,7 +159,7 @@ function AddChannel({
             id={`kind-${scope}`}
             value={kind}
             onChange={(e) => setKind(e.target.value as Kind)}
-            className={field}
+            className={FIELD}
           >
             <option value="slack">Slack</option>
             <option value="discord">Discord</option>
@@ -188,7 +175,7 @@ function AddChannel({
             placeholder="#finance-alerts"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            className={`${field} min-w-0 flex-1`}
+            className={`${FIELD} min-w-0 flex-1`}
           />
         </div>
         <label className="sr-only" htmlFor={`url-${scope}`}>
@@ -204,7 +191,7 @@ function AddChannel({
           placeholder="https://hooks.slack.com/services/…"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          className={`${field} w-full`}
+          className={`${FIELD} w-full`}
         />
         <fieldset className="flex flex-wrap gap-3 text-xs text-ash">
           <legend className="sr-only">Events</legend>
@@ -228,7 +215,7 @@ function AddChannel({
         <button
           type="submit"
           disabled={busy || events.length === 0}
-          className="rounded-md bg-amber px-3 py-1.5 text-sm font-semibold text-graphite hover:bg-amber/90 disabled:opacity-50"
+          className={BUTTON_PRIMARY}
         >
           Connect
         </button>
@@ -261,9 +248,11 @@ function Outbox({ incidentId }: { incidentId?: Id<"incidents"> }) {
                 </span>
                 <span className="font-medium">{r.channelLabel}</span>
                 <span className="font-mono text-xs">{r.event}</span>
-                <Chip tone={STATUS_TONE[r.status]}>{r.status}</Chip>
+                <LookChip look={OUTBOX_STATUS[r.status]} />
               </div>
-              <p className="mt-0.5 line-clamp-2 whitespace-pre-line text-ash">{r.text}</p>
+              <p className="mt-0.5 line-clamp-2 whitespace-pre-line text-ash">
+                {r.text}
+              </p>
               {r.error && <p className="text-xs text-danger">{r.error}</p>}
             </li>
           ))}
