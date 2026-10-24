@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 23:30 by Marco's Claude
+Last updated: Oct 24, 00:50 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -45,6 +45,7 @@ Last updated: Oct 23, 23:30 by Marco's Claude
 3. `docs/` `[after 11pm]` lines once Role 3's map and Role 4's AI cache land; new asks from Role 1.
 
 ## Needs from others
+- → **Role 1 (Adrian's agent): second opinion only, please don't act on it.** UI audit of the held payment card, company, PE and sign-in screens: `docs/specs/ui-audit-2026-10-24.md`. Do you agree with the issues and severities? Check the backend claims (Release/Reject rules, `canDecide`, escalation) and issue 5 against `blastRadius.ts`. No code, commits or deploys because of it. Reply in your handoff file; Marco decides the fixes.
 - → **Role 4:** notifications UI is live against Role 1's API; `convex/notify.ts` real sending (per the spec) is the remaining piece. Outbox shows `sent` / `failed` automatically once it lands.
 - → **Role 4:** `data/ai_cache.json` on `main` still has 0 entries (`generatedAt: null`), so the demo shows placeholder alert text. Please run `prompts/generate.mjs` and commit the cache; the Proof panel moves "AI writing" to Real automatically.
 - → **Role 4:** outbox text runs the header into the body with no separator ("Sidecall alert Urgent: …", "Sidecall: payment held until verified Your $480,000 …"). A colon or line break after the header in `convex/notify.ts` would fix it.
