@@ -5,7 +5,8 @@ Everything Sidecall decides happens here. React only subscribes to queries and c
 
 ## One request, end to end
 
-`POST /incident` (http.ts) checks the HMAC signature, then runs `recordIncidentImpl`
+`POST /incident` (http.ts) checks the HMAC signature (and parses an optional red-team finding),
+then runs `recordIncidentImpl`
 (incidents.ts) in **one transaction**:
 
 1. Dedupe on `externalId`: a replayed webhook returns the first incident and writes nothing.
@@ -30,7 +31,8 @@ committed snapshot.
 | `auth.ts`, `auth.config.ts` | Convex Auth, Password provider, invite-only (sign-in links to a seeded person by email). |
 | `http.ts` | `POST /incident` (HMAC), `POST /mcp`, auth routes. |
 | `incidents.ts` | Incident intake, exposures, acknowledge/close (race-safe), containment. |
-| `scoring.ts` | How strongly a link exposes a company, and why. Pure functions. |
+| `scoring.ts` | How strongly a link exposes a company, and why; `sisterPath` turns a red-team finding into a "reachable here, not tested" path for each sister. Pure functions. |
+| `findings.ts` | Parses an optional validated red-team finding on `POST /incident` (our own schema) and the ATT&CK names sisters may see. |
 | `payments.ts` | Holds, bank-change flags, release/reject with segregation of duties, escalation, ledger reads. |
 | `ledger.ts` | `postLedgerEntry`: double-entry, balanced by construction. |
 | `blastRadius.ts` | Read-side queries for the map, evidence panel, timeline and directory. |

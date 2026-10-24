@@ -15,6 +15,7 @@ import type * as alerts from "../alerts.js";
 import type * as auth from "../auth.js";
 import type * as blastRadius from "../blastRadius.js";
 import type * as crons from "../crons.js";
+import type * as findings from "../findings.js";
 import type * as http from "../http.js";
 import type * as imports from "../imports.js";
 import type * as incidents from "../incidents.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   blastRadius: typeof blastRadius;
   crons: typeof crons;
+  findings: typeof findings;
   http: typeof http;
   imports: typeof imports;
   incidents: typeof incidents;

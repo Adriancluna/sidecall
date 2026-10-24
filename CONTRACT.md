@@ -7,6 +7,7 @@ The data shapes and function signatures every role builds against. Owned by Role
 
 ## Changelog
 
+- **Oct 24, ~3am.** Red-team findings, one step ahead (spec `docs/specs/armadin-one-step-ahead.md` Part A; **our own finding schema**, not Armadin's). `POST /incident` takes an optional `finding` (see HTTP); `404 unknown_reporter` when its scope isn't a portfolio company. Incidents gained `finding?` (firm-only); exposures gained `path?` and evidence kinds `technique` and `path`. `listIncidents` rows gained `findingSource` (firm only); `getBlastRadius` edges gained `path`; `getExposureEvidence` gained `path`; `getWritingContext` gained `technique` and `companyAlerts[].pathSummary`. New scenario `armadinFinding` (`demo-armadin-004`). A finding never changes score, urgency or confidence; a credential finding skips `same_vendor_only` links. Unsigned demo requests now run the stored scenario as-is (body text and findings ignored).
 - **Oct 24, ~2am.** Access and robustness: `listCompanies` / `listUsers` / `listAssets` are public only where `DEMO_MODE=true` (the sign-in quick-pick); elsewhere they return `[]` when signed out, and a company user gets `email`/`phone` only for their own colleagues. `getIncidentTimeline` returns `null` to a company the incident never touched. `resetDemo` / `seed:run` return `continuing: boolean` (true: the wipe was too big for one transaction and finishes in a moment). Notifications gained `claimedAt?`; a 5-min cron requeues rows stuck in `sending`. Bank-change seed refs renamed `*_fraud` → `*_email_change` (answer key updated; `data/scorecard.json` needs a regenerate).
 - **Oct 23, ~10:25pm.** MCP agent access (plan `docs/specs/mcp-implementation-plan.md`, Tasks 1–5): `POST /mcp` (bearer token). New table `agents` (survives resets); audit `actor` may be an agent id; audit action `agent_call`; `getPaymentAudit` rows gained `actorName` (and `getIncidentAudit` labels agents "<name> (agent)"). Tools: `list_held_payments`, `explain_hold`, `list_bills`, `request_payment`. No release/reject tool.
 - **Oct 23, ~11:15pm.** AP import: `imports.previewApImport({ vendorsCsv, billsCsv })` and `imports.importPortfolioCompany({ vendorsCsv, billsCsv, company })` (PE partner only). Audit action `import`. Sample files in `data/samples/`.
@@ -198,23 +199,29 @@ claude mcp add --transport http sidecall https://<deployment>.convex.site/mcp --
 
 ```ts
 [blastRadius] listIncidents() -> { _id, externalId, assetId, createdAt, assetName, vendorName,
-                                                  reportedByCompanyId | null, summary | null }[]
+                                                  reportedByCompanyId | null, summary | null,
+                                                  findingSource: "armadin" | "manual" | null }[]   // null for company users
                                                 // firm: all, newest first. company: only incidents that touch it,
                                                 // reportedByCompanyId and summary always null
 
 [blastRadius] getBlastRadius({ incidentId }) -> null | {   // PE firm only; null for company users
-  incident: Incident & { reportedByName: string | null },
+  incident: Incident & { reportedByName: string | null },   // incident.finding?: the full finding (firm only)
   asset,
   nodes: { companyId, name, headcount, exposed,
            relation: NodeRelation,   // "exposed" | "reporter" | "same_vendor_separate_access" | "linked_not_exposed" | "unrelated"
            exposureId | null, urgency | null, score, confidence | null, status | null,
            heldCents }[],                                    // heldCents counts status "held" only
-  edges: { companyId, assetId, shareType, source, compromised: boolean }[],
+  edges: { companyId, assetId, shareType, source, compromised: boolean,
+           path: "validated_at_source" | "reachable_not_tested" | null }[],
+           // with a finding: reporter's compromised edge = validated_at_source; exposed sister's = reachable_not_tested
   totals: { companiesExposed, peopleExposed, heldCents, paymentsHeld }
 }
 
 [blastRadius] getExposureEvidence({ exposureId }) -> null | { exposureId, incidentId, companyId,
-                                       reasons, confidence, evidence, urgency, score, status, acknowledgedBy | null }
+                                       reasons, confidence, evidence, urgency, score, status, acknowledgedBy | null,
+                                       path: null | { techniqueId, techniqueName: string | null, sharedHop,
+                                                      linkType, source: "validated_at_source", here: "reachable_not_tested" } }
+// evidence may include { kind: "technique", detail: "T1078 Valid Accounts" } and { kind: "path", detail: <sister-safe sentence> }
 [blastRadius] getMyExposures() -> Exposure[]       // company user's home screen; [] for the firm
 [blastRadius] listCompanies() · listUsers({ companyId? }) · listAssets()   // sign-in quick-pick directory (public on DEMO_MODE; company users see only colleagues' emails)
 [access]      me() -> null | { _id, name, email, role, companyId, companyName }
@@ -283,7 +290,9 @@ internal.alerts.saveAlerts({ alerts: [ /* same objects as saveAlert */ ] })   //
 // Everything a writer needs for one incident. Never contains the reporting company.
 internal.alerts.getWritingContext({ incidentId }) -> null | {
   incidentId, externalId, summary, asset: { name, vendorName, kind, phoneOnFile },
-  companyAlerts: { exposureId, companyId, companyName, urgency, reasons, confidence }[],
+  technique: null | { id, name: string | null },          // from a finding; names only from our ATT&CK table
+  companyAlerts: { exposureId, companyId, companyName, urgency, reasons, confidence,
+                   pathSummary: string | null }[],        // sister-safe; never write "validated" for a sister without "not tested"
   heldPayments: { paymentId, companyId, companyName, amountCents, accountLast4, bankChangeFlag, holdReasons }[]
 }
 
@@ -334,7 +343,7 @@ internal.scoring.exportOutcomes({ externalId }) -> { incidentId, payments: { see
 ```
 npx convex env set DEMO_MODE true                                  # once per dev deployment, enables resetDemo
 npx convex run seed:run                                            # wipe + reseed
-npx convex run seed:fireDemoIncident '{"scenario":"brightline"}'   # the main demo (also: ironcladCredential, ironcladMsp)
+npx convex run seed:fireDemoIncident '{"scenario":"brightline"}'   # the main demo (also: ironcladCredential, ironcladMsp, armadinFinding)
 curl -X POST https://<deployment>.convex.site/incident -H 'Content-Type: application/json' \
   -d '{"externalId":"demo-brightline-001","assetName":"Brightline Payroll","reportedByDomain":"pinecreststaffing.example"}'
 ```
@@ -344,6 +353,7 @@ curl -X POST https://<deployment>.convex.site/incident -H 'Content-Type: applica
 | `brightline` | 3 exposed (Cedar Ridge urgent, Summit urgent, Bayview advisory), 4,200 people, $612K held, Summit's $480K flagged |
 | `ironcladCredential` | Shared admin login leaked: Cedar Ridge, Granite Peak, Harborline exposed. Summit uses Ironclad with its own login → not exposed. No holds. |
 | `ironcladMsp` | The vendor itself fell: every customer exposed, Harborline's $37K to a new account flagged |
+| `armadinFinding` | `demo-armadin-004`: a validated red-team path at Pinecrest ending at Ironclad's shared admin login. Same exposures as `ironcladCredential`, each with a "reachable here · not tested" path; the firm sees the full finding. No holds. |
 
 ## HTTP
 
@@ -355,8 +365,26 @@ Header (real senders): X-Sidecall-Signature: sha256=<hex HMAC-SHA256 of the raw 
 
 200 { "incidentId", "duplicate": false }   first time
 200 { "incidentId", "duplicate": true }    replay of the same externalId (nothing new written)
-400 bad body · 401 missing/invalid signature · 404 unknown asset
+400 bad body · 401 missing/invalid signature · 404 unknown_asset / unknown_reporter
 ```
 
-- Unsigned requests are accepted **only** for the built-in demo scenarios (`seed.ts` `SCENARIOS`: same `externalId` and `assetName`) and only where `DEMO_MODE=true`. That keeps the stage Fire / Replay buttons working without putting a secret in the browser.
-- Real integrations (e.g. an Armadin finding) set `INCIDENT_WEBHOOK_SECRET` on the deployment and sign every request.
+Optional `finding` (our own schema, modelled on autonomous red-team output; parsed in `convex/findings.ts`):
+
+```
+"finding": {
+  "source": "armadin" | "manual",
+  "findingId": "ARM-2026-0412",                       // /^[A-Za-z0-9._:-]{1,128}$/
+  "validatedAt": "2026-10-24T08:12:00Z" | <ms>,       // not in the future
+  "scope": { "organizationDomain": "pinecreststaffing.example", "engagementId"?: "ENG-..." },   // must be a portfolio company
+  "technique": { "id": "T1078", "name"?: "Valid Accounts" },                                  // ATT&CK id
+  "path": [ { "kind": "foothold" | "system" | "credential" | "vendor_tenant", "label": "...", "validated": true } ],  // 1–12
+  "terminalAsset": { "assetName": "Ironclad shared admin account", "kind": "credential" | "vendor_tenant" },     // = last hop's kind
+  "evidence"?: [ { "kind": "session", "summary": "..." } ],   // ≤ 10
+  "confidence"?: 0.92
+}
+```
+
+- `externalId` defaults to `"<source>:<findingId>"`, `assetName` to `terminalAsset.assetName`, `reportedByDomain` to `scope.organizationDomain`; if you send them they must agree (else 400). Body ≤ 32 KB. Any hop without `validated: true` → 400.
+
+- Unsigned requests are accepted **only** for the built-in demo scenarios (`seed.ts` `SCENARIOS`: same `externalId` and `assetName`) and only where `DEMO_MODE=true`; the stored scenario runs as-is (body summary/finding ignored). That keeps the stage Fire / Replay buttons working without putting a secret in the browser.
+- Real senders (e.g. a red-team tool posting a finding in our schema) set `INCIDENT_WEBHOOK_SECRET` on the deployment and sign every request.

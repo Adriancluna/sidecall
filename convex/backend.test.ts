@@ -19,6 +19,38 @@ const BRIGHTLINE = {
   reportedByDomain: "pinecreststaffing.example",
 };
 const PE = "Jordan Ames (Northpass Capital)";
+const IRONCLAD_CREDENTIAL = {
+  externalId: "demo-ironclad-cred-002",
+  assetName: "Ironclad shared admin account",
+  reportedByDomain: "pinecreststaffing.example",
+};
+// The spec's example finding as a sender would post it (docs/specs/armadin-one-step-ahead.md A6).
+const FINDING = {
+  source: "armadin",
+  findingId: "ARM-2026-0412",
+  validatedAt: "2026-10-24T08:12:00Z",
+  scope: { organizationDomain: "pinecreststaffing.example", engagementId: "ENG-PINECREST-Q4" },
+  technique: { id: "T1078", name: "Valid Accounts" },
+  path: [
+    { kind: "foothold", label: "Exposed RDP on PC-OPS-12", validated: true },
+    { kind: "system", label: "pinecrest-jump01", validated: true },
+    { kind: "credential", label: "Ironclad shared admin (ironclad-svc) in jump-host script", validated: true },
+  ],
+  terminalAsset: { assetName: "Ironclad shared admin account", kind: "credential" },
+  evidence: [{ kind: "session", summary: "Interactive logon as ironclad-svc on pinecrest-jump01 08:09 UTC" }],
+  confidence: 0.92,
+};
+// The same finding as stored (what recordIncident takes).
+const PINECREST_FINDING_STORED = {
+  source: "armadin" as const,
+  findingId: "ARM-2026-0412",
+  validatedAt: Date.parse("2026-10-24T08:12:00Z"),
+  technique: { id: "T1078", name: "Valid Accounts" },
+  terminalKind: "credential" as const,
+  path: [{ kind: "credential" as const, label: "Ironclad shared admin (ironclad-svc) in jump-host script" }],
+  evidence: [],
+  confidence: 0.92,
+};
 
 async function seeded() {
   const t = convexTest(schema, modules);
@@ -733,5 +765,141 @@ describe("POST /incident", () => {
     const body = { externalId: "armadin-finding-77", assetName: "Keystone SSO" };
     expect((await post(t, body, await sign("wrong-secret", body))).status).toBe(401);
     expect((await post(t, body, await sign("test-secret", body))).status).toBe(200);
+  });
+
+  test("a finding is validated field by field; ids and asset default from it; replay writes nothing", async () => {
+    const { t } = await seeded();
+    process.env.INCIDENT_WEBHOOK_SECRET = "test-secret";
+    const send = async (body: object) => {
+      const res = await post(t, body, await sign("test-secret", body));
+      return { status: res.status, body: (await res.json()) as { error?: string; duplicate?: boolean } };
+    };
+    const hops = FINDING.path;
+    const bad = [
+      { ...FINDING, path: [...hops.slice(0, 2), { ...hops[2], validated: false }] },
+      { ...FINDING, technique: { id: "T78" } },
+      { ...FINDING, path: hops.slice(0, 2) }, // ends on a system, not the credential
+      { ...FINDING, validatedAt: "2099-01-01T00:00:00Z" },
+    ];
+    for (const finding of bad) expect((await send({ finding })).status).toBe(400);
+    expect((await send({ finding: bad[0] })).body.error).toMatch(/only validated hops/);
+
+    const disagree = await send({ reportedByDomain: "cedarridge.example", finding: FINDING });
+    expect(disagree).toMatchObject({ status: 400, body: { error: expect.stringMatching(/disagree/) } });
+    const unknown = await send({ finding: { ...FINDING, scope: { organizationDomain: "nobody.example" } } });
+    expect(unknown).toMatchObject({ status: 404, body: { error: "unknown_reporter" } });
+
+    expect(await send({ finding: FINDING })).toMatchObject({ status: 200, body: { duplicate: false } });
+    expect(await send({ finding: FINDING })).toMatchObject({ status: 200, body: { duplicate: true } });
+    const incident = await t.run((ctx) =>
+      ctx.db.query("incidents").withIndex("by_externalId", (q) => q.eq("externalId", "armadin:ARM-2026-0412")).unique(),
+    );
+    expect(incident?.finding).toMatchObject({ findingId: "ARM-2026-0412", technique: { id: "T1078", name: "Valid Accounts" } });
+  });
+
+  test("an unsigned demo request runs the stored scenario, never the body's own finding", async () => {
+    const { t } = await seeded();
+    process.env.DEMO_MODE = "true";
+    const forged = { ...FINDING, path: FINDING.path.map((h) => ({ ...h, label: "FORGED" })) };
+    const ids = { externalId: "demo-armadin-004", assetName: "Ironclad shared admin account" };
+    expect((await post(t, { ...ids, summary: "FORGED", finding: forged })).status).toBe(200);
+    expect((await post(t, { ...IRONCLAD_CREDENTIAL, finding: forged })).status).toBe(200);
+    const incidents = await t.run((ctx) => ctx.db.query("incidents").take(10));
+    expect(JSON.stringify(incidents)).not.toContain("FORGED");
+    expect(incidents.find((i) => i.externalId === "demo-armadin-004")?.finding?.findingId).toBe("ARM-2026-0412");
+    expect(incidents.find((i) => i.externalId === IRONCLAD_CREDENTIAL.externalId)?.finding).toBeUndefined();
+  });
+});
+
+describe("red-team finding, one step ahead", () => {
+  const fireArmadin = async (s: Awaited<ReturnType<typeof seeded>>) => {
+    const result = await s.t.mutation(internal.seed.fireDemoIncident, { scenario: "armadinFinding" });
+    if (!result.ok) throw new Error(result.error);
+    return result.incidentId;
+  };
+  const exposuresOf = (t: Awaited<ReturnType<typeof seeded>>["t"], incidentId: string) =>
+    t.run(async (ctx) =>
+      (await ctx.db.query("exposures").take(50))
+        .filter((e) => e.incidentId === incidentId)
+        .map(({ companyId, score, urgency, confidence, reasons }) => ({ companyId, score, urgency, confidence, reasons }))
+        .sort((a, b) => a.companyId.localeCompare(b.companyId)),
+    );
+
+  test("same exposures, scores and urgency as the plain credential report: a finding raises nothing", async () => {
+    const plain = await seeded();
+    const { incidentId: plainId } = await plain.fire(IRONCLAD_CREDENTIAL);
+    const withFinding = await seeded();
+    const findingId = await fireArmadin(withFinding);
+    expect(await exposuresOf(withFinding.t, findingId)).toEqual(await exposuresOf(plain.t, plainId));
+    expect((await exposuresOf(withFinding.t, findingId)).length).toBe(3);
+  });
+
+  test("a leaked login reaches only companies sharing it, not every customer of the vendor", async () => {
+    const { t } = await seeded();
+    const msp = { externalId: "msp-cred-1", assetName: "Ironclad IT Services", reportedByDomain: "pinecreststaffing.example" };
+    const credential = { ...PINECREST_FINDING_STORED, terminalKind: "credential" as const };
+    const r = await t.mutation(internal.incidents.recordIncident, { ...msp, finding: credential });
+    if (!r.ok) throw new Error(r.error);
+    expect(await exposuresOf(t, r.incidentId)).toEqual([]); // Ironclad IT Services links are all same_vendor_only
+  });
+
+  test("sister companies never see the reporter, its hops or ids, or 'validated' without 'not tested'", async () => {
+    const s = await seeded();
+    const incidentId = await fireArmadin(s);
+    const cedar = await s.as("Tom Becker");
+    const [exposure] = await cedar.query(api.blastRadius.getMyExposures, {});
+    const views = [
+      exposure,
+      await cedar.query(api.blastRadius.getExposureEvidence, { exposureId: exposure._id }),
+      await cedar.query(api.alerts.getMyAlerts, {}),
+      await cedar.query(api.blastRadius.listIncidents, {}),
+      await cedar.query(api.blastRadius.getIncidentTimeline, { incidentId }),
+      await cedar.query(api.notifications.listOutbox, {}),
+    ];
+    const text = JSON.stringify(views);
+    for (const secret of ["Pinecrest", "PC-OPS-12", "jump01", "ironclad-svc", "ARM-2026", "ENG-PINECREST", "Exposed RDP"]) {
+      expect(text).not.toContain(secret);
+    }
+    const strings: string[] = [];
+    const walk = (x: unknown): void => {
+      if (typeof x === "string") strings.push(x);
+      else if (x && typeof x === "object") Object.values(x).forEach(walk);
+    };
+    walk(views);
+    // Prose only: the enum labels validated_at_source / reachable_not_tested travel as a pair.
+    const sentences = strings.filter((x) => /validated/i.test(x) && x.includes(" "));
+    for (const str of sentences) expect(str).toContain("not tested");
+    expect(sentences.length).toBeGreaterThan(0); // the path sentence is there
+
+    const evidence = await cedar.query(api.blastRadius.getExposureEvidence, { exposureId: exposure._id });
+    expect(evidence?.path).toEqual({
+      techniqueId: "T1078",
+      techniqueName: "Valid Accounts",
+      sharedHop: "Ironclad Managed IT (Ironclad shared admin account)",
+      linkType: "shared_credential",
+      source: "validated_at_source",
+      here: "reachable_not_tested",
+    });
+    expect(await cedar.query(api.blastRadius.getBlastRadius, { incidentId })).toBeNull();
+  });
+
+  test("the firm map labels the proven edge and the inferred ones; the AI gets safe context", async () => {
+    const s = await seeded();
+    const incidentId = await fireArmadin(s);
+    const map = await (await s.as(PE)).query(api.blastRadius.getBlastRadius, { incidentId });
+    const pathOf = async (company: string) => {
+      const companyId = await s.companyId(company);
+      return map!.edges.find((e) => e.compromised && e.companyId === companyId)?.path;
+    };
+    expect(map?.incident.finding?.findingId).toBe("ARM-2026-0412");
+    expect(await pathOf("Pinecrest Staffing")).toBe("validated_at_source");
+    expect(await pathOf("Cedar Ridge Manufacturing")).toBe("reachable_not_tested");
+    expect(map!.edges.filter((e) => !e.compromised).every((e) => e.path === null)).toBe(true);
+
+    const [row] = await (await s.as(PE)).query(api.blastRadius.listIncidents, {});
+    expect(row.findingSource).toBe("armadin");
+    const context = await s.t.query(internal.alerts.getWritingContext, { incidentId });
+    expect(context?.technique).toEqual({ id: "T1078", name: "Valid Accounts" });
+    expect(context?.companyAlerts.every((a) => a.pathSummary?.includes("not tested"))).toBe(true);
   });
 });

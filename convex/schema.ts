@@ -100,6 +100,37 @@ const notifyStatus = v.union(
 
 const evidenceItem = v.object({ kind: v.string(), detail: v.string() });
 
+// A validated finding from an autonomous red team (our own schema, modelled on what such tools
+// report; not any vendor's format). Stored firm-only on the incident. convex/findings.ts parses it.
+export const findingHopKind = v.union(
+  v.literal("foothold"),
+  v.literal("credential"),
+  v.literal("system"),
+  v.literal("vendor_tenant"),
+);
+export const findingTerminalKind = v.union(v.literal("credential"), v.literal("vendor_tenant"));
+export const finding = v.object({
+  source: v.union(v.literal("armadin"), v.literal("manual")),
+  findingId: v.string(),
+  engagementId: v.optional(v.string()),
+  validatedAt: v.number(),
+  technique: v.object({ id: v.string(), name: v.union(v.string(), v.null()) }),
+  terminalKind: findingTerminalKind,
+  path: v.array(v.object({ kind: findingHopKind, label: v.string() })), // the reporter's hops: firm-only
+  evidence: v.array(v.object({ kind: v.string(), summary: v.string() })),
+  confidence: v.union(v.number(), v.null()),
+});
+
+// What a sister company learns from a finding. Built from Sidecall's own asset and link rows,
+// never from the finding's hop labels, and never called validated at the sister.
+export const exposurePath = v.object({
+  techniqueId: v.string(),
+  techniqueName: v.union(v.string(), v.null()), // only names from our built-in ATT&CK table
+  sharedHop: v.string(),
+  linkType: shareType,
+  here: v.literal("reachable_not_tested"),
+});
+
 const ledgerLine = v.object({
   account: ledgerAccount,
   debitCents: v.number(),
@@ -161,6 +192,7 @@ export default defineSchema({
     containedAt: v.optional(v.number()),
     containedBy: v.optional(v.id("users")),
     containmentNote: v.optional(v.string()),
+    finding: v.optional(finding), // present when the report is a validated red-team finding
   })
     .index("by_externalId", ["externalId"])
     .index("by_assetId", ["assetId"]),
@@ -176,6 +208,7 @@ export default defineSchema({
     confidence: v.number(), // 0..1; self_reported links weigh more than dns_inferred
     reasons: v.array(v.string()),
     evidence: v.array(evidenceItem),
+    path: v.optional(exposurePath), // set when the incident carries a finding
   })
     .index("by_companyId", ["companyId"])
     .index("by_incidentId_and_companyId", ["incidentId", "companyId"]),
