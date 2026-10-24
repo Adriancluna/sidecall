@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 24, 03:15 by Marco's Claude
+Last updated: Oct 24, 03:30 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -45,14 +45,17 @@ Last updated: Oct 24, 03:15 by Marco's Claude
 - ✓ `docs/`: Role 4's AI texts are in, so the `[after 11pm]` AI lines are final (Devpost names Claude Opus 5.5 and MCP); only Role 3's map lines remain marked.
 - ✓ **UI audit #1–#4** (`docs/specs/ui-audit-2026-10-24.md`, with Role 1's corrections): company view puts held payments above alerts, one column when there's one card, amount `text-4xl md:text-5xl`; card = amount, bank-change block, "Decision needed · due in about N hours", one call line, form; reasons + hold notice + escalation text fold into "Why it's held". **Release confirms** ("Release $480,000 to Brightline Payroll Inc. account ••7731, an account changed by email 2 days before the incident?"). Call line per role: controller (not requester) gets "Call … then release or reject"; requester sees "You requested this payment, so a controller must release it…" and keeps the form (beat 3 refusal verified on dev); other staff "A controller verifies…"; PE "Waiting on Summit Home Health's controller…". Release now fits above the fold at 800×815. Bank-change line says "incident", not "breach".
 
+- ✓ **UI audit round 2** (`docs/specs/ui-audit-2026-10-24-rerun.md`, Role 1's notes in #79): Release/Reject confirm only for a controller who isn't the requester (Jamie goes straight to the refusal); IT keeps Alerts first and doesn't see "Decision needed"; status chips use labels from one map (`src/panels/labels.ts`, `LookChip`); smaller amounts in the firm view; alert text `max-w-prose`; trusted ••2208 grey, only ••7731 coral; "due within the hour" / "1 hour"; "Releasing…" / "Rejecting…"; subtitle drops the account when the bank-change block shows it. Map tile (#2) left to Omar.
+- ✓ **/simplify pass** on our `src/` (not `src/map/`), behavior unchanged: shared `refusalOf` / `isSessionEnded` (`src/layout/errors.ts`), `humanize` (`format.ts`), `BUTTON_PRIMARY` / `BUTTON_SECONDARY` / `FIELD` (`src/panels/styles.ts`), one `DEMO_START_EMAIL`, node and alert lookups by Map, `canDecide` derived from `viewer`, memoized CSV link, unused exports dropped. `npm run build` + `npm run rehearse` PASS on dev (incl. 7b AP import).
+
 ## In progress
-1. MCP Task 8: record the agent clip on Marco's dev deployment, then Reset.
-2. `docs/` map lines once Role 3 lands.
+1. Devpost and demo video (top priority per #76). Recording waits for Marco's go.
+2. MCP Task 8 (agent clip): on hold until we record.
+3. Live-site run-through after this merges.
 
 ## Needs from others
-- → **Role 1 (Adrian's agent): second opinion only, please don't act on it.** Round 2 of the UI audit: what's still open on `main` after #74, in `docs/specs/ui-audit-2026-10-24-rerun.md`. Do you agree with the issues and priorities? In particular: skipping the Release confirm for the requester (#1), and held-first for IT vs the beat 7 race (#3). No code, commits or deploys because of it. Reply in your handoff file; Marco decides the fixes.
-- → **Role 4:** `convex/notify.ts` real sending (per the spec) is the remaining notifications piece; the outbox shows `sent` / `failed` once it lands.
-- → **Role 3:** the UI audit (#5, with Role 1's note) suggests the map tile show the deciding reason ("urgent: held payment to a changed account") and drop the raw score.
+- → **Role 3+4 (Omar):** the map tile should show the deciding reason, not the raw score (UI audit #5 / round-2 #2). The placeholder's chips are still lowercase ("urgent", "not exposed"); your map replaces them. Status labels to reuse: `src/panels/labels.ts`.
+- → **Role 1 (nice to have, after freeze is fine):** from our /simplify review, things the UI derives that the backend could send: per-viewer `viewerIsRequester` / `viewerCanDecide` on `getHeldPayments` rows; `incidentName` on `getPaymentAudit` rows (each card subscribes to `listIncidents` just for it); `acknowledgedByName` on exposures and blast nodes (saves one `getExposureEvidence` subscription per PE alert); `totals.releasedCents`; a readable `reason` from `requestPayment` (BillsPanel guesses "changed by email").
 
 ## Decisions & gotchas
 - Sign-in is invite-only (backend). The demo password `sidecall-demo` is shown on the sign-in screen on purpose: every person is simulated and judges need to switch roles. The form path sets the password on a person's first sign-in, so typing any other password the first time locks that person to it until a Reset; the quick-pick always uses the demo password.
