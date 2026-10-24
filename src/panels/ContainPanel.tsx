@@ -7,7 +7,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { refusalOf } from "../layout/errors";
 import { dateTime } from "./format";
 import { Card } from "./ui";
-import { BUTTON_PRIMARY } from "./styles";
+import { BUTTON_PRIMARY, FIELD } from "./styles";
 
 type Props = { incidentId: Id<"incidents">; containedAt: number | null };
 
@@ -40,7 +40,7 @@ export function ContainPanel({ incidentId, containedAt }: Props) {
   return (
     <Card title="Containment">
       <label
-        className="block text-xs text-ash"
+        className="block text-sm text-ash"
         htmlFor={`contain-${incidentId}`}
       >
         What was fixed, and how it was confirmed
@@ -53,15 +53,15 @@ export function ContainPanel({ incidentId, containedAt }: Props) {
         value={note}
         onChange={(e) => setNote(e.target.value)}
         placeholder="e.g. Vendor rotated all admin credentials; confirmed on a call with their security lead…"
-        className="mt-1 w-full rounded-md border border-line bg-graphite px-3 py-2 text-sm"
+        className={`mt-1.5 w-full ${FIELD}`}
       />
       <button
         type="button"
         disabled={busy || note.trim() === ""}
         onClick={() => void submit()}
-        className={`mt-2 ${BUTTON_PRIMARY}`}
+        className={`mt-3 ${BUTTON_PRIMARY}`}
       >
-        Mark contained
+        {busy ? "Marking contained…" : "Mark contained"}
       </button>
       {refusal && (
         <p role="alert" className="mt-2 text-sm text-danger">

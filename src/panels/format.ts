@@ -21,3 +21,7 @@ export const shortDate = (ms: number) =>
 
 // Backend codes ("phone_call", "same_vendor_only") as words.
 export const humanize = (code: string) => code.replace(/_/g, " ");
+
+// "Brightline Payroll" for an asset named after its vendor, else "Ironclad IT Services: shared admin account".
+export const assetTitle = (vendorName: string, assetName: string) =>
+  vendorName.toLowerCase().startsWith(assetName.toLowerCase()) ? vendorName : `${vendorName}: ${assetName}`;

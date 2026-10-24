@@ -2,7 +2,7 @@
 // planted answer key. Copy follows CLAUDE.md "Real vs. simulated".
 import aiCacheRaw from "../../data/ai_cache.json?raw";
 import { dnsFindings } from "./dnsFindings";
-import { dateTime, humanize } from "./format";
+import { dateTime } from "./format";
 import { scorecard, type ScorecardScenario } from "./scorecard";
 import { Card, Chip, Empty } from "./ui";
 
@@ -49,25 +49,30 @@ const SCENARIO_NAME: Record<string, string> = {
   "demo-armadin-004": "Red-team finding (Ironclad login)",
 };
 
-const RESULT_TONE: Record<string, "ok" | "danger"> = {
-  caught: "ok",
-  correct_no_action: "ok",
-  missed: "danger",
-  false_hold: "danger",
+const RESULT: Record<string, { tone: "ok" | "danger"; label: string }> = {
+  caught: { tone: "ok", label: "Caught" },
+  correct_no_action: { tone: "ok", label: "Correctly left alone" },
+  missed: { tone: "danger", label: "Missed" },
+  false_hold: { tone: "danger", label: "False hold" },
 };
+
+const OUTCOME: Record<string, string> = {
+  hold_and_flag: "hold and flag",
+  hold_no_flag: "hold, no flag",
+  no_action: "no action",
+};
+const outcome = (code: string) => OUTCOME[code] ?? code.replace(/_/g, " ");
 
 export function ProofPanel() {
   return (
-    <Card title="Proof">
+    <Card>
       <div className="grid gap-6 md:grid-cols-2">
         <ProofList title="Real" items={REAL} />
         <ProofList title="Simulated" items={SIMULATED} />
       </div>
       {dnsFindings.length > 0 && <DnsFindings />}
-      <div className="mt-6 border-t border-line pt-4">
-        <h3 className="mb-2 text-sm font-semibold">
-          Scorecard vs. the planted answer key
-        </h3>
+      <div className="mt-6 border-t border-line pt-5">
+        <h3 className="mb-3 font-semibold">Scorecard against the planted answer key</h3>
         <ScorecardBody />
       </div>
     </Card>
@@ -77,10 +82,8 @@ export function ProofPanel() {
 function ProofList({ title, items }: { title: string; items: string[] }) {
   return (
     <div>
-      <h3 className="mb-2 text-xs font-semibold tracking-wide text-ash uppercase">
-        {title}
-      </h3>
-      <ul className="list-disc space-y-1 pl-5 text-sm">
+      <h3 className="mb-2 font-semibold">{title}</h3>
+      <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed">
         {items.map((item) => (
           <li key={item}>{item}</li>
         ))}
@@ -91,9 +94,7 @@ function ProofList({ title, items }: { title: string; items: string[] }) {
 
 function ScorecardBody() {
   if (scorecard === null) {
-    return (
-      <Empty>Scorecard file is unreadable. Re-run the scorecard script.</Empty>
-    );
+    return <Empty>Scorecard file is unreadable. Re-run the scorecard script.</Empty>;
   }
   if (scorecard.generatedAt === null || scorecard.scenarios.length === 0) {
     return <Empty>Awaiting scorecard run.</Empty>;
@@ -102,15 +103,17 @@ function ScorecardBody() {
   const missed = scorecard.scenarios.reduce((n, s) => n + s.missed, 0);
   const falseHolds = scorecard.scenarios.reduce((n, s) => n + s.falseHolds, 0);
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* The one line to end the demo on; the detail follows. */}
-      <p className="text-2xl font-semibold tracking-tight tabular-nums md:text-3xl">
-        {cases} planted cases · <span className={missed ? "text-danger" : "text-ok"}>{missed} missed</span> ·{" "}
-        <span className={falseHolds ? "text-danger" : "text-ok"}>{falseHolds} false holds</span>
-      </p>
-      <p className="text-xs text-ash">
-        Our own planted cases, not a benchmark · generated {dateTime(Date.parse(scorecard.generatedAt))}
-      </p>
+      <div>
+        <p className="text-2xl font-semibold tracking-tight tabular-nums md:text-3xl">
+          {cases} planted cases, <span className={missed ? "text-danger" : "text-ok"}>{missed} missed</span>,{" "}
+          <span className={falseHolds ? "text-danger" : "text-ok"}>{falseHolds} false holds</span>
+        </p>
+        <p className="mt-2 text-sm text-ash">
+          Our own planted cases, not a benchmark. Generated {dateTime(Date.parse(scorecard.generatedAt))}.
+        </p>
+      </div>
       {scorecard.scenarios.map((s) => (
         <ScenarioBlock key={s.externalId} scenario={s} />
       ))}
@@ -119,60 +122,38 @@ function ScorecardBody() {
 }
 
 function ScenarioBlock({ scenario: s }: { scenario: ScorecardScenario }) {
-  const tiles = [
-    { label: "Caught", value: s.caught, tone: "text-ok" },
-    { label: "Missed", value: s.missed, tone: s.missed ? "text-danger" : "" },
-    {
-      label: "False holds",
-      value: s.falseHolds,
-      tone: s.falseHolds ? "text-danger" : "",
-    },
-    { label: "Correctly left alone", value: s.correctNoAction, tone: "" },
+  const figures = [
+    { label: "caught", value: s.caught, tone: "text-ok" },
+    { label: "missed", value: s.missed, tone: s.missed ? "text-danger" : "" },
+    { label: "false holds", value: s.falseHolds, tone: s.falseHolds ? "text-danger" : "" },
+    { label: "correctly left alone", value: s.correctNoAction, tone: "" },
   ];
   return (
     <section>
-      <h4 className="mb-2 text-sm font-semibold">
-        {SCENARIO_NAME[s.externalId] ?? s.externalId}{" "}
-        <span className="font-mono text-xs font-normal text-ash">{s.externalId}</span>
-      </h4>
-      <dl className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {tiles.map((t) => (
-          <div key={t.label} className="rounded-lg border border-line p-3">
-            <dt className="text-xs text-ash">{t.label}</dt>
-            <dd className={`text-2xl font-semibold tabular-nums ${t.tone}`}>
-              {t.value}
-            </dd>
-          </div>
+      <h4 className="font-semibold">{SCENARIO_NAME[s.externalId] ?? "Scenario"}</h4>
+      <p className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-ash">
+        {figures.map((f) => (
+          <span key={f.label} className="flex items-baseline gap-1.5">
+            <span className={`text-lg font-semibold tabular-nums ${f.tone || "text-paper"}`}>{f.value}</span>
+            {f.label}
+          </span>
         ))}
-      </dl>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] text-sm">
-          <thead className="text-left text-xs text-ash">
-            <tr>
-              <th className="py-1 pr-3 font-medium">Case</th>
-              <th className="py-1 pr-3 font-medium">Expected</th>
-              <th className="py-1 pr-3 font-medium">Actual</th>
-              <th className="py-1 pr-3 font-medium">Result</th>
-              <th className="py-1 font-medium">Why</th>
-            </tr>
-          </thead>
-          <tbody>
-            {s.cases.map((c) => (
-              <tr key={c.ref} className="border-t border-line align-top">
-                <td className="py-1.5 pr-3 font-mono text-xs">{c.ref}</td>
-                <td className="py-1.5 pr-3">{humanize(c.expected)}</td>
-                <td className="py-1.5 pr-3">{humanize(c.actual)}</td>
-                <td className="py-1.5 pr-3">
-                  <Chip tone={RESULT_TONE[c.result] ?? "muted"}>
-                    {humanize(c.result)}
-                  </Chip>
-                </td>
-                <td className="py-1.5">{c.why}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      </p>
+      <ul className="mt-3 divide-y divide-line border-y border-line text-sm">
+        {s.cases.map((c) => (
+          <li key={c.ref} className="grid gap-x-4 gap-y-1 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <div className="min-w-0">
+              <p>{c.why}</p>
+              <p className="text-ash">
+                Expected {outcome(c.expected)}, got {outcome(c.actual)}
+              </p>
+            </div>
+            <span>
+              <Chip tone={RESULT[c.result]?.tone ?? "muted"}>{RESULT[c.result]?.label ?? outcome(c.result)}</Chip>
+            </span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -181,28 +162,21 @@ function ScenarioBlock({ scenario: s }: { scenario: ScorecardScenario }) {
 // "candidate" links, run on real domains.
 function DnsFindings() {
   return (
-    <div className="mt-6 border-t border-line pt-4">
-      <h3 className="mb-1 text-sm font-semibold">
-        Vendor detection on real public domains
-      </h3>
-      <p className="mb-3 text-xs text-ash">
-        From public DNS only (MX, SPF, TXT, CNAME). It shows a shared vendor,
-        never a shared login, so these stay candidates.
+    <div className="mt-6 border-t border-line pt-5">
+      <h3 className="font-semibold">Vendor detection on real public domains</h3>
+      <p className="mt-1 mb-3 max-w-prose text-sm text-ash">
+        From public DNS only (MX, SPF, TXT, CNAME). It shows a shared vendor, never a shared login, so these stay
+        candidates.
       </p>
-      <dl className="space-y-2 text-sm">
+      <dl className="divide-y divide-line border-y border-line text-sm">
         {dnsFindings.map((d) => (
-          <div key={d.domain} className="flex flex-wrap gap-x-3 gap-y-1">
-            <dt className="w-36 shrink-0 font-mono text-xs text-ash">
-              {d.domain}
-            </dt>
-            <dd className="flex min-w-0 flex-1 flex-wrap gap-1">
-              {d.vendors.map((v) => (
-                <span
-                  key={v.vendor}
-                  className="rounded-full border border-line px-2 py-0.5 text-xs"
-                >
-                  {v.vendor}{" "}
-                  <span className="text-ash">{v.records.join("/")}</span>
+          <div key={d.domain} className="flex flex-wrap gap-x-4 gap-y-1 py-2">
+            <dt className="w-40 shrink-0 text-ash">{d.domain}</dt>
+            <dd className="min-w-0 flex-1">
+              {d.vendors.map((v, i) => (
+                <span key={v.vendor}>
+                  {i > 0 && ", "}
+                  {v.vendor} <span className="text-ash">({v.records.join(", ")})</span>
                 </span>
               ))}
             </dd>

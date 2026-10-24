@@ -20,10 +20,8 @@ import symbolUrl from "../brand/logo/sidecall-symbol-small-amber.svg";
 function PageLoading() {
   return (
     <main aria-busy="true" className="grid min-h-screen place-items-center">
-      <p className="flex flex-col items-center gap-3 text-sm text-ash">
-        <img src={symbolUrl} alt="" width={32} height={32} className="size-8 motion-safe:animate-pulse" />
-        Loading…
-      </p>
+      <img src={symbolUrl} alt="" width={32} height={32} className="size-8 motion-safe:animate-pulse" />
+      <span className="sr-only">Loading</span>
     </main>
   );
 }

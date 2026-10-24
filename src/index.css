@@ -44,8 +44,16 @@
 
 html {
   color-scheme: dark;
-  /* Keep focused elements clear of the sticky header. */
-  scroll-padding-top: 5rem;
+  /* Keep focused elements clear of the sticky header and the sticky tab bar. */
+  scroll-padding-top: 7.5rem;
+}
+
+/* Native selects stay dark on every OS. */
+select,
+option,
+optgroup {
+  background-color: var(--color-panel);
+  color: var(--color-paper);
 }
 
 body {
@@ -64,7 +72,8 @@ body {
 }
 
 ::selection {
-  background: rgb(245 165 36 / 0.3);
+  background: rgb(245 165 36 / 0.35);
+  color: var(--color-paper);
 }
 
 /* Disclosures in our own style: a small chevron that turns when open. */

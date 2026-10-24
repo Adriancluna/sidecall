@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import logoUrl from "../../brand/logo/sidecall-horizontal-dark.svg";
 import { Empty } from "../panels/ui";
-import { BUTTON_PRIMARY, FIELD } from "../panels/styles";
+import { BUTTON_SECONDARY, FIELD } from "../panels/styles";
 import { ROLE_LABEL, useDirectory } from "./directory";
 import { DEMO_PASSWORD, DEMO_START_EMAIL, useSignInAs } from "./useSignInAs";
 
@@ -86,8 +86,11 @@ export function SignInScreen() {
         </h2>
         <p className="mt-1 text-sm text-ash">One click signs you in as that person. Each sees only their own company.</p>
         {directory === undefined ? (
-          <div className="mt-5">
-            <Empty>Loading the portfolio…</Empty>
+          <div role="status" aria-busy="true" className="mt-5 grid gap-3 sm:grid-cols-2">
+            <span className="sr-only">Loading the portfolio</span>
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-44 rounded-tile border border-line motion-safe:animate-pulse" />
+            ))}
           </div>
         ) : directory.length === 0 ? (
           <div className="mt-5">
@@ -96,7 +99,7 @@ export function SignInScreen() {
         ) : (
           <>
             <ol className="mt-5 grid gap-3 sm:grid-cols-2">
-              {seats.map(({ email: seatEmail, sees, person }, i) => {
+              {seats.map(({ email: seatEmail, sees, person }) => {
                 const start = seatEmail === DEMO_START_EMAIL;
                 return (
                   <li key={seatEmail}>
@@ -108,10 +111,8 @@ export function SignInScreen() {
                         start ? "border-amber/70 bg-panel" : "border-line"
                       }`}
                     >
-                      <span className="flex w-full items-center justify-between gap-2 text-xs font-medium text-ash">
-                        <span>
-                          <span className="tabular-nums">{i + 1}</span> · {ROLE_LABEL[person.role]}
-                        </span>
+                      <span className="flex w-full items-center justify-between gap-2 text-sm text-ash">
+                        <span>{ROLE_LABEL[person.role]}</span>
                         {start && <span className="font-semibold text-amber">Start here</span>}
                       </span>
                       <span className="mt-3 text-lg font-semibold tracking-tight">
@@ -120,7 +121,7 @@ export function SignInScreen() {
                       <span className="text-sm text-ash">{person.company === "PE firm" ? "Northpass Capital" : person.company}</span>
                       <span className="mt-3 text-sm leading-relaxed text-paper/90">{sees}</span>
                       <span className="mt-4 text-sm font-semibold text-amber group-hover:underline group-disabled:text-ash">
-                        {pending === seatEmail ? "Signing in…" : `Sign in as ${person.name.split(" ")[0]} →`}
+                        {pending === seatEmail ? "Signing in…" : `Sign in as ${person.name.split(" ")[0]}`}
                       </span>
                     </button>
                   </li>
@@ -133,7 +134,7 @@ export function SignInScreen() {
               <div className="mt-4 grid gap-x-6 gap-y-5 sm:grid-cols-2 xl:grid-cols-3">
                 {rest.map((group) => (
                   <div key={group.label} className="min-w-0">
-                    <h3 className="mb-1.5 text-xs font-medium text-ash">{group.label}</h3>
+                    <h3 className="mb-1.5 text-sm font-medium text-ash">{group.label}</h3>
                     <ul className="space-y-0.5">
                       {group.people.map((p) => (
                         <li key={p._id}>
@@ -141,10 +142,10 @@ export function SignInScreen() {
                             type="button"
                             disabled={busy || !p.email}
                             onClick={() => p.email && void run(p.email)}
-                            className="w-full rounded-chip px-2 py-1.5 text-left text-sm hover:bg-panel disabled:opacity-50"
+                            className="flex min-h-9 w-full items-baseline gap-2 rounded-chip px-2 py-1.5 text-left text-sm hover:bg-panel disabled:text-ash"
                           >
-                            {pending === p.email ? "Signing in…" : p.name}{" "}
-                            <span className="text-ash">· {ROLE_LABEL[p.role]}</span>
+                            {pending === p.email ? "Signing in…" : p.name}
+                            <span className="text-ash">{ROLE_LABEL[p.role]}</span>
                           </button>
                         </li>
                       ))}
@@ -186,7 +187,7 @@ export function SignInScreen() {
             className={`mt-1.5 w-full ${FIELD}`}
           />
         </label>
-        <button type="submit" disabled={busy} className={`w-full ${BUTTON_PRIMARY}`}>
+        <button type="submit" disabled={busy} className={`w-full ${BUTTON_SECONDARY}`}>
           {pending !== undefined && pending === email.trim().toLowerCase() ? "Signing in…" : "Sign in"}
         </button>
         {error && (
@@ -194,9 +195,9 @@ export function SignInScreen() {
             {error}
           </p>
         )}
-        <p className="text-xs text-ash">
+        <p className="text-sm text-ash">
           Simulated portfolio. Demo password for every seeded person:{" "}
-          <span className="font-mono text-paper">{DEMO_PASSWORD}</span>
+          <span className="font-semibold text-paper">{DEMO_PASSWORD}</span>
         </p>
       </form>
     </main>

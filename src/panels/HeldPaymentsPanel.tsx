@@ -2,7 +2,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import type { HeldPaymentRow } from "./types";
 import { PaymentCard } from "./PaymentCard";
 import type { Viewer } from "./usePaymentDecision";
-import { Empty } from "./ui";
+import { Empty, Skeleton } from "./ui";
 
 type Props = {
   title: string;
@@ -21,13 +21,13 @@ export function HeldPaymentsPanel({
   viewer,
 }: Props) {
   return (
-    // A heading over the cards rather than a card around them: no boxes inside boxes.
+    // The tab already names the list, so the title is for screen readers; cards sit on the page,
+    // not in a card around them (no boxes inside boxes).
     <section aria-label={title}>
-      <h2 className="text-lg font-semibold">{title}</h2>
-      {intro && <p className="mt-1 max-w-3xl text-sm text-ash">{intro}</p>}
-      <div className="mt-5">
+      {intro && <p className="mb-5 max-w-3xl text-ash">{intro}</p>}
+      <div>
         {rows === undefined ? (
-          <Empty>Loading…</Empty>
+          <Skeleton />
         ) : rows.length === 0 ? (
           <Empty>No payments held.</Empty>
         ) : (

@@ -1,5 +1,6 @@
 // PE firm dashboard: the only view allowed to name the reporting company. The hero answers
-// "how bad, and is every company handling it?"; the map and everything else are tabs.
+// "how bad, and is every company handling it?" with the three numbers beside the response table,
+// so both, the tab bar and the top of the map fit on one projected screen.
 import { useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
@@ -8,20 +9,20 @@ import { BlastRadiusMap } from "../map/BlastRadiusMap";
 import { EvidencePanel } from "../map/EvidencePanel";
 import { Tabs, type TabDef } from "../layout/Tabs";
 import { useTabs } from "../layout/useTabs";
-import { dateTime, money } from "./format";
-import { ExposureAcknowledgedBy } from "./AcknowledgedBy";
+import { assetTitle, dateTime, money } from "./format";
+import { AcknowledgedBy, ExposureAcknowledgedBy } from "./AcknowledgedBy";
 import { ApImportPanel } from "./ApImportPanel";
 import { ContainPanel } from "./ContainPanel";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
-import { EXPOSURE_STATUS, paymentLook } from "./labels";
+import { paymentLook } from "./labels";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { ProofPanel } from "./ProofPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import type { BlastRadius } from "./types";
 import { VendorLetterActions } from "./VendorLetterActions";
 import { FirstStepCell } from "./ResponsePlaybook";
-import { Card, Chip, Empty, Eyebrow, HeroSkeleton, LookChip, UrgencyChip } from "./ui";
+import { Card, Chip, Empty, HeroSkeleton, LookChip, StatusLine, Tile, UrgencyChip } from "./ui";
 import { FIELD } from "./styles";
 
 const PIN_KEY = "sidecall-pe-incident";
@@ -68,21 +69,23 @@ export function PortfolioView() {
       { id: "proof", label: "Proof", content: () => <ProofPanel /> },
     ];
     return (
-      <div className="space-y-14">
+      <div className="space-y-12">
         <section aria-labelledby="hero-title">
-          <Eyebrow>
-            <Chip tone="ok">All clear</Chip>
-            <span>Northpass Capital portfolio</span>
-          </Eyebrow>
-          <h1 id="hero-title" className="mt-6 max-w-3xl text-headline font-semibold text-balance">
+          <StatusLine tone="ok" state="All clear" />
+          <h1 id="hero-title" className="mt-5 max-w-3xl text-headline font-semibold text-balance">
             No open incidents across the portfolio
           </h1>
           <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ash">
-            When a shared vendor or login is compromised, Sidecall shows here which companies genuinely share it, what
-            each was told to do, and which payments are held. Use the data leak simulator above to run one.
+            When a shared vendor or login is compromised, this page shows which companies genuinely share it, what each
+            was told to do, and which payments are held.
           </p>
         </section>
-        <Tabs tabs={tabs} active={tabs.some((t) => t.id === active) ? active : "onboard"} onSelect={(t) => select(t)} label="Portfolio" />
+        <Tabs
+          tabs={tabs}
+          active={tabs.some((t) => t.id === active) ? active : "onboard"}
+          onSelect={(t) => select(t)}
+          label="Portfolio"
+        />
       </div>
     );
   }
@@ -96,10 +99,15 @@ export function PortfolioView() {
     .filter((r) => r.decision?.status === "paid")
     .reduce((sum, r) => sum + r.payment.amountCents, 0);
   const letter = alerts?.find((a) => a.kind === "vendor_letter");
-  // Most urgent first (scoring decides urgency; the AI only writes).
+  // Still open above resolved, then most urgent first (scoring decides urgency; the AI only writes).
   const exposed = blast.nodes
     .filter((n) => n.exposed)
-    .sort((a, b) => Number(b.urgency === "urgent") - Number(a.urgency === "urgent") || b.score - a.score);
+    .sort(
+      (a, b) =>
+        Number(a.status === "closed") - Number(b.status === "closed") ||
+        Number(b.urgency === "urgent") - Number(a.urgency === "urgent") ||
+        b.score - a.score,
+    );
   const acknowledged = exposed.filter((n) => n.status !== "open").length;
   const companyAlerts = (alerts ?? [])
     .filter((a) => a.kind === "company_alert")
@@ -121,7 +129,7 @@ export function PortfolioView() {
           <div className="space-y-6">
             <EvidencePanel exposureId={selectedNode?.exposureId ?? undefined} companyName={selectedNode?.name} />
             {selectedNode && (
-              <Card title={`Payments held · ${selectedNode.name}`}>
+              <Card title={`Payments held at ${selectedNode.name}`}>
                 {!selectedHeld?.length ? (
                   <Empty>No payments held at this company.</Empty>
                 ) : (
@@ -130,7 +138,7 @@ export function PortfolioView() {
                       <li key={r.payment._id} className="flex flex-wrap items-center justify-between gap-2">
                         <span className="font-semibold tabular-nums">{money(r.payment.amountCents)}</span>
                         <span className="flex gap-1">
-                          {r.bankChange && <Chip tone="danger">Bank change</Chip>}
+                          {r.bankChange && <Chip tone="danger">Bank details changed</Chip>}
                           <LookChip look={paymentLook(r.payment)} />
                         </span>
                       </li>
@@ -156,11 +164,14 @@ export function PortfolioView() {
             <div className="grid gap-4 xl:grid-cols-2">
               {companyAlerts.map(({ alert, node }) => (
                 <article key={alert._id} className="rounded-tile border border-line bg-panel p-5 md:p-6">
-                  <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <span className="mr-1 text-lg font-semibold tracking-tight">{node?.name}</span>
+                  <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <span className="text-lg font-semibold tracking-tight">{node?.name}</span>
                     {node?.urgency && <UrgencyChip urgency={node.urgency} resolved={node.status === "closed"} />}
-                    {node?.status && node.status !== "closed" && <Chip tone="muted">{EXPOSURE_STATUS[node.status]}</Chip>}
-                    {alert.exposureId && <ExposureAcknowledgedBy exposureId={alert.exposureId} />}
+                    {node?.status === "open" ? (
+                      <span className="text-sm text-ash">Not acknowledged yet</span>
+                    ) : (
+                      alert.exposureId && <ExposureAcknowledgedBy exposureId={alert.exposureId} />
+                    )}
                   </div>
                   <p className="max-w-prose leading-relaxed">{alert.status === "ready" ? alert.body : "Writing alert…"}</p>
                 </article>
@@ -174,14 +185,16 @@ export function PortfolioView() {
                 letter.status === "ready" ? (
                   <VendorLetterActions vendorName={blast.asset.vendorName} body={letter.body} />
                 ) : (
-                  <Chip tone="muted">writing…</Chip>
+                  <span className="text-sm text-ash">Writing…</span>
                 )
               }
             >
               <p className="max-w-3xl leading-relaxed whitespace-pre-wrap">{letter.body}</p>
             </Card>
           ) : (
-            <Card><Empty>No vendor letter for this incident.</Empty></Card>
+            <Card>
+              <Empty>No vendor letter for this incident.</Empty>
+            </Card>
           )}
           <NotificationsPanel scope="firm" canManage incidentId={incident._id} />
         </div>
@@ -194,7 +207,7 @@ export function PortfolioView() {
       content: () => (
         <div className="space-y-6">
           <HeldPaymentsPanel
-            title={`Payments held · ${totals.paymentsHeld}`}
+            title="Payments held"
             rows={held}
             intro="The firm sees every hold. Only a controller at the portfolio company can release or reject."
           />
@@ -218,7 +231,7 @@ export function PortfolioView() {
   ];
 
   return (
-    <div className="space-y-14">
+    <div className="space-y-12">
       <PortfolioHero
         blast={blast}
         incidents={incidents}
@@ -261,23 +274,28 @@ function PortfolioHero({
   const stepFor = new Map((tracker?.companies ?? []).map((c) => [c.companyId, c]));
   const contained = incident.containedAt !== undefined;
   const resolved = exposed.filter((n) => n.status === "closed").length;
-  const title = asset.vendorName.toLowerCase().startsWith(asset.name.toLowerCase())
-    ? asset.vendorName
-    : `${asset.vendorName} · ${asset.name}`;
+  const progress = [
+    tracker && tracker.totals.firstStepDone > 0
+      ? `first step done at ${tracker.totals.firstStepDone} of ${tracker.totals.exposed}`
+      : undefined,
+    `${acknowledged} of ${exposed.length} acknowledged`,
+    resolved > 0 ? `${resolved} resolved` : undefined,
+  ].filter(Boolean);
+  const progressText = progress.join(", ");
+
   return (
     <section aria-labelledby="hero-title">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="min-w-0 flex-1 basis-96">
-        <Eyebrow>
-          {contained ? <Chip tone="ok">Contained</Chip> : <Chip tone="danger">Active incident</Chip>}
-          <span className="font-semibold text-paper">{title}</span>
-          <span>{dateTime(incident.createdAt)}</span>
-          {incident.reportedByName && (
-            <span>
-              Reported by <span className="text-paper">{incident.reportedByName}</span> · visible to the firm only
-            </span>
-          )}
-        </Eyebrow>
+          <StatusLine tone={contained ? "ok" : "danger"} state={contained ? "Contained" : "Active incident"}>
+            <span className="font-semibold text-paper">{assetTitle(asset.vendorName, asset.name)}</span>
+            <span className="tabular-nums">{dateTime(incident.createdAt)}</span>
+            {incident.reportedByName && (
+              <span>
+                Reported by <span className="text-paper">{incident.reportedByName}</span>, visible to the firm only
+              </span>
+            )}
+          </StatusLine>
         </div>
         {incidents.length > 1 && (
           <label className="flex min-w-0 items-center gap-2 text-sm text-ash">
@@ -285,12 +303,12 @@ function PortfolioHero({
             <select
               value={incident._id}
               onChange={(e) => onPickIncident(e.target.value as Id<"incidents">)}
-              className={`max-w-full min-w-0 ${FIELD}`}
+              className={`min-h-9 max-w-full min-w-0 py-1.5 ${FIELD}`}
             >
               {incidents.map((i) => (
                 <option key={i._id} value={i._id}>
-                  {i.assetName} · {dateTime(i.createdAt)}
-                  {i.containedAt !== null && " · contained"}
+                  {i.assetName}, {dateTime(i.createdAt)}
+                  {i.containedAt !== null && ", contained"}
                 </option>
               ))}
             </select>
@@ -302,116 +320,124 @@ function PortfolioHero({
         {totals.companiesExposed} {totals.companiesExposed === 1 ? "company" : "companies"} exposed,{" "}
         {totals.peopleExposed.toLocaleString()} people, {totals.heldCents > 0 ? `${money(totals.heldCents)} held` : "no payments held"}
       </h1>
-      {/* The zoom-out line as three numbers, number over label, so it never wraps mid-number. */}
-      <dl aria-hidden className="mt-8 grid grid-cols-2 gap-x-8 gap-y-6 sm:grid-cols-3 sm:gap-x-0">
-        <Stat value={String(totals.companiesExposed)} label={totals.companiesExposed === 1 ? "company exposed" : "companies exposed"} />
-        <Stat value={totals.peopleExposed.toLocaleString()} label="people behind them" divided />
-        <Stat
-          value={totals.heldCents > 0 ? money(totals.heldCents) : "$0"}
-          label={totals.heldCents > 0 ? "in payments held until verified" : "no payments held"}
-          tone={totals.heldCents > 0 ? "text-amber" : "text-ash"}
-          divided
-          wide
-        />
-      </dl>
-      {releasedCents > 0 && (
-        <p className="mt-4 text-ok">
-          <span aria-hidden>✓ </span>
-          {money(releasedCents)} released after phone verification
-        </p>
-      )}
-      {incident.summary && <p className="mt-5 max-w-3xl text-lg leading-relaxed text-ash">{incident.summary}</p>}
 
-      {finding && (
-        <div className="mt-5 flex max-w-4xl flex-wrap items-center gap-x-3 gap-y-2">
-          <Chip tone="amber">Red-team finding</Chip>
-          <p className="leading-relaxed">
-            Path proven at {incident.reportedByName ?? "the tested company"}
-            {finding.technique.name && ` using ${finding.technique.name} (${finding.technique.id})`}. Sister companies
-            that share it are <strong className="font-semibold">reachable, not tested</strong>. Nobody touched their
-            systems.
-          </p>
-        </div>
-      )}
-
-      <div className="mt-10">
-        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
-          <h2 className="text-lg font-semibold">Response by company</h2>
-          <p className="flex items-center gap-3 text-sm text-ash tabular-nums">
-            <AckTiles nodes={exposed} />
-            <span>
-              {tracker && tracker.totals.firstStepDone > 0 && (
-                <>First step done at {tracker.totals.firstStepDone} of {tracker.totals.exposed} · </>
-              )}
-              {acknowledged} of {exposed.length} acknowledged
-              {resolved > 0 && ` · ${resolved} resolved`}
-            </span>
-          </p>
-        </div>
-        {exposed.length === 0 ? (
-          <p className="mt-3 text-ash">No company shares what was compromised. No alerts were sent.</p>
-        ) : (
-          <div className="mt-4 overflow-hidden rounded-tile border border-line">
-            <div
-              aria-hidden
-              className={`hidden border-b border-line bg-panel px-4 py-2.5 text-xs font-medium text-ash sm:grid ${ROW_GRID}`}
-            >
-              <span>Company</span>
-              <span>Urgency</span>
-              <span>Acknowledged</span>
-              <span>First step</span>
-              <span className="text-right">Held</span>
-            </div>
-            <ul className="divide-y divide-line">
-              {exposed.map((n) => (
-                <li key={n.companyId}>
-                  <button
-                    type="button"
-                    onClick={() => onOpenCompany(n.companyId)}
-                    className={`group grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 px-4 py-3.5 text-left transition-colors hover:bg-panel ${ROW_GRID}`}
-                  >
-                    <span className="min-w-0 truncate font-semibold underline-offset-4 group-hover:underline">{n.name}</span>
-                    <span>{n.urgency && <UrgencyChip urgency={n.urgency} resolved={n.status === "closed"} />}</span>
-                    {/* Phones: these three share one line under the name; wider: one column each. */}
-                    <span className="col-span-2 flex flex-wrap gap-x-4 gap-y-1 text-sm sm:contents">
-                      <span className="text-ash">
-                        {n.status === "open" ? (
-                          <span className="text-amber">Not acknowledged yet</span>
-                        ) : n.status === "closed" ? (
-                          <span className="text-ok">Resolved</span>
-                        ) : n.exposureId ? (
-                          <ExposureAcknowledgedBy exposureId={n.exposureId} />
-                        ) : (
-                          EXPOSURE_STATUS[n.status ?? "open"]
-                        )}
-                      </span>
-                      <span>
-                        <FirstStepCell row={stepFor.get(n.companyId)} />
-                      </span>
-                      <span className="tabular-nums sm:text-right">
-                        {n.heldCents > 0 ? (
-                          <span className="font-semibold text-amber">{money(n.heldCents)} held</span>
-                        ) : (
-                          <span className="text-ash">No holds</span>
-                        )}
-                      </span>
-                    </span>
-                    <span className="sr-only">. Open its evidence on the map.</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-12">
+        <div className="min-w-0">
+          {/* The zoom-out line as three figures, each beside what it counts. Never wraps mid-number. */}
+          <div aria-hidden className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-4 gap-y-3">
+            <Stat value={String(totals.companiesExposed)} label={totals.companiesExposed === 1 ? "company exposed" : "companies exposed"} />
+            <Stat value={totals.peopleExposed.toLocaleString()} label="people behind them" />
+            <Stat
+              value={totals.heldCents > 0 ? money(totals.heldCents) : "$0"}
+              label={totals.heldCents > 0 ? "held until verified" : "no payments held"}
+              tone={totals.heldCents > 0 ? "text-amber" : "text-ash"}
+            />
           </div>
-        )}
+          {releasedCents > 0 && (
+            <p className="mt-4 flex items-center gap-2 font-semibold text-ok">
+              <Tile />
+              {money(releasedCents)} released after phone verification
+            </p>
+          )}
+          {/* A red-team finding's own paragraph says what happened; the summary would repeat it. */}
+          {incident.summary && !finding && (
+            <p className="mt-5 max-w-[52ch] leading-relaxed text-ash">{incident.summary}</p>
+          )}
+          {finding && (
+            <div className="mt-5 max-w-[56ch] space-y-2">
+              <Chip tone="amber">Red-team finding</Chip>
+              <p className="leading-relaxed">
+                Path proven at {incident.reportedByName ?? "the tested company"}
+                {finding.technique.name && ` using ${finding.technique.name} (${finding.technique.id})`}. Sister
+                companies that share it are <strong className="font-semibold">reachable, not tested</strong>. Nobody
+                touched their systems.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+            <h2 className="text-lg font-semibold">Response by company</h2>
+            <p className="flex items-center gap-3 text-sm text-ash tabular-nums">
+              <AckTiles nodes={exposed} />
+              <span>{progressText.charAt(0).toUpperCase() + progressText.slice(1)}</span>
+            </p>
+          </div>
+          {exposed.length === 0 ? (
+            <p className="mt-3 text-ash">No company shares what was compromised. No alerts were sent.</p>
+          ) : (
+            <div className="mt-3 overflow-hidden rounded-tile border border-line">
+              <div
+                aria-hidden
+                className={`hidden border-b border-line bg-panel px-4 py-2.5 text-xs font-medium text-ash md:grid ${ROW_GRID}`}
+              >
+                <span>Company</span>
+                <span>Urgency</span>
+                <span>Acknowledged</span>
+                <span>First step</span>
+                <span className="text-right">Held</span>
+              </div>
+              <ul className="divide-y divide-line">
+                {exposed.map((n) => (
+                  <li key={n.companyId}>
+                    <button
+                      type="button"
+                      onClick={() => onOpenCompany(n.companyId)}
+                      className={`group grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 px-4 py-3 text-left transition-colors hover:bg-panel ${ROW_GRID}`}
+                    >
+                      <span className="min-w-0 font-semibold text-balance underline-offset-4 group-hover:underline">
+                        {n.name}
+                      </span>
+                      <span>{n.urgency && <UrgencyChip urgency={n.urgency} resolved={n.status === "closed"} />}</span>
+                      {/* Phones: these three share a line under the name; wider: one column each. */}
+                      <span className="col-span-2 flex flex-wrap gap-x-4 gap-y-1 text-sm md:contents">
+                        <span className="text-ash">
+                          {n.status === "open" ? (
+                            <span className="text-amber">Not acknowledged yet</span>
+                          ) : (
+                            n.exposureId && <AckCell exposureId={n.exposureId} />
+                          )}
+                        </span>
+                        <span>
+                          <FirstStepCell row={stepFor.get(n.companyId)} />
+                        </span>
+                        <span className="tabular-nums md:text-right">
+                          {n.heldCents > 0 ? (
+                            <span className="font-semibold text-amber">
+                              {money(n.heldCents)}
+                              <span className="md:sr-only"> held</span>
+                            </span>
+                          ) : (
+                            <span className="text-ash">No holds</span>
+                          )}
+                        </span>
+                      </span>
+                      <span className="sr-only">. Open its evidence on the map.</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );
 }
 
-const ROW_GRID =
-  "sm:grid-cols-[minmax(0,1.4fr)_8rem_minmax(0,1.3fr)_minmax(0,1fr)_9rem]";
+const ROW_GRID = "md:grid-cols-[minmax(0,1.4fr)_6.5rem_minmax(0,1.3fr)_minmax(0,1fr)_6.5rem]";
 
-// One small tile per exposed company, like the mark's tiles: empty until acknowledged, filled
+// Who acknowledged. A row resolved without anyone acknowledging says so quietly; its urgency
+// chip already reads "Resolved", so the word isn't repeated here.
+function AckCell({ exposureId }: { exposureId: Id<"exposures"> }) {
+  const evidence = useQuery(api.blastRadius.getExposureEvidence, { exposureId });
+  if (evidence === undefined) return null;
+  if (evidence?.acknowledgedBy) return <AcknowledgedBy userId={evidence.acknowledgedBy} />;
+  return <span className="text-ash">No acknowledgement</span>;
+}
+
+// One small tile per exposed company, like the mark's tiles: hollow until acknowledged, filled
 // when resolved. The count next to it says the same in words.
 function AckTiles({ nodes }: { nodes: Node[] }) {
   return (
@@ -428,24 +454,15 @@ function AckTiles({ nodes }: { nodes: Node[] }) {
   );
 }
 
-function Stat({
-  value,
-  label,
-  tone = "text-paper",
-  divided = false,
-  wide = false,
-}: {
-  value: string;
-  label: string;
-  tone?: string;
-  divided?: boolean;
-  wide?: boolean;
-}) {
+function Stat({ value, label, tone = "text-paper" }: { value: string; label: string; tone?: string }) {
   return (
-    <div className={`min-w-0 ${divided ? "sm:border-l sm:border-line sm:pl-8" : ""} ${wide ? "col-span-2 sm:col-span-1" : ""} sm:pr-6`}>
-      <dt className="sr-only">{label}</dt>
-      <dd className={`text-display font-semibold tabular-nums ${tone}`}>{value}</dd>
-      <dd className="mt-3 text-base text-ash md:text-lg">{label}</dd>
-    </div>
+    <>
+      <span
+        className={`text-right text-[clamp(2.5rem,1.6rem+2.2vw,3.75rem)] leading-none font-semibold tracking-[-0.03em] tabular-nums ${tone}`}
+      >
+        {value}
+      </span>
+      <span className="text-base leading-snug text-ash md:text-lg">{label}</span>
+    </>
   );
 }

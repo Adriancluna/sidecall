@@ -6,8 +6,8 @@ import { AcknowledgedBy } from "./AcknowledgedBy";
 import { dateTime, money } from "./format";
 import { URGENCY } from "./labels";
 import { exposureHeadline, isCandidate, nextSteps, SHARE_LABEL, shareTypeOf } from "./exposureCopy";
-import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "./styles";
-import { Chip, Eyebrow, Fact, LookChip } from "./ui";
+import { BUTTON_PRIMARY_LG, BUTTON_SECONDARY } from "./styles";
+import { Chip, Fact, StatusLine } from "./ui";
 import { useExposureAction } from "./useExposureAction";
 import { PlanSteps } from "./ResponsePlaybook";
 
@@ -26,7 +26,7 @@ export function ExposureHero({
   heldForIncident: { count: number; cents: number };
   onOpenTab: (tab: string) => void;
 }) {
-  const { run, busy, message } = useExposureAction(exposure._id);
+  const { run, busy, pending, message } = useExposureAction(exposure._id);
   const vendor = incident?.vendorName ?? "Your vendor";
   const asset = incident?.assetName ?? "the shared account";
   const share = shareTypeOf(exposure);
@@ -41,17 +41,16 @@ export function ExposureHero({
       className="grid items-start gap-x-16 gap-y-8 lg:grid-cols-[minmax(0,1fr)_minmax(360px,460px)]"
     >
       <div className="min-w-0 lg:col-start-1 lg:row-start-1">
-        <Eyebrow>
-          <LookChip look={URGENCY[exposure.urgency]} />
+        <StatusLine tone={URGENCY[exposure.urgency].tone} state={URGENCY[exposure.urgency].label}>
           <span className="font-semibold text-paper">{urgent ? "Act today" : "Review this week"}</span>
           <span>
-            Active incident at {vendor}
-            {incident && ` · ${dateTime(incident.createdAt)}`}
+            Incident at {vendor}
+            {incident && `, ${dateTime(incident.createdAt)}`}
           </span>
           {contained && <Chip tone="ok">Vendor has contained it</Chip>}
-        </Eyebrow>
+        </StatusLine>
 
-        <h1 id="hero-title" className="mt-6 max-w-3xl text-headline font-semibold text-balance">
+        <h1 id="hero-title" className="mt-5 max-w-3xl text-headline font-semibold text-balance">
           {exposureHeadline(share, vendor, candidate)}
         </h1>
 
@@ -64,10 +63,10 @@ export function ExposureHero({
 
         {exposure.path && (
           <div className="mt-6 flex max-w-2xl flex-wrap items-center gap-x-3 gap-y-2">
-            <Chip tone="amber">Proven at another portfolio company</Chip>
+            <Chip tone="amber">Path proven at another portfolio company</Chip>
             <p className="leading-relaxed">
               The same path is <strong className="font-semibold">reachable here, not tested here</strong>
-              {exposure.path.techniqueName && <span className="text-ash"> · {exposure.path.techniqueName}</span>}. Nobody
+              {exposure.path.techniqueName && <span className="text-ash"> ({exposure.path.techniqueName})</span>}. Nobody
               touched your systems.
             </p>
           </div>
@@ -96,9 +95,9 @@ export function ExposureHero({
                     type="button"
                     disabled={busy}
                     onClick={() => void run("acknowledge")}
-                    className={`mt-3 w-full ${BUTTON_PRIMARY} px-5 py-2.5 text-base sm:w-auto`}
+                    className={`mt-3 w-full sm:w-auto ${BUTTON_PRIMARY_LG}`}
                   >
-                    {busy ? "Acknowledging…" : "Acknowledge"}
+                    {pending === "acknowledge" ? "Acknowledging…" : "Acknowledge"}
                   </button>
                 </>
               ) : (
@@ -116,7 +115,7 @@ export function ExposureHero({
                     onClick={() => void run("close")}
                     className={`mt-3 ${BUTTON_SECONDARY}`}
                   >
-                    Mark resolved
+                    {pending === "close" ? "Resolving…" : "Mark resolved"}
                   </button>
                 </>
               )}
@@ -139,10 +138,10 @@ export function ExposureHero({
               <button
                 type="button"
                 onClick={() => onOpenTab("payments")}
-                className="text-left text-amber underline-offset-4 hover:underline"
+                className="text-left font-medium text-paper underline decoration-ash/50 underline-offset-4 hover:decoration-paper"
               >
                 {heldForIncident.count} payment{heldForIncident.count === 1 ? "" : "s"} ({money(heldForIncident.cents)})
-                held until a controller verifies →
+                held until a controller verifies
               </button>
             </Fact>
           )}

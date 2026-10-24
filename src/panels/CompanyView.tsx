@@ -11,16 +11,16 @@ import { BillsPanel } from "./BillsPanel";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { ExposureHero } from "./ExposureHero";
 import { readableEvidence } from "./exposureCopy";
-import { dateTime, money, shortDate } from "./format";
+import { assetTitle, dateTime, money, shortDate } from "./format";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
-import { EXPOSURE_STATUS, paymentLook } from "./labels";
+import { paymentLook } from "./labels";
 import { LedgerPanel } from "./LedgerPanel";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { PaymentHero } from "./PaymentHero";
 import { PlaybookPanel } from "./ResponsePlaybook";
 import { TimelinePanel } from "./TimelinePanel";
 import type { HeldPaymentRow } from "./types";
-import { Card, Chip, Empty, Eyebrow, HeroSkeleton, LookChip, UrgencyChip } from "./ui";
+import { Card, Empty, HeroSkeleton, LookChip, Skeleton, StatusLine, UrgencyChip } from "./ui";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "./styles";
 import { useExposureAction } from "./useExposureAction";
 
@@ -98,9 +98,8 @@ export function CompanyView({ companyId, meId, role }: Props) {
       count: stillHeld.length,
       content: () => (
         <HeldPaymentsPanel
-          title="Payments held until verified"
+          title="Held payments"
           rows={held}
-          intro="Held payments are never cancelled. A controller who didn't request the payment calls the vendor at the number on file, then releases or rejects it."
           escalations={handlesPayments ? escalations : undefined}
           viewer={viewer}
         />
@@ -202,11 +201,10 @@ function AllClear({
   return (
     <section aria-labelledby="hero-title" className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] xl:gap-16">
       <div className="min-w-0">
-        <Eyebrow>
-          <Chip tone="ok">{resolved ? "Resolved" : "All clear"}</Chip>
-          {companyName && <span>{companyName}</span>}
-        </Eyebrow>
-        <h1 id="hero-title" className="mt-6 max-w-3xl text-headline font-semibold text-balance">
+        <StatusLine tone="ok" state={resolved ? "Resolved" : "All clear"}>
+          {companyName && <span className="sm:hidden">{companyName}</span>}
+        </StatusLine>
+        <h1 id="hero-title" className="mt-5 max-w-3xl text-headline font-semibold text-balance">
           {resolved ? "Every incident affecting you is resolved" : "Nothing needs your attention"}
         </h1>
         <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ash">
@@ -221,7 +219,7 @@ function AllClear({
           <p className="text-sm text-ash">Next payment out</p>
           <p className="mt-2 text-5xl font-semibold tracking-tight tabular-nums">{money(nextOut.cents)}</p>
           <p className="mt-2 text-ash">
-            to <span className="text-paper">{nextOut.vendor}</span> · due {shortDate(nextOut.due)}
+            to <span className="text-paper">{nextOut.vendor}</span>, due {shortDate(nextOut.due)}
           </p>
         </aside>
       )}
@@ -242,7 +240,7 @@ function AlertsTab({
   held: HeldPaymentRow[];
   heroExposureId?: Id<"exposures">;
 }) {
-  if (exposures === undefined) return <Empty>Loading…</Empty>;
+  if (exposures === undefined) return <Skeleton />;
   if (exposures.length === 0) {
     return (
       <Card>
@@ -279,18 +277,17 @@ function AlertItem({
   payments: HeldPaymentRow[];
   inHero: boolean;
 }) {
-  const { run, busy, message } = useExposureAction(exposure._id);
+  const { run, busy, pending, message } = useExposureAction(exposure._id);
   return (
     <article className="grid gap-6 rounded-tile border border-line bg-panel p-5 md:p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:gap-10">
       <div>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <UrgencyChip urgency={exposure.urgency} resolved={exposure.status === "closed"} />
-          {exposure.status !== "closed" && <Chip tone="muted">{EXPOSURE_STATUS[exposure.status]}</Chip>}
           <AcknowledgedBy userId={exposure.acknowledgedBy} />
         </div>
         {incident && (
           <h3 className="text-xl font-semibold tracking-tight">
-            {incident.vendorName} · {incident.assetName}
+            {assetTitle(incident.vendorName, incident.assetName)}
             <span className="mt-1 block text-sm font-normal text-ash">{dateTime(incident.createdAt)}</span>
           </h3>
         )}
@@ -307,7 +304,7 @@ function AlertItem({
                 {r.decision && (
                   <span className="text-ash">
                     {r.decision.status === "paid" ? "since released" : "rejected"} by {r.decision.byName ?? "a controller"}
-                    {r.decision.at !== null && ` · ${dateTime(r.decision.at)}`}
+                    {r.decision.at !== null && `, ${dateTime(r.decision.at)}`}
                   </span>
                 )}
               </li>
@@ -320,11 +317,11 @@ function AlertItem({
           <div className="mt-5 flex flex-wrap gap-2">
             {exposure.status === "open" && (
               <button type="button" disabled={busy} onClick={() => void run("acknowledge")} className={BUTTON_PRIMARY}>
-                Acknowledge
+                {pending === "acknowledge" ? "Acknowledging…" : "Acknowledge"}
               </button>
             )}
             <button type="button" disabled={busy} onClick={() => void run("close")} className={BUTTON_SECONDARY}>
-              Mark resolved
+              {pending === "close" ? "Resolving…" : "Mark resolved"}
             </button>
           </div>
         )}

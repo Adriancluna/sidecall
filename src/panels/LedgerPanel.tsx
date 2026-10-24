@@ -3,7 +3,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { dateTime, money } from "./format";
-import { Card, Empty } from "./ui";
+import { Card, Empty, Skeleton } from "./ui";
 
 const ACCOUNT_LABEL: Record<
   Doc<"ledgerEntries">["lines"][number]["account"],
@@ -24,15 +24,17 @@ export function LedgerPanel() {
       title="Ledger"
       aside={
         ledger && (
-          <span className="text-sm">
-            Cash {money(ledger.balances.cash)} · AP{" "}
-            {money(ledger.balances.accounts_payable)}
+          <span className="text-sm text-ash">
+            Cash <span className="text-paper tabular-nums">{money(ledger.balances.cash)}</span>, accounts payable{" "}
+            <span className="text-paper tabular-nums">{money(ledger.balances.accounts_payable)}</span>
           </span>
         )
       }
     >
-      {!ledger?.entries.length ? (
-        <Empty>{ledger === undefined ? "Loading…" : "No entries."}</Empty>
+      {ledger === undefined ? (
+        <Skeleton />
+      ) : !ledger?.entries.length ? (
+        <Empty>No entries.</Empty>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">

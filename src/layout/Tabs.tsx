@@ -1,5 +1,6 @@
 // Tabs for everything below the hero. The active tab lives in the URL hash (#tab-payments), so a
-// tab can be linked, opened in a new tab, and the back button works.
+// tab can be linked, opened in a new tab, and the back button works. The tab bar sticks under the
+// header from md up, so switching tabs never means scrolling back to the top.
 import { useRef, type KeyboardEvent, type ReactNode } from "react";
 import { TABS_ANCHOR } from "./useTabs";
 
@@ -40,54 +41,56 @@ export function Tabs({
   };
 
   return (
-    <section id={TABS_ANCHOR} className="scroll-mt-28">
-      <div
-        role="tablist"
-        aria-label={label}
-        onKeyDown={onKeyDown}
-        className="flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none] sm:gap-2"
-      >
-        {tabs.map((t) => {
-          const selected = t.id === current.id;
-          return (
-            <button
-              key={t.id}
-              ref={(el) => {
-                if (el) refs.current.set(t.id, el);
-              }}
-              type="button"
-              role="tab"
-              id={`tab-${t.id}`}
-              aria-selected={selected}
-              aria-controls={`panel-${t.id}`}
-              tabIndex={selected ? 0 : -1}
-              onClick={() => onSelect(t.id)}
-              className={`-mb-px flex shrink-0 items-center gap-2 border-b-2 px-3 py-3.5 text-[0.9375rem] font-medium whitespace-nowrap transition-colors ${
-                selected
-                  ? "border-amber text-paper"
-                  : "border-transparent text-ash hover:border-line hover:text-paper"
-              }`}
-            >
-              {t.label}
-              {t.count !== undefined && t.count !== 0 && (
-                <span
-                  className={`rounded-chip px-1.5 py-px text-xs font-semibold tabular-nums ${
-                    selected ? "bg-amber/15 text-amber" : "bg-panel text-ash"
-                  }`}
-                >
-                  {t.count}
-                </span>
-              )}
-            </button>
-          );
-        })}
+    <section id={TABS_ANCHOR} className="scroll-mt-14">
+      <div className="z-10 -mx-4 border-b border-line bg-graphite px-4 md:sticky md:top-14 md:-mx-8 md:px-8">
+        <div
+          role="tablist"
+          aria-label={label}
+          onKeyDown={onKeyDown}
+          className="flex gap-1 overflow-x-auto [scrollbar-width:none] sm:gap-2"
+        >
+          {tabs.map((t) => {
+            const selected = t.id === current.id;
+            return (
+              <button
+                key={t.id}
+                ref={(el) => {
+                  if (el) refs.current.set(t.id, el);
+                }}
+                type="button"
+                role="tab"
+                id={`tab-${t.id}`}
+                aria-selected={selected}
+                aria-controls={`panel-${t.id}`}
+                tabIndex={selected ? 0 : -1}
+                onClick={() => onSelect(t.id)}
+                className={`flex shrink-0 items-center gap-2 border-b-2 px-3 py-3.5 text-[0.9375rem] font-medium whitespace-nowrap transition-colors ${
+                  selected
+                    ? "border-amber text-paper"
+                    : "border-transparent text-ash hover:border-line hover:text-paper"
+                }`}
+              >
+                {t.label}
+                {t.count !== undefined && t.count !== 0 && (
+                  <span
+                    className={`rounded-chip px-1.5 py-px text-xs font-semibold tabular-nums ${
+                      selected ? "bg-amber/15 text-amber" : "bg-raised text-ash"
+                    }`}
+                  >
+                    {t.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
       <div
         role="tabpanel"
         id={`panel-${current.id}`}
         aria-labelledby={`tab-${current.id}`}
         tabIndex={0}
-        className="pt-8 focus-visible:outline-none"
+        className="rounded-tile pt-6 focus-visible:outline-offset-4"
       >
         {current.content()}
       </div>

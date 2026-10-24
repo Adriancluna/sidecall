@@ -5,29 +5,33 @@ import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { friendlyError } from "../layout/errors";
-import { humanize } from "./format";
+
+type Action = "acknowledge" | "close";
+
+// convex/incidents.ts refusal codes, in words.
+const REASON: Record<string, string> = {
+  already_acknowledged: "A teammate acknowledged it first.",
+  closed: "It's already resolved.",
+  not_your_company: "This alert belongs to another company.",
+  not_found: "This alert no longer exists.",
+};
 
 export function useExposureAction(exposureId: Id<"exposures">) {
   const acknowledge = useMutation(api.incidents.acknowledgeExposure);
   const close = useMutation(api.incidents.closeExposure);
-  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<Action>();
   const [message, setMessage] = useState<string>();
 
-  const run = async (action: "acknowledge" | "close") => {
-    setBusy(true);
+  const run = async (action: Action) => {
+    setPending(action);
     try {
-      const res =
-        action === "acknowledge" ? await acknowledge({ exposureId }) : await close({ exposureId });
-      setMessage(
-        res.ok
-          ? undefined
-          : `Not ${action === "acknowledge" ? "acknowledged" : "closed"}: ${humanize(res.reason)}`,
-      );
+      const res = action === "acknowledge" ? await acknowledge({ exposureId }) : await close({ exposureId });
+      setMessage(res.ok ? undefined : (REASON[res.reason] ?? "Not saved. Try again."));
     } catch (err) {
       setMessage(friendlyError(err));
     } finally {
-      setBusy(false);
+      setPending(undefined);
     }
   };
-  return { run, busy, message };
+  return { run, busy: pending !== undefined, pending, message };
 }

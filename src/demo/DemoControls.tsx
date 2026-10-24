@@ -3,6 +3,7 @@ import { useMutation } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { friendlyError } from "../layout/errors";
+import { BUTTON_QUIET, BUTTON_SECONDARY, FIELD } from "../panels/styles";
 import { IS_STAGE } from "./stage";
 
 // Mirrors SCENARIOS in convex/seed.ts (not imported: that file is server code). These four are
@@ -61,9 +62,6 @@ const SITE_URL =
     ".convex.site",
   );
 
-const BUTTON =
-  "rounded-chip border px-2.5 py-1 text-xs font-semibold transition-colors disabled:opacity-50";
-
 // The presenter key (PRESENTER_KEY on prod) lives in this browser only. Storage can be blocked
 // (private windows), so every read and write is guarded.
 const KEY_STORAGE = "sidecall-presenter-key";
@@ -109,142 +107,115 @@ async function postIncident(scenario: Scenario, presenterKey: string): Promise<{
   return { incidentId: body.incidentId, duplicate: body.duplicate === true };
 }
 
+type Action = "fire" | "replay" | "reset";
+const BUSY: Record<Action, string> = { fire: "Firing…", replay: "Replaying…", reset: "Resetting…" };
+
+// Demo tooling, outside the product: one slim row under the header, opened from its "Simulator"
+// switch. Every control is quiet; nothing here outshines the screen the judges are reading.
 export function DemoControls() {
   const resetDemo = useMutation(api.seed.resetDemo);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<Action>();
   const [status, setStatus] = useState<string>();
   const [scenario, setScenario] = useState<Scenario>(SCENARIOS[0]);
   const [presenterKey, setPresenterKey] = useState(loadKey);
   const [editingKey, setEditingKey] = useState(false);
-  // Phones: the simulator folds into one line until opened.
-  const [open, setOpen] = useState(false);
 
-  const run = async (label: string, action: () => Promise<string>) => {
-    setBusy(true);
+  const run = async (action: Action, label: string, work: () => Promise<string>) => {
+    setBusy(action);
     try {
-      setStatus(`${label}: ${await action()}`);
+      setStatus(`${label}: ${await work()}`);
     } catch (err) {
       setStatus(`${label} failed: ${friendlyError(err)}`);
     } finally {
-      setBusy(false);
+      setBusy(undefined);
     }
   };
 
   const send = async () => {
     const res = await postIncident(scenario, presenterKey);
-    return res.duplicate
-      ? "duplicate, nothing new written."
-      : "incident recorded.";
+    return res.duplicate ? "duplicate, nothing new written." : "incident recorded.";
   };
 
+  const button = (action: Action, label: string) => (busy === action ? BUSY[action] : label);
+
   return (
-    // Outside the product: a quiet demo-tool bar above the header, dashed off from the app.
-    <div className="border-b border-dashed border-line bg-graphite">
-      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 md:px-8">
-        <p className="hidden items-center gap-2 text-xs font-semibold text-ash md:flex">
-          <DemoTag />
-          Data leak simulator
-        </p>
+    <div id="simulator" className="border-b border-dashed border-line">
+      <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-2 gap-y-2 px-4 py-2 md:px-8">
+        <label className="sr-only" htmlFor="demo-scenario">
+          Scenario
+        </label>
+        <select
+          id="demo-scenario"
+          value={scenario.body.externalId}
+          onChange={(e) =>
+            setScenario(SCENARIOS.find((s) => s.body.externalId === e.target.value) ?? SCENARIOS[0])
+          }
+          className={`min-h-9 w-full min-w-0 py-1.5 sm:w-auto ${FIELD}`}
+        >
+          {SCENARIOS.map((s) => (
+            <option key={s.body.externalId} value={s.body.externalId}>
+              {s.label}
+            </option>
+          ))}
+        </select>
         <button
           type="button"
-          onClick={() => setOpen(!open)}
-          aria-expanded={open}
-          aria-controls="demo-simulator"
-          className="flex items-center gap-2 py-1 text-xs font-semibold text-ash md:hidden"
+          disabled={busy !== undefined}
+          onClick={() => void run("fire", "Fire incident", send)}
+          className={BUTTON_SECONDARY}
         >
-          <DemoTag />
-          Data leak simulator
-          <span aria-hidden>{open ? "▴" : "▾"}</span>
+          {button("fire", "Fire incident")}
         </button>
-        <div
-          id="demo-simulator"
-          className={`${open ? "flex" : "hidden"} w-full flex-wrap items-center gap-2 md:flex md:w-auto`}
+        <button
+          type="button"
+          disabled={busy !== undefined}
+          onClick={() => void run("replay", "Replay webhook", send)}
+          className={BUTTON_QUIET}
         >
-          <label className="sr-only" htmlFor="demo-scenario">
-            Scenario
-          </label>
-          <select
-            id="demo-scenario"
-            value={scenario.body.externalId}
-            onChange={(e) =>
-              setScenario(
-                SCENARIOS.find((s) => s.body.externalId === e.target.value) ??
-                  SCENARIOS[0],
-              )
+          {button("replay", "Replay webhook")}
+        </button>
+        {IS_STAGE && (
+          <button
+            type="button"
+            disabled={busy !== undefined}
+            onClick={() =>
+              window.confirm("Reset the demo? This wipes every incident, hold and sign-in and reseeds the portfolio.") &&
+              void run("reset", "Reset", async () => {
+                await resetDemo(presenterKey ? { presenterKey } : {});
+                return "portfolio reseeded.";
+              })
             }
-            className="min-w-0 rounded-chip border border-line bg-panel py-1 pr-7 pl-2 text-xs text-paper"
+            className={BUTTON_QUIET}
           >
-            {SCENARIOS.map((s) => (
-              <option key={s.body.externalId} value={s.body.externalId}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void run("Fire incident", send)}
-            className={`${BUTTON} border-amber bg-amber text-graphite hover:brightness-110`}
-          >
-            {busy ? "Working…" : "Fire incident"}
+            {button("reset", "Reset")}
           </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void run("Replay webhook", send)}
-            className={`${BUTTON} border-line text-paper hover:border-ash`}
-          >
-            Replay webhook
-          </button>
-          {IS_STAGE && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() =>
-                window.confirm(
-                  "Reset the demo? This wipes every incident, hold and sign-in and reseeds the portfolio.",
-                ) &&
-                void run("Reset", async () => {
-                  await resetDemo(presenterKey ? { presenterKey } : {});
-                  return "portfolio reseeded.";
-                })
-              }
-              className={`${BUTTON} border-transparent text-ash hover:text-paper`}
-            >
-              Reset
+        )}
+        {IS_STAGE &&
+          (presenterKey && !editingKey ? (
+            // Once set, the key field gets out of the projected frame.
+            <button type="button" onClick={() => setEditingKey(true)} className={BUTTON_QUIET}>
+              Presenter key set
             </button>
-          )}
-          {IS_STAGE &&
-            (presenterKey && !editingKey ? (
-              // Once set, the key field gets out of the projected frame.
-              <button
-                type="button"
-                onClick={() => setEditingKey(true)}
-                className="text-xs text-ash hover:text-paper"
-              >
-                Presenter key set ✓
-              </button>
-            ) : (
-              <label className="flex items-center gap-2 text-xs text-ash">
-                Presenter key
-                <input
-                  type="password"
-                  autoComplete="off"
-                  value={presenterKey}
-                  onChange={(e) => {
-                    setPresenterKey(e.target.value);
-                    saveKey(e.target.value);
-                  }}
-                  autoFocus={editingKey}
-                  onBlur={() => setEditingKey(false)}
-                  placeholder="prod only"
-                  className="w-24 rounded-chip border border-line bg-panel px-2 py-1 text-xs text-paper"
-                />
-              </label>
-            ))}
-        </div>
+          ) : (
+            <label className="flex items-center gap-2 text-sm text-ash">
+              Presenter key
+              <input
+                type="password"
+                autoComplete="off"
+                value={presenterKey}
+                onChange={(e) => {
+                  setPresenterKey(e.target.value);
+                  saveKey(e.target.value);
+                }}
+                autoFocus={editingKey}
+                onBlur={() => setEditingKey(false)}
+                placeholder="prod only"
+                className={`min-h-9 w-28 py-1.5 ${FIELD}`}
+              />
+            </label>
+          ))}
         <p
-          className={`min-w-0 flex-1 basis-56 truncate text-xs ${status ? "text-paper" : "hidden text-ash xl:block"}`}
+          className={`min-w-0 basis-full truncate text-sm lg:flex-1 lg:basis-56 ${status ? "text-paper" : "text-ash"}`}
           title={status ?? scenario.about}
           aria-live="polite"
         >
@@ -252,13 +223,5 @@ export function DemoControls() {
         </p>
       </div>
     </div>
-  );
-}
-
-function DemoTag() {
-  return (
-    <span className="rounded-[4px] border border-amber/50 px-1.5 py-px text-[10px] font-bold tracking-wider text-amber uppercase">
-      Demo
-    </span>
   );
 }
