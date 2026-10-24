@@ -7,6 +7,7 @@ The data shapes and function signatures every role builds against. Owned by Role
 
 ## Changelog
 
+- **Oct 23, ~8:10pm.** `getHeldPayments` rows gained `decision` (who released/rejected, their note, when); `notice` is null once a payment is decided. `releasePayment` refuses notes that don't describe the call (min 15 chars, words, not just an amount).
 - **Oct 23, ~8pm.** **`actingUserId` removed from every function** (identity = signed-in session only; `REQUIRE_SESSION` is gone, always on). Sign-up only accepts the demo password. New `payments.getIncidentAudit` (controls log). `data/scorecard.json` format defined (see "Scorecard").
 - **Oct 23, ~7:45pm.** `getHeldPayments` `bankChange` gained `previousAccountLast4` and `lastVerifiedAccountLast4` (for Role 2's old-vs-new flag).
 - **Oct 23, ~7:30pm.** `REQUIRE_SESSION=true` (deployment env) turns off the `actingUserId` fallback: only signed-in users get data. `links.detail?` holds the DNS record behind a `dns_inferred` link and shows up in exposure evidence. `data/dns_links.json` is imported by the seed (see "DNS links").

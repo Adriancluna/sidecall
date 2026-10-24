@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 23, 20:00 by Adrian's Claude
+Last updated: Oct 23, 20:10 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -7,6 +7,7 @@ Last updated: Oct 23, 20:00 by Adrian's Claude
 - **Sign-up only accepts the demo password** (`sidecall-demo`), so a first sign-in with another password can no longer lock a person out of the quick-pick (✓ fixes the gotcha Role 2 noted).
 - **New query `payments.getIncidentAudit({ incidentId })`**: the controls log (every hold, flag, refusal, release, reject for an incident, with `actorName` and `companyName`, newest first). PE sees the whole portfolio, a company only its own rows.
 - **`data/scorecard.json` format defined** in CONTRACT.md → "Scorecard" (placeholder file on main so the UI can import it now).
+- **Fixed (from Adrian's prod test):** a paid payment still showed "held until verified" text. `getHeldPayments` now returns `notice: null` once decided, plus `decision: { status, byName, note, at }`. Release now refuses notes that don't describe the call (Adrian's test note "480000" passed before).
 - `npm test`: 15 tests green (they sign in as each person; added: client can't pass a user id, controls log scoping).
 - ✓ done for Role 2: reviewed and merged #26. Earlier: #20, #22, #24.
 
@@ -26,6 +27,7 @@ Last updated: Oct 23, 20:00 by Adrian's Claude
   6. **Vendor letter:** Copy button + "Open in email" (`mailto:` with subject and body).
   7. **Errors and polish:** friendly message for `ConvexError` texts ("Not signed in" after Reset → back to sign-in); every screen at phone width (16px gutter, no horizontal scroll); copy audit against CLAUDE.md "Never say" (no "fraud", no "validated", no "we block payments").
   8. **Pitch material** (new folder `docs/`, Role 2 owns it): `docs/demo-script.md` (opens on the $480K money moment, ≤ 3 min, who clicks what), `docs/devpost.md` draft (what it does, how we built it on Convex, real vs simulated, the one-line seat: "AP payment controls across a PE portfolio"), and a shot list for the backup video.
+- → **Role 2, do first (bug from Adrian's prod test):** on a decided payment card (`row.decision` set), show "Released by Rosa Alvarez · <note> · <time>" (or "Rejected by …") instead of hold wording; label `holdReasons` as "Why it was held"; hide the note box. Short notes like "480000" now come back refused with guidance (shown inline already). Also: the PE headline's "$ held" drops after a release (counts still-held only, by design); add a second line "released after verification: $X" from `getHeldPayments` rows with `decision.status === "paid"`.
 - → Role 2: if any task needs a backend change (new field, query), ask here first; Role 1 turns those around fast.
 - → Role 4: overwrite `data/dns_links.json` and `data/scorecard.json` (both placeholders). Formats in CONTRACT.md → "DNS links" and "Scorecard". ⚠ No DNS links to Brightline Payroll for seed companies.
 
