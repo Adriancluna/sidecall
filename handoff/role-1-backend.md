@@ -1,12 +1,14 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 23, 19:45 by Adrian's Claude
+Last updated: Oct 23, 19:50 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Presenter URL: https://sidecall.vercel.app/?stage
   - ✓ Prod is **seeded** (8 companies, 21 users with demo emails), `DEMO_MODE=true` (Reset works on `?stage`), login keys set (JWKS serving). Login code deployed via Vercel.
 - **Login backend is live on dev (and ships to prod with the next Vercel build):** Convex Auth, Password provider, invite-only (sign-in links to a seeded user by email; unknown emails refused). Session always wins over `actingUserId`; `actingUserId` is optional and only used when nobody is signed in. Verified on dev: sign-up/sign-in, wrong password refused, stranger refused, `access.me` returns the user, and a signed-in clerk passing the controller's id is still refused.
 - ✓ Fresh-clone test passed (clone → `npm ci` → typecheck, lint, 14 tests, build, `convex dev --once`).
-- **Session-only switch ready:** deployment env `REQUIRE_SESSION=true` makes the backend ignore `actingUserId` (only signed-in users get data). Off on dev and prod until Role 2's login UI is merged.
+- **Session-only:** `REQUIRE_SESSION=true` is **on for Adrian's dev** (verified: `actingUserId` alone → "Not signed in"; signed-in Jamie works). Prod: Adrian runs `npx convex env set REQUIRE_SESSION true --prod`.
+- ✓ done for Role 2: login UI (#22) reviewed on main: app only queries inside `<Authenticated>`, sign-in screen uses public directory queries only. tsc, build, 15 tests green.
+- ✓ done for Role 2: CONTRACT.md restored (#23).
 - **DNS importer ready:** `seed.ts` imports `data/dns_links.json` (placeholder `[]` for now) as `dns_inferred` candidate links with the DNS record shown in evidence. Tested with sample data: imports, skips duplicates and unknown domains.
 - ✓ done for Role 2: `getHeldPayments` → `bankChange.previousAccountLast4` and `bankChange.lastVerifiedAccountLast4`. For the $480K: new 7731, previous 4419 (also an email change), last verified **2208**. Show "2208 → 7731" on the red flag.
 - Reviewed Role 2's #20 (Close, audit who/incident, PE tailored alerts): tsc, lint, build, tests green.
@@ -15,7 +17,7 @@ Last updated: Oct 23, 19:45 by Adrian's Claude
 - Everything from before: `/incident` fan-out, holds/flags, release/reject + audit + ledger, scoping, `resetDemo` (also wipes sign-ins now).
 
 ## In progress
-1. When Role 2's login UI is on main: Adrian runs `npx convex env set REQUIRE_SESSION true --prod` (and on dev), Claude verifies, then removes the `actingUserId` arg from the API in a follow-up.
+1. Remove the `actingUserId` arg from the API once Role 2 stops passing it (it's ignored for signed-in users and refused without a session, so it's dead code now).
 2. After 11pm: import `data/dns_links.json` into seed; review Waterloo PRs; run convex-reviewer.
 
 ## Needs from others
@@ -27,7 +29,7 @@ Last updated: Oct 23, 19:45 by Adrian's Claude
   - After Reset everyone is signed out (users are recreated).
 - → Role 2: **prod is ready**: re-test the full flow on https://sidecall.vercel.app (and `/?stage` for Reset). Login works on prod too once your UI lands.
 - → Role 4: overwrite `data/dns_links.json` (placeholder `[]`) with `[{ companyDomain, assetName, detail }]`. Format and rules in CONTRACT.md → "DNS links". ⚠ No links to Brightline Payroll for seed companies (changes the demo headline and answer key). If your DNS work runs on real public domains, list them in your handoff and Role 1 will decide how to show them.
-- → Role 2: tell Role 1 the moment the login UI is merged, so `REQUIRE_SESSION` gets flipped on prod.
+- → Role 2: **stop passing `actingUserId`** in `src/` (App, CompanyView, PaymentCard, PortfolioView, LedgerPanel, EvidencePanel) and post in your handoff when done; Role 1 then deletes the arg from every function. Teammates' dev deployments also need `npx convex env set REQUIRE_SESSION true` to match prod.
 
 ## Decisions & gotchas
 - **Packages added:** `@convex-dev/auth`, `@auth/core@^0.41` (runtime); `convex-test`, `vitest`, `@edge-runtime/vm` (dev). Run `npm install` after pulling. (`@auth/core@0.37.0` from older docs conflicts with the current `@convex-dev/auth`.)
