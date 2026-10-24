@@ -7,7 +7,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { friendlyError } from "../layout/errors";
 import { dateTime, humanize } from "./format";
-import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "./styles";
+import { BUTTON_SECONDARY } from "./styles";
 import { Card, Chip, Empty } from "./ui";
 
 type Mode = "notify" | "prepare" | "act";
@@ -49,8 +49,8 @@ export function PlanSteps({ incidentId }: { incidentId: Id<"incidents"> }) {
   return (
     <div className="mt-6 rounded-xl border border-line bg-graphite p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-xs font-semibold tracking-wider text-ash uppercase">Your pre-approved steps</h2>
-        <span className="text-xs text-ash">From your response playbook · execution type shown per step</span>
+        <h2 className="text-lg font-semibold">Your pre-approved steps</h2>
+        <span className="text-xs text-ash">From your company's response playbook</span>
       </div>
       <ul className="mt-3 space-y-3">
         {plan.map((p) => (
@@ -61,7 +61,7 @@ export function PlanSteps({ incidentId }: { incidentId: Id<"incidents"> }) {
                 {p.status === "done" ? (
                   <Chip tone="ok">Done{p.msAfterReport !== null && ` ${seconds(p.msAfterReport)} after the report`}</Chip>
                 ) : p.status === "awaiting_approval" ? (
-                  <Chip tone="amber">Ready · one click</Chip>
+                  <Chip tone="amber">Ready, one click</Chip>
                 ) : p.status === "undone" ? (
                   <Chip tone="muted">Undone{p.undoneByName && ` by ${p.undoneByName}`}</Chip>
                 ) : p.status === "recommended" ? (
@@ -76,7 +76,7 @@ export function PlanSteps({ incidentId }: { incidentId: Id<"incidents"> }) {
                   (p.approvedByName ? ` Run by ${p.approvedByName}.` : " Your company pre-approved this.")}
               </p>
               {p.capNote && <p className="mt-0.5 text-xs text-amber">{p.capNote}</p>}
-              <p className="mt-0.5 text-xs text-ash/80">{p.executionMode === "sandbox" ? "Applied to an owned sandbox resource; external identity providers are not connected." : `Simulated · stands for: ${p.wouldCall}`}</p>
+              <p className="mt-0.5 text-xs text-ash/80">{p.executionMode === "sandbox" ? "Applied to an owned sandbox resource; external identity providers are not connected." : `Simulated. Stands for: ${p.wouldCall}`}</p>
               {p.verification && <p className="mt-1 text-sm text-ash">Recorded access check: {p.verification.accessBefore ? "allowed" : "denied"} → {p.verification.accessAfter ? "allowed" : "denied"}{p.status === "undone" ? " (before undo)" : ""}.</p>}
             </div>
             <div className="flex shrink-0 gap-2">
@@ -85,7 +85,7 @@ export function PlanSteps({ incidentId }: { incidentId: Id<"incidents"> }) {
                   type="button"
                   disabled={busy !== undefined}
                   onClick={() => void run(p.action, () => approve({ stepId: p.stepId! }))}
-                  className={BUTTON_PRIMARY}
+                  className={BUTTON_SECONDARY}
                 >
                   Run now
                 </button>
@@ -164,9 +164,9 @@ export function PlaybookPanel() {
                   {r.action === "hold_payments"
                     ? `Switched ${r.mode === "act" ? "on" : "off"} by your controller`
                     : r.setByName
-                    ? `Set by ${r.setByName}${r.confirmedByName ? `, confirmed by ${r.confirmedByName}` : ""}${r.version ? ` · v${r.version}` : ""}${r.setAt ? ` · ${dateTime(r.setAt)}` : ""}`
+                    ? `Set by ${r.setByName}${r.confirmedByName ? `, confirmed by ${r.confirmedByName}` : ""}${r.version ? `, version ${r.version}` : ""}${r.setAt ? `, ${dateTime(r.setAt)}` : ""}`
                     : "Not set yet: Notify only"}
-                  {r.mode !== r.recommendedMode && ` · firm recommends ${MODE_LABEL[r.recommendedMode]}`}
+                  {r.mode !== r.recommendedMode && `. The firm recommends ${MODE_LABEL[r.recommendedMode]}`}
                 </p>
                 {r.proposedMode && (
                   <p className="mt-1 text-sm text-amber">
@@ -226,6 +226,6 @@ export function FirstStepCell({
         First step done{row.firstStepMs !== null && ` in ${seconds(row.firstStepMs)}`}
       </span>
     );
-  if (row.ready > 0) return <span className="text-amber">Ready · one click</span>;
+  if (row.ready > 0) return <span className="text-amber">Ready, one click</span>;
   return <span className="text-ash">Notify only</span>;
 }
