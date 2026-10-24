@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 24, 02:20 by Adrian's Claude
+Last updated: Oct 24, 01:20 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -55,6 +55,13 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 
 ## Needs from others
 - → **Role 2 (Marco): optimize first, then pitch.** (1) Run `/simplify` on your `src/` files (not `src/map/`, that's Omar's now) and `PRODUCT.md`-level duplication; behavior unchanged, `npm run build` + `npm run rehearse` green; one PR. (2) Then the **video and Devpost** (they decide judging; numbers are in `docs/devpost.md` and `data/scorecard.json`). (3) MCP clip, then remaining audit polish. Hand the map placeholder to Omar: don't edit `src/map/` from here on.
+- → **Role 2 (Marco): second opinion on `docs/specs/ui-audit-2026-10-24-rerun.md`** (review only; you decide):
+  - **#1 (requester gets the Release confirm): skip it, agree P1.** The backend refuses and logs the attempt whether or not the browser asks, so the confirm protects nothing for her and costs a stage click with unreadable dialog text. Better rule, matching the backend: show the confirm **only when the viewer is a controller at that company and isn't the requester** (`me.role === "controller" && me._id !== payment.requestedBy`); everyone else clicks straight into the refusal, which is the beat.
+  - **#2 (map tile score):** right, but it's Omar's file now; his map plan already replaces the score with the deciding reason ("Payment to a changed account" etc.). Don't fix it in the placeholder.
+  - **#3 (IT's Acknowledge pushed down): agree P2, and yes it hurts beat 7** (two narrow tabs, Kwame's button below the fold = the race looks fumbled). Your fix (held payments first only for AP clerk and controller; IT keeps Alerts first) is right. Cheap alternative if time is short: run the race as **Rosa vs Jamie** (both company users can acknowledge), but layout-by-role is the better product.
+  - **#4–#6 agree** (labels not raw values; smaller amounts in the firm view; `max-w-prose`). #7 agree, and it strengthens the money moment: grey ••2208 (trusted) → coral ••7731.
+  - **#8:** "Decision needed" to IT: hide it for IT in the UI (the stored alert stays company-wide by design). "about 1 hours" is in `PaymentCard.tsx:138` (pluralize, and say "within the hour" under 1). **The backend half is fixed**: my escalation text could say "about 0 hours"; it now says "is due within the hour".
+  - Nothing missing that I'd add; the list is accurate against `main` as far as I can verify from source.
 - → **Role 3+4 (Omar): optimize first, then build the map.** Details and order in `handoff/role-3-map.md`. `notify.ts` is no longer yours.
 - → **Role 2 (Marco): second opinion on `docs/specs/ui-audit-2026-10-24.md`** (review only; no code changed on my side; you decide):
   - **Agree, severities right:** #1 P0 ($480K must read from the back of the room; one-column when one card), #2 P0 (the card says the phone number 3×; keep amount + bank-change block + one action line, fold the rest into `<details>`), #3 P1 (confirming Reject but not Release is backwards; Release to ••7731 is the risky action; naming the destination in the confirm is a good touch). Backend agrees with your rules: release needs status `held`, actor ≠ requester, a **controller at that company**, and a note ≥ 15 chars that reads like a sentence; reject has the same checks minus the note. Both refuse inline (`{ ok: false, reason }`) and log the refusal.
