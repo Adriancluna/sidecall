@@ -1,5 +1,5 @@
 // Role 4: the AI writers. Each action runs once per incident, loops over its items, and
-// writes through internal.alerts.saveAlert. Text comes from, in order:
+// writes them in one internal.alerts.saveAlerts call. Text comes from, in order:
 //   1. data/ai_cache.json, pre-generated off stage (prompts/generate.mjs), used only when the
 //      facts it was written from still match, so nothing on stage needs the network;
 //   2. a live model call, only when AI_LIVE=true and ANTHROPIC_API_KEY are set and the text
@@ -61,12 +61,32 @@ async function write(args: {
   return args.canned;
 }
 
+// Live calls run a few at a time; cached and canned text return immediately.
+async function mapLimited<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const out: R[] = new Array<R>(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker),
+  );
+  return out;
+}
+
 export const generateAlert = internalAction({
   args: { incidentId: v.id("incidents") },
   handler: async (ctx, args) => {
     const context = await ctx.runQuery(internal.alerts.getWritingContext, args);
     if (!context) return null;
-    for (const item of context.companyAlerts) {
+    const alerts = await mapLimited(context.companyAlerts, 5, async (item) => {
       const opener =
         item.urgency === "urgent"
           ? `Urgent: act today.`
@@ -86,14 +106,16 @@ export const generateAlert = internalAction({
           }),
         canned: `${opener} ${context.asset.vendorName} (${context.asset.name}) is under an active security incident. ${item.reasons.join(" ")} Rotate any credentials you share with ${context.asset.vendorName} and review recent access.`,
       });
-      await ctx.runMutation(internal.alerts.saveAlert, {
+      return {
         incidentId: args.incidentId,
         exposureId: item.exposureId,
         companyId: item.companyId,
-        kind: "company_alert",
+        kind: "company_alert" as const,
         body,
-      });
-    }
+      };
+    });
+    // One transaction for every company, so all alerts land at once.
+    await ctx.runMutation(internal.alerts.saveAlerts, { alerts });
     return null;
   },
 });
@@ -129,7 +151,7 @@ export const generateHoldNotice = internalAction({
   handler: async (ctx, args) => {
     const context = await ctx.runQuery(internal.alerts.getWritingContext, args);
     if (!context) return null;
-    for (const p of context.heldPayments) {
+    const notices = await mapLimited(context.heldPayments, 5, async (p) => {
       const flag = p.bankChangeFlag
         ? ` The account ending ${p.accountLast4} was added recently.`
         : "";
@@ -147,14 +169,15 @@ export const generateHoldNotice = internalAction({
           }),
         canned: `Your ${dollars(p.amountCents)} payment to ${context.asset.vendorName} is held until verified.${flag} Call ${context.asset.vendorName} at the number on file, ${context.asset.phoneOnFile}, not a number from a recent email. A controller other than the requester can then release or reject it.`,
       });
-      await ctx.runMutation(internal.alerts.saveAlert, {
+      return {
         incidentId: args.incidentId,
         companyId: p.companyId,
         paymentId: p.paymentId,
-        kind: "hold_notice",
+        kind: "hold_notice" as const,
         body,
-      });
-    }
+      };
+    });
+    await ctx.runMutation(internal.alerts.saveAlerts, { alerts: notices });
     return null;
   },
 });
