@@ -7,7 +7,8 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { friendlyError, refusalOf } from "../layout/errors";
 import { dateTime } from "./format";
-import { Card, Chip, Empty } from "./ui";
+import { OUTBOX_STATUS } from "./labels";
+import { Card, Empty, LookChip } from "./ui";
 
 type Scope = "company" | "firm";
 type Kind = "slack" | "discord" | "webhook";
@@ -17,14 +18,6 @@ const EVENTS: Record<Scope, Event[]> = {
   company: ["alert", "hold", "escalation"],
   firm: ["incident", "contained"],
 };
-
-const STATUS = {
-  queued: { tone: "muted", label: "Queued" },
-  sending: { tone: "muted", label: "Sending" },
-  simulated: { tone: "amber", label: "Simulated" },
-  sent: { tone: "ok", label: "Sent" },
-  failed: { tone: "danger", label: "Failed" },
-} as const;
 
 type Props = {
   scope: Scope;
@@ -256,9 +249,7 @@ function Outbox({ incidentId }: { incidentId?: Id<"incidents"> }) {
                 </span>
                 <span className="font-medium">{r.channelLabel}</span>
                 <span className="font-mono text-xs">{r.event}</span>
-                <Chip tone={STATUS[r.status].tone}>
-                  {STATUS[r.status].label}
-                </Chip>
+                <LookChip look={OUTBOX_STATUS[r.status]} />
               </div>
               <p className="mt-0.5 line-clamp-2 whitespace-pre-line text-ash">
                 {r.text}

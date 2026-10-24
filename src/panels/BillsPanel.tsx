@@ -7,7 +7,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { friendlyError } from "../layout/errors";
 import { money } from "./format";
 import { PAYMENT_STATUS } from "./labels";
-import { Card, Chip, Empty } from "./ui";
+import { Card, Empty, LookChip } from "./ui";
 
 const shortDate = (ms: number) =>
   new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -108,9 +108,7 @@ function BillRow({
             {money(amountCents)}
           </span>
           {status ? (
-            <Chip tone={PAYMENT_STATUS[status].tone}>
-              {PAYMENT_STATUS[status].label}
-            </Chip>
+            <LookChip look={PAYMENT_STATUS[status]} />
           ) : (
             <button
               type="button"

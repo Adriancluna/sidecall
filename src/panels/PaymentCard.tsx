@@ -9,7 +9,7 @@ import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { dateTime, humanize, money } from "./format";
 import { PAYMENT_STATUS } from "./labels";
 import type { HeldPaymentRow } from "./types";
-import { Chip } from "./ui";
+import { LookChip } from "./ui";
 
 // Who is looking, so the instructions address the right person (the backend enforces the rules).
 export type Viewer = { id: Id<"users">; isController: boolean };
@@ -121,9 +121,7 @@ export function PaymentCard({ row, canDecide, escalation, viewer }: Props) {
             {!row.bankChange && ` · account ••${payment.accountLast4}`}
           </p>
         </div>
-        <Chip tone={PAYMENT_STATUS[payment.status].tone}>
-          {PAYMENT_STATUS[payment.status].label}
-        </Chip>
+        <LookChip look={PAYMENT_STATUS[payment.status]} />
       </header>
 
       {escalation && isHeld && (

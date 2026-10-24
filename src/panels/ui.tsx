@@ -1,5 +1,6 @@
 // Small shared building blocks for the panels.
 import type { ReactNode } from "react";
+import type { Look } from "./labels";
 
 export function Card({
   title,
@@ -44,6 +45,11 @@ export function Chip({ tone, children }: { tone: Tone; children: ReactNode }) {
       {children}
     </span>
   );
+}
+
+// A status chip from a labels.ts entry.
+export function LookChip({ look }: { look: Look }) {
+  return <Chip tone={look.tone}>{look.label}</Chip>;
 }
 
 export function Empty({ children }: { children: ReactNode }) {

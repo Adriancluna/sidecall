@@ -2,7 +2,7 @@
 import type { Doc } from "../../convex/_generated/dataModel";
 import type { Tone } from "./ui";
 
-type Look = { tone: Tone; label: string };
+export type Look = { tone: Tone; label: string };
 
 export const PAYMENT_STATUS: Record<Doc<"payments">["status"], Look> = {
   pending: { tone: "muted", label: "Pending" },
@@ -21,4 +21,12 @@ export const EXPOSURE_STATUS: Record<Doc<"exposures">["status"], string> = {
   open: "Open",
   acknowledged: "Acknowledged",
   closed: "Closed",
+};
+
+export const OUTBOX_STATUS: Record<Doc<"notifications">["status"], Look> = {
+  queued: { tone: "muted", label: "Queued" },
+  sending: { tone: "muted", label: "Sending" },
+  simulated: { tone: "amber", label: "Simulated" },
+  sent: { tone: "ok", label: "Sent" },
+  failed: { tone: "danger", label: "Failed" },
 };

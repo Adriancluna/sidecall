@@ -12,7 +12,7 @@ import { EXPOSURE_STATUS, URGENCY } from "./labels";
 import { LedgerPanel } from "./LedgerPanel";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { TimelinePanel } from "./TimelinePanel";
-import { Card, Chip, Empty } from "./ui";
+import { Card, Chip, Empty, LookChip } from "./ui";
 import { humanize } from "./format";
 
 type Props = {
@@ -143,9 +143,7 @@ function AlertItem({ exposure, alert }: AlertItemProps) {
   return (
     <article className="rounded-lg border border-line bg-graphite p-4">
       <div className="mb-2 flex items-center gap-2">
-        <Chip tone={URGENCY[exposure.urgency].tone}>
-          {URGENCY[exposure.urgency].label}
-        </Chip>
+        <LookChip look={URGENCY[exposure.urgency]} />
         <Chip tone="muted">{EXPOSURE_STATUS[exposure.status]}</Chip>
         <AcknowledgedBy userId={exposure.acknowledgedBy} />
       </div>

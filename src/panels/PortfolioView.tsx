@@ -16,7 +16,7 @@ import { NotificationsPanel } from "./NotificationsPanel";
 import { ProofPanel } from "./ProofPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { VendorLetterActions } from "./VendorLetterActions";
-import { Card, Chip, Empty } from "./ui";
+import { Card, Chip, Empty, LookChip } from "./ui";
 
 export function PortfolioView() {
   const incidents = useQuery(api.blastRadius.listIncidents, {});
@@ -150,10 +150,8 @@ export function PortfolioView() {
                         {money(r.payment.amountCents)}
                       </span>
                       <span className="flex gap-1">
-                        {r.bankChange && <Chip tone="danger">bank change</Chip>}
-                        <Chip tone={PAYMENT_STATUS[r.payment.status].tone}>
-                          {PAYMENT_STATUS[r.payment.status].label}
-                        </Chip>
+                        {r.bankChange && <Chip tone="danger">Bank change</Chip>}
+                        <LookChip look={PAYMENT_STATUS[r.payment.status]} />
                       </span>
                     </li>
                   ))}
@@ -174,11 +172,7 @@ export function PortfolioView() {
               >
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span className="font-medium">{node?.name}</span>
-                  {node?.urgency && (
-                    <Chip tone={URGENCY[node.urgency].tone}>
-                      {URGENCY[node.urgency].label}
-                    </Chip>
-                  )}
+                  {node?.urgency && <LookChip look={URGENCY[node.urgency]} />}
                   {node?.status && (
                     <Chip tone="muted">{EXPOSURE_STATUS[node.status]}</Chip>
                   )}
