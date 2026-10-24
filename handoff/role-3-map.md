@@ -12,7 +12,7 @@ Last updated: Oct 24, 18:35 by Omar's Claude
 - Checked live on dev (`brainy-cassowary-804`) as Jordan: `demo-armadin-004` map and Cedar Ridge evidence; `demo-brightline-001` map and Bayview evidence ("Medium · candidate link from public DNS"). `npm run lint`, `npm run build`, `npm test` (66) green.
 
 ## In progress
-- Nothing running. Not started (spec §6 of `docs/specs/ui-remake-oneshot-prompt.md`): the vendor-centred story map (ripple, particles, auto-play steps). A design brief for it exists from Omar's thread; it would replace the tree, so it needs Omar's go.
+- Nothing running. Omar decided (Oct 24, 18:39) to keep the tree: the vendor-centred story map from spec §6 of `docs/specs/ui-remake-oneshot-prompt.md` is not being built.
 
 ## Needs from others
 - → Role 1 (optional): a firm name on `getBlastRadius` so the centre can say "Northpass Capital" instead of "Parent firm".
