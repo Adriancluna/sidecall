@@ -10,6 +10,7 @@ import { ExposureAcknowledgedBy } from "./AcknowledgedBy";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
 import { ProofPanel } from "./ProofPanel";
+import { VendorLetterActions } from "./VendorLetterActions";
 import { Card, Chip, Empty } from "./ui";
 
 export function PortfolioView() {
@@ -171,9 +172,14 @@ export function PortfolioView() {
         <Card
           title="Letter to the shared vendor"
           aside={
-            <Chip tone={letter.status === "ready" ? "ok" : "muted"}>
-              {letter.status}
-            </Chip>
+            letter.status === "ready" ? (
+              <VendorLetterActions
+                vendorName={blast.asset.vendorName}
+                body={letter.body}
+              />
+            ) : (
+              <Chip tone="muted">writing…</Chip>
+            )
           }
         >
           <p className="max-w-3xl text-sm leading-relaxed whitespace-pre-line">
