@@ -215,7 +215,8 @@ export default defineSchema({
     .index("by_assetId_and_status", ["assetId", "status"])
     .index("by_companyId_and_status", ["companyId", "status"])
     .index("by_heldByIncidentId", ["heldByIncidentId"])
-    .index("by_status_and_dueDate", ["status", "dueDate"]),
+    .index("by_status_and_dueDate", ["status", "dueDate"])
+    .index("by_billId", ["billId"]),
 
   // Double-entry. Bill booked: Dr expense / Cr accounts_payable.
   // Payment released: Dr accounts_payable / Cr cash. Held payments never touch cash.

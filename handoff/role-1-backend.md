@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 23, 21:05 by Adrian's Claude
+Last updated: Oct 23, 21:15 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -19,7 +19,8 @@ Last updated: Oct 23, 21:05 by Adrian's Claude
 - ✓ Merged Role 2's #45 (polish + ledger columns): tsc, lint, build, tests green.
 - ✓ done for Role 2 (#46 ask): **Role 3 and Role 4 briefs rewritten in `handoff/role-3-map.md` and `handoff/role-4-ai.md`** to match `main` (handoff path, `ai.ts({ incidentId })` once per incident, scorecard + DNS shapes from CONTRACT.md, full dev setup incl. login keys + DEMO_MODE, `exportOutcomes`, signed webhook). They supersede the older `role-4-ai-dns.md`. CLAUDE.md now says in-repo files beat outside briefs.
 - For Role 4: `getWritingContext` now includes `externalId` (to key pre-generated text); `ANTHROPIC_API_KEY` and `AI_LIVE` declared in `convex.config.ts`.
-- `npm test`: 21 tests green (they sign in as each person; added: client can't pass a user id, controls log scoping).
+- **New: payment requests close the "after the incident" gap.** `payments.requestPayment({ billId })` (AP clerk only) pays the vendor's current bank details; if the vendor had an incident in the last 30 days it's **held and flagged on creation** (audit rule `hold_payments_requested_during_incident`, hold notice written, escalation if due soon). `payments.getMyBills()` lists the company's bills + payment status. Seed: Summit has an unpaid $38K Brightline bill ("November payroll processing").
+- `npm test`: 23 tests green (they sign in as each person; added: client can't pass a user id, controls log scoping).
 - ✓ done for Role 2: reviewed and merged #26. Earlier: #20, #22, #24.
 
 ## In progress
@@ -39,6 +40,7 @@ Last updated: Oct 23, 21:05 by Adrian's Claude
   7. **Errors and polish:** friendly message for `ConvexError` texts ("Not signed in" after Reset → back to sign-in); every screen at phone width (16px gutter, no horizontal scroll); copy audit against CLAUDE.md "Never say" (no "fraud", no "validated", no "we block payments").
   8. **Pitch material** (new folder `docs/`, Role 2 owns it): `docs/demo-script.md` (opens on the $480K money moment, ≤ 3 min, who clicks what), `docs/devpost.md` draft (what it does, how we built it on Convex, real vs simulated, the one-line seat: "AP payment controls across a PE portfolio"), and a shot list for the backup video.
 - → **Role 2, do first (bug from Adrian's prod test):** on a decided payment card (`row.decision` set), show "Released by Rosa Alvarez · <note> · <time>" (or "Rejected by …") instead of hold wording; label `holdReasons` as "Why it was held"; hide the note box. Short notes like "480000" now come back refused with guidance (shown inline already). Also: the PE headline's "$ held" drops after a release (counts still-held only, by design); add a second line "released after verification: $X" from `getHeldPayments` rows with `decision.status === "paid"`.
+- → **Role 2, round 5 — "Bills to pay" (company view, AP clerk):** list `api.payments.getMyBills()`; for bills with `payment: null`, a **Request payment** button → `api.payments.requestPayment({ billId })`. Show the result inline: held → "Held until verified: Brightline is under an active incident" (+ "goes to an account changed by email" when `flagged`); refusals show `reason`. Demo beat after the money moment: Jamie requests the $38K November bill → held and flagged instantly ("we don't just catch what was in flight"). Ledger: AP stays at $38K after releasing the $480K, by design.
 - → **Role 2, round 4 — scenario picker on `/?stage`** (backend ready, no changes needed):
   - Next to Fire incident, a small select of three scenarios; POST the same way your Fire button does (unsigned works for these only):
     - **Brightline payroll breach** (main demo): `{ "externalId": "demo-brightline-001", "assetName": "Brightline Payroll", "reportedByDomain": "pinecreststaffing.example" }`

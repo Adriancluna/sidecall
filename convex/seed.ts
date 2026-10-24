@@ -135,6 +135,12 @@ const PAYMENTS: {
   { ref: "pay_G_relay_9k", company: "G", asset: "relay", dollars: 9_000, last4: "6612", status: "pending", description: "Email hosting, annual" },
 ];
 
+// Bills with no payment yet: the AP clerk requests one in the app (payments.requestPayment).
+// Requested after the Brightline incident, it is held on creation.
+const UNPAID_BILLS: { company: CompanyKey; asset: AssetKey; dollars: number; dueInHours: number; description: string }[] = [
+  { company: "C", asset: "brightline", dollars: 38_000, dueInHours: 120, description: "November payroll processing" },
+];
+
 const OPENING_CASH = usd(5_000_000);
 
 // "Jamie Chen" at summithomehealth.example -> jamie.chen@summithomehealth.example
@@ -264,6 +270,27 @@ async function seedAll(ctx: MutationCtx) {
       accountLast4: change.last4,
       requestChannel: change.channel,
       seedRef: change.ref,
+    });
+  }
+
+  for (const b of UNPAID_BILLS) {
+    const amountCents = usd(b.dollars);
+    const billId = await ctx.db.insert("bills", {
+      companyId: companyIds[b.company],
+      assetId: assetIds[b.asset],
+      amountCents,
+      dueDate: now + b.dueInHours * 60 * 60 * 1000,
+      description: b.description,
+    });
+    await ctx.db.insert("ledgerEntries", {
+      companyId: companyIds[b.company],
+      date: now - DAY,
+      memo: `Bill booked: ${ASSETS[b.asset].vendorName}, ${b.description}`,
+      billId,
+      lines: [
+        { account: "expense", debitCents: amountCents, creditCents: 0 },
+        { account: "accounts_payable", debitCents: 0, creditCents: amountCents },
+      ],
     });
   }
 

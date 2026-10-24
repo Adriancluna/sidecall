@@ -7,6 +7,7 @@ The data shapes and function signatures every role builds against. Owned by Role
 
 ## Changelog
 
+- **Oct 23, ~9:15pm.** New `payments.requestPayment({ billId })` (AP clerk; pays the vendor's latest bank details; held + flagged on creation if the vendor had an incident in the last 30 days) and `payments.getMyBills()`. Seed adds one unpaid Summit → Brightline bill ($38K). Summit's AP no longer reaches $0 after releasing the $480K (the $38K bill is still owed).
 - **Oct 23, ~8:35pm.** Escalation: held payments due within 24h get one `escalation` alert to the company's controllers + an `escalate` audit row (at hold time, and by a 15-min cron). Payments gained `dueDate`, `escalatedAt`; alerts `readyAt`; exposures `acknowledgedAt`. New `blastRadius.getIncidentTimeline`. Alert kind `escalation` and audit action `escalate` added (handle unknown kinds gracefully).
 - **Oct 23, ~8:20pm.** `POST /incident` needs an HMAC signature (`X-Sidecall-Signature`) except for the built-in demo scenarios on `DEMO_MODE` deployments (stage buttons unchanged). `resetDemo` needs a signed-in user. `getLedger` balances now cover every entry.
 - **Oct 23, ~8:10pm.** `getHeldPayments` rows gained `decision` (who released/rejected, their note, when); `notice` is null once a payment is decided. `releasePayment` refuses notes that don't describe the call (min 15 chars, words, not just an amount).
@@ -154,6 +155,8 @@ Module prefix in brackets: `api.blastRadius.listIncidents`, etc. `null` means "n
   balances: { cash, accounts_payable, expense, equity }      // cents, natural sign
 }
 
+[payments] getMyBills() -> { bill, vendorName, payment: null | { _id, status } }[]   // company users; [] for the firm
+
 [payments] getIncidentAudit({ incidentId }) -> { _id, at, action, rule, reason, paymentId | null,
                                                  actorName ("System" or a person), companyName | null }[]
                                              // controls log, newest first: firm = whole portfolio, company = own rows
@@ -177,6 +180,8 @@ Module prefix in brackets: `api.blastRadius.listIncidents`, etc. `null` means "n
 [incidents] closeExposure({ exposureId })       -> same shape
 [seed]      resetDemo({}) -> counts                          // "Reset demo" button; throws unless DEMO_MODE=true and someone is signed in
 
+[payments] requestPayment({ billId }) -> { ok: true, paymentId, held, flagged } | { ok: false, reason }
+                                     // AP clerk at the bill's company only; one live payment per bill
 [payments] releasePayment({ paymentId, verificationNote }) -> { ok: true } | { ok: false, reason: string }
 [payments] rejectPayment({ paymentId, note? })             -> same shape
 ```

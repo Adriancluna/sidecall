@@ -79,28 +79,71 @@ export const escalateDueHolds = internalMutation({
 
 // Runs inside recordIncident's transaction. Holds every pending payment to the
 // compromised asset at companies that opted in. Never cancels anything.
+// Bank-detail changes to this vendor within 30 days of the incident.
+async function recentBankChanges(ctx: MutationCtx, assetId: Id<"assets">, incidentAt: number) {
+  return await ctx.db
+    .query("bankDetailChanges")
+    .withIndex("by_assetId_and_changedAt", (q) =>
+      q
+        .eq("assetId", assetId)
+        .gte("changedAt", incidentAt - BANK_CHANGE_WINDOW_MS)
+        .lte("changedAt", incidentAt + BANK_CHANGE_WINDOW_MS),
+    )
+    .take(100);
+}
+
+// Holds one payment for an incident: reasons, flag, audit rows, escalation if due soon.
+// Shared by the incident fan-out and by payments requested while the incident is active.
+async function holdPayment(
+  ctx: MutationCtx,
+  payment: Doc<"payments">,
+  incident: Doc<"incidents">,
+  asset: Doc<"assets">,
+  changes: Doc<"bankDetailChanges">[],
+  at: number,
+  rule: string,
+  firstReason: string,
+): Promise<{ flagged: boolean }> {
+  // Flag only if this payment is going to an account that changed recently.
+  const change = changes.find((c) => c.accountLast4 === payment.accountLast4);
+  const holdReasons = [firstReason];
+  if (change) {
+    const days = Math.round((incident.createdAt - change.changedAt) / DAY_MS);
+    holdReasons.push(
+      `Bank details for ${asset.vendorName} changed ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ${days >= 0 ? "before" : "after"} the incident via ${change.requestChannel.replace("_", " ")}. Verify by calling the number on file.`,
+    );
+  }
+
+  await ctx.db.patch("payments", payment._id, {
+    status: "held",
+    heldByIncidentId: incident._id,
+    holdReasons,
+    bankChangeFlag: change !== undefined,
+    flaggedBankChangeId: change?._id,
+  });
+  const audit = { at, actor: "system" as const, companyId: payment.companyId, paymentId: payment._id, incidentId: incident._id };
+  await ctx.db.insert("auditLog", { ...audit, action: "hold", rule, reason: holdReasons[0] });
+  if (change) {
+    await ctx.db.insert("auditLog", { ...audit, action: "flag", rule: "bank_change_within_30_days", reason: holdReasons[1] });
+  }
+
+  // Already close to due when the hold lands? Ask a controller right away.
+  await escalateIfDue(ctx, { ...payment, status: "held", heldByIncidentId: incident._id }, at);
+  return { flagged: change !== undefined };
+}
+
+// Runs inside recordIncident's transaction. Holds every pending payment to the
+// compromised asset at companies that opted in. Never cancels anything.
 export async function holdPaymentsForIncident(
   ctx: MutationCtx,
   incident: Doc<"incidents">,
   asset: Doc<"assets">,
 ): Promise<Map<Id<"companies">, HeldSummary>> {
   const byCompany = new Map<Id<"companies">, HeldSummary>();
-
-  const recentChanges = await ctx.db
-    .query("bankDetailChanges")
-    .withIndex("by_assetId_and_changedAt", (q) =>
-      q
-        .eq("assetId", asset._id)
-        .gte("changedAt", incident.createdAt - BANK_CHANGE_WINDOW_MS)
-        .lte("changedAt", incident.createdAt + BANK_CHANGE_WINDOW_MS),
-    )
-    .take(100);
-
+  const changes = await recentBankChanges(ctx, asset._id, incident.createdAt);
   const pending = await ctx.db
     .query("payments")
-    .withIndex("by_assetId_and_status", (q) =>
-      q.eq("assetId", asset._id).eq("status", "pending"),
-    )
+    .withIndex("by_assetId_and_status", (q) => q.eq("assetId", asset._id).eq("status", "pending"))
     .take(500);
 
   const companyCache = new Map<Id<"companies">, Doc<"companies"> | null>();
@@ -108,70 +151,139 @@ export async function holdPaymentsForIncident(
     if (!companyCache.has(payment.companyId)) {
       companyCache.set(payment.companyId, await ctx.db.get("companies", payment.companyId));
     }
-    const company = companyCache.get(payment.companyId);
-    if (!company?.holdRuleEnabled) continue;
+    if (!companyCache.get(payment.companyId)?.holdRuleEnabled) continue;
 
-    // Flag only if this payment is going to an account that changed recently.
-    const change = recentChanges.find(
-      (c) => c.accountLast4 === payment.accountLast4,
-    );
-    const holdReasons = [
+    const { flagged } = await holdPayment(
+      ctx,
+      payment,
+      incident,
+      asset,
+      changes,
+      incident.createdAt,
+      "hold_payments_to_compromised_vendor",
       `${asset.vendorName} is under an active security incident. Payment held until verified.`,
-    ];
-    if (change) {
-      const days = Math.round((incident.createdAt - change.changedAt) / DAY_MS);
-      holdReasons.push(
-        `Bank details for ${asset.vendorName} changed ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ${days >= 0 ? "before" : "after"} the incident via ${change.requestChannel.replace("_", " ")}. Verify by calling the number on file.`,
-      );
-    }
-
-    await ctx.db.patch("payments", payment._id, {
-      status: "held",
-      heldByIncidentId: incident._id,
-      holdReasons,
-      bankChangeFlag: change !== undefined,
-      flaggedBankChangeId: change?._id,
-    });
-
-    await ctx.db.insert("auditLog", {
-      at: incident.createdAt,
-      actor: "system",
-      action: "hold",
-      companyId: payment.companyId,
-      paymentId: payment._id,
-      incidentId: incident._id,
-      rule: "hold_payments_to_compromised_vendor",
-      reason: holdReasons[0],
-    });
-    if (change) {
-      await ctx.db.insert("auditLog", {
-        at: incident.createdAt,
-        actor: "system",
-        action: "flag",
-        companyId: payment.companyId,
-        paymentId: payment._id,
-        incidentId: incident._id,
-        rule: "bank_change_within_30_days",
-        reason: holdReasons[1],
-      });
-    }
-
-    // Already close to due when the hold lands? Ask a controller right away.
-    await escalateIfDue(ctx, { ...payment, status: "held", heldByIncidentId: incident._id }, incident.createdAt);
-
-    const summary = byCompany.get(payment.companyId) ?? {
-      count: 0,
-      cents: 0,
-      flagged: 0,
-    };
+    );
+    const summary = byCompany.get(payment.companyId) ?? { count: 0, cents: 0, flagged: 0 };
     summary.count += 1;
     summary.cents += payment.amountCents;
-    if (change) summary.flagged += 1;
+    if (flagged) summary.flagged += 1;
     byCompany.set(payment.companyId, summary);
   }
-
   return byCompany;
 }
+
+const ACTIVE_INCIDENT_MS = 30 * DAY_MS;
+
+// AP clerk requests payment of a bill. Pays the vendor's current bank details on file
+// (the latest change). If the vendor had an incident in the last 30 days, the new payment
+// is held on creation, like the ones the incident caught.
+export const requestPayment = mutation({
+  args: { billId: v.id("bills") },
+  returns: v.union(
+    v.object({ ok: v.literal(true), paymentId: v.id("payments"), held: v.boolean(), flagged: v.boolean() }),
+    v.object({ ok: v.literal(false), reason: v.string() }),
+  ),
+  handler: async (ctx, args) => {
+    const viewer = await getViewer(ctx);
+    const bill = await ctx.db.get("bills", args.billId);
+    if (!bill || viewer.firm || viewer.companyId !== bill.companyId) {
+      return { ok: false as const, reason: "That bill isn't your company's." };
+    }
+    if (viewer.user.role !== "ap_clerk") {
+      return { ok: false as const, reason: "Only an AP clerk requests payments; a controller approves them." };
+    }
+    const existing = await ctx.db
+      .query("payments")
+      .withIndex("by_billId", (q) => q.eq("billId", bill._id))
+      .take(10);
+    if (existing.some((p) => p.status !== "rejected")) {
+      return { ok: false as const, reason: "This bill already has a payment." };
+    }
+
+    const asset = await ctx.db.get("assets", bill.assetId);
+    if (!asset) return { ok: false as const, reason: "Unknown vendor." };
+    const [latestChange] = await ctx.db
+      .query("bankDetailChanges")
+      .withIndex("by_assetId_and_changedAt", (q) => q.eq("assetId", asset._id))
+      .order("desc")
+      .take(1);
+    if (!latestChange) return { ok: false as const, reason: "No bank details on file for this vendor." };
+
+    const now = Date.now();
+    const paymentId = await ctx.db.insert("payments", {
+      billId: bill._id,
+      companyId: bill.companyId,
+      assetId: asset._id,
+      amountCents: bill.amountCents,
+      accountLast4: latestChange.accountLast4,
+      status: "pending",
+      requestedBy: viewer.user._id,
+      dueDate: bill.dueDate,
+    });
+
+    const [incident] = await ctx.db
+      .query("incidents")
+      .withIndex("by_assetId", (q) => q.eq("assetId", asset._id))
+      .order("desc")
+      .take(1);
+    const company = await ctx.db.get("companies", bill.companyId);
+    if (!incident || now - incident.createdAt > ACTIVE_INCIDENT_MS || !company?.holdRuleEnabled) {
+      return { ok: true as const, paymentId, held: false, flagged: false };
+    }
+
+    const payment = (await ctx.db.get("payments", paymentId))!;
+    const { flagged } = await holdPayment(
+      ctx,
+      payment,
+      incident,
+      asset,
+      await recentBankChanges(ctx, asset._id, incident.createdAt),
+      now,
+      "hold_payments_requested_during_incident",
+      `Requested while ${asset.vendorName} is under an active security incident. Payment held until verified.`,
+    );
+    await ctx.db.insert("alerts", {
+      incidentId: incident._id,
+      companyId: bill.companyId,
+      paymentId,
+      kind: "hold_notice",
+      status: "ready",
+      readyAt: now,
+      body: `Your ${dollars(bill.amountCents)} payment to ${asset.vendorName} is held until verified. Call ${asset.vendorName} at the number on file, ${asset.phoneOnFile}, not a number from a recent email. A controller other than the requester can then release or reject it.`,
+    });
+    return { ok: true as const, paymentId, held: true, flagged };
+  },
+});
+
+// A company's bills and whether each has a payment yet (AP clerk's "Bills to pay").
+export const getMyBills = query({
+  args: {},
+  handler: async (ctx) => {
+    const viewer = await getViewer(ctx);
+    if (viewer.firm) return [];
+    const bills = await ctx.db
+      .query("bills")
+      .withIndex("by_companyId", (q) => q.eq("companyId", viewer.companyId))
+      .take(100);
+    return await Promise.all(
+      bills.map(async (bill) => {
+        const [asset, payments] = await Promise.all([
+          ctx.db.get("assets", bill.assetId),
+          ctx.db
+            .query("payments")
+            .withIndex("by_billId", (q) => q.eq("billId", bill._id))
+            .take(10),
+        ]);
+        const payment = payments.find((p) => p.status !== "rejected") ?? null;
+        return {
+          bill,
+          vendorName: asset?.vendorName ?? "",
+          payment: payment ? { _id: payment._id, status: payment.status } : null,
+        };
+      }),
+    );
+  },
+});
 
 type Decision = { ok: true } | { ok: false; reason: string };
 const decisionValidator = v.union(
