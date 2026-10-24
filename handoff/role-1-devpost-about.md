@@ -51,7 +51,8 @@ That's why we built **Sidecall**: when one vendor or login is compromised, it wo
 - **0 missed, 0 false holds** across 18 cases we planted with a known answer. Those include an honest bank change verified by phone five months ago, which a cruder rule would have flagged. These are our own planted cases, not a benchmark.
 - **The $480K moment works end to end on the live site:** held, the requester refused, the controller verifies, cash moves exactly once.
 - To our knowledge, nobody else carries a validated red-team finding to the sister companies that share the compromised access without touching their systems.
-- **66 backend tests,** plus a rehearsal script that plays every demo beat against a live deployment and checks each number.
+- **95 app and backend tests plus 40 for the AI text rules and scorecard,** and a rehearsal script that plays every demo beat against a live deployment and checks each number.
+- **We checked the premise on real data:** public DNS of 26 companies in one real PE portfolio shows 9 on the same device-management vendor and 3 each on the same password-manager and login vendors (totals only, no company named).
 
 ## What we learned
 
