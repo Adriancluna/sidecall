@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 19:06 by Marco's Claude
+Last updated: Oct 23, 19:11 by Marco's Claude
 
 ## Status (on main)
 - App shell, "Viewing as" switcher (passes `actingUserId`), PE portfolio view, company view, held payment cards (release/reject, refusals inline, audit log), ledger panel (cash + AP from `getLedger` balances).
@@ -7,13 +7,14 @@ Last updated: Oct 23, 19:06 by Marco's Claude
 - Title "Sidecall" + brand favicon (#7). Webhook host derived from `VITE_CONVEX_URL` when `VITE_CONVEX_SITE_URL` is unset (#9).
 - Verified on Marco's dev deployment: $480K held + flagged at Summit; requester refused; controller release moves cash $5.00M → $4.52M, AP → $0; PE headline "3 companies exposed · 4,200 people · $612,000 held"; evidence panel; replay = duplicate; two-tab acknowledge race, exactly one wins.
 - Local find-skills skill removed (✓ done for Role 1).
+- Live: https://sidecall.vercel.app loads (title, favicon, demo controls; Reset under `/?stage`). Prod deployment `judicious-tiger-712` is **empty**: `listCompanies` / `listUsers` return `[]`, so the switcher and views are blank.
 
 ## In progress
 1. Test the full flow on the Vercel production URL once Adrian deploys and seeds.
 2. After 11pm: Convex Auth login (replaces the switcher), scorecard panel, demo script, Devpost, backup video.
 
 ## Needs from others
-- → Role 1: send the production URL after the first deploy + `seed:run --prod`.
+- → Role 1: **production is not seeded.** Run `npx convex run seed:run --prod` (and `npx convex env set DEMO_MODE true --prod` if Reset should work on stage). Role 2 tests the full flow on the live URL right after.
 - → Role 1: auth provider choice when we start login (proposal: Convex Auth with Password, plus Anonymous for judges). Will confirm before touching anything.
 
 ## Decisions & gotchas
