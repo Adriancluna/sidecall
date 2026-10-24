@@ -1,7 +1,7 @@
 // Money layer: holds, release/reject with segregation of duties, ledger and audit log.
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { HeldSummary } from "./scoring";
 import { canSeeCompany, getViewer } from "./access";
@@ -550,12 +550,25 @@ export const getPaymentAudit = query({
     const viewer = await getViewer(ctx);
     const payment = await ctx.db.get("payments", args.paymentId);
     if (!payment || !canSeeCompany(viewer, payment.companyId)) return [];
-    return await ctx.db
+    const rows = await ctx.db
       .query("auditLog")
       .withIndex("by_paymentId", (q) => q.eq("paymentId", args.paymentId))
       .take(100);
+    return await Promise.all(rows.map(async (row) => ({ ...row, actorName: await actorLabel(ctx, row.actor) })));
   },
 });
+
+// Who did it, for audit displays: "System", a person's name, or "<agent> (agent)".
+export async function actorLabel(ctx: QueryCtx, actor: Doc<"auditLog">["actor"]): Promise<string> {
+  if (actor === "system") return "System";
+  const agentId = ctx.db.normalizeId("agents", actor);
+  if (agentId) {
+    const agent = await ctx.db.get("agents", agentId);
+    return agent ? `${agent.name} (agent)` : "Unknown agent";
+  }
+  const userId = ctx.db.normalizeId("users", actor);
+  return (userId && (await ctx.db.get("users", userId))?.name) || "Unknown user";
+}
 
 export const getLedger = query({
   args: {
@@ -605,16 +618,10 @@ export const getIncidentAudit = query({
           .order("desc")
           .take(500);
 
-    const names = new Map<string, string>();
-    const nameOf = async (id: Id<"users"> | Id<"companies">, table: "users" | "companies") => {
-      if (!names.has(id)) {
-        const doc =
-          table === "users"
-            ? await ctx.db.get("users", id as Id<"users">)
-            : await ctx.db.get("companies", id as Id<"companies">);
-        names.set(id, doc?.name ?? "");
-      }
-      return names.get(id)!;
+    const companyNames = new Map<Id<"companies">, string>();
+    const companyName = async (id: Id<"companies">) => {
+      if (!companyNames.has(id)) companyNames.set(id, (await ctx.db.get("companies", id))?.name ?? "");
+      return companyNames.get(id)!;
     };
 
     return await Promise.all(
@@ -625,8 +632,8 @@ export const getIncidentAudit = query({
         rule: row.rule,
         reason: row.reason,
         paymentId: row.paymentId ?? null,
-        actorName: row.actor === "system" ? "System" : await nameOf(row.actor, "users"),
-        companyName: row.companyId ? await nameOf(row.companyId, "companies") : null,
+        actorName: await actorLabel(ctx, row.actor),
+        companyName: row.companyId ? await companyName(row.companyId) : null,
       })),
     );
   },
