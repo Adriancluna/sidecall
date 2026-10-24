@@ -7,9 +7,11 @@ import {
   exposureState,
   mainEdge,
   moneyBadges,
+  pathWord,
   reason,
   statusWord,
   tone,
+  VALIDATED_HERE,
   type MapEdge,
   type MapNode,
   type MoneyBadge,
@@ -217,6 +219,15 @@ export function layoutBlast(
     });
     const why = compact ? null : reason(node, edge, facts);
     if (why) texts.push({ kind: "reason", text: why, tone: "ash", y: 0 });
+    // Red-team finding: proven at the reporter (firm view only), only reachable at exposed companies.
+    // A line from the vendor to the reporter would cross the exposed block, so it is a word instead.
+    const reach =
+      node.relation === "reporter" && edge?.path === "validated_at_source"
+        ? VALIDATED_HERE
+        : compact
+          ? null
+          : pathWord(edge);
+    if (reach) texts.push({ kind: "reason", text: reach, tone: "ash", y: 0 });
     for (const b of moneyBadges(node, facts)) {
       texts.push({
         kind: "badge",
@@ -307,11 +318,13 @@ export function layoutBlast(
     });
   }
 
-  // Lines from the vendor to every company that shares it (the reporter's own link stays off the picture).
+  // Lines from the vendor to every company that shares it (the reporter's own link stays off the
+  // picture; a red-team finding proven there is a word under the reporter instead, see above).
   const tileById = new Map(tiles.map((t) => [t.node.companyId, t]));
   for (const edge of blast.edges) {
     const t = tileById.get(edge.companyId);
-    if (!t || !edge.compromised || t.node.relation === "reporter") continue;
+    if (!t || !edge.compromised) continue;
+    if (t.node.relation === "reporter") continue;
     // Weight says how they share it, dots mark a candidate link; the node's reason line says it in words.
     lines.push({
       key: `vendor-${edge.companyId}`,
