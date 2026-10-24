@@ -1,6 +1,7 @@
 // The data contract. Owned by Role 1 (Adrian). Ask before changing anything here.
 // CONTRACT.md describes the same shapes in prose; this file wins if they disagree.
 import { defineSchema, defineTable } from "convex/server";
+import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 export const shareType = v.union(
@@ -85,6 +86,8 @@ export const ledgerLine = v.object({
 });
 
 export default defineSchema({
+  ...authTables, // Convex Auth sessions/accounts; `users` below extends its users table
+
   companies: defineTable({
     name: v.string(),
     domain: v.string(),
@@ -93,14 +96,21 @@ export default defineSchema({
     holdRuleEnabled: v.boolean(), // each company opts in to payment holds itself
   }).index("by_domain", ["domain"]),
 
+  // Our people, extended with Convex Auth's user fields. Sign-in links to an existing
+  // row by email (convex/auth.ts); nobody outside the seeded portfolio can sign up.
   users: defineTable({
     companyId: v.optional(v.id("companies")), // absent for pe_partner
     name: v.string(),
     role: userRole,
-    tokenIdentifier: v.optional(v.string()), // filled once auth lands
+    email: v.optional(v.string()),
+    emailVerificationTime: v.optional(v.number()),
+    image: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    phoneVerificationTime: v.optional(v.number()),
+    isAnonymous: v.optional(v.boolean()),
   })
     .index("by_companyId", ["companyId"])
-    .index("by_tokenIdentifier", ["tokenIdentifier"]),
+    .index("email", ["email"]), // name required by Convex Auth
 
   assets: defineTable({
     name: v.string(),

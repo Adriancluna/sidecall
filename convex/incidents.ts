@@ -146,7 +146,7 @@ type StatusChange =
 async function loadOwnExposure(
   ctx: MutationCtx,
   exposureId: Id<"exposures">,
-  actingUserId: Id<"users">,
+  actingUserId: Id<"users"> | undefined,
 ): Promise<Doc<"exposures"> | "not_found" | "not_your_company"> {
   const viewer = await getViewer(ctx, actingUserId);
   const exposure = await ctx.db.get("exposures", exposureId);
@@ -158,22 +158,23 @@ async function loadOwnExposure(
 // Two browsers clicking at once: Convex serializes the transactions, the second
 // one re-reads "acknowledged" and returns ok: false. Exactly one wins.
 export const acknowledgeExposure = mutation({
-  args: { exposureId: v.id("exposures"), actingUserId: v.id("users") },
+  args: { exposureId: v.id("exposures"), actingUserId: v.optional(v.id("users")) },
   handler: async (ctx, args): Promise<StatusChange> => {
     const exposure = await loadOwnExposure(ctx, args.exposureId, args.actingUserId);
     if (typeof exposure === "string") return { ok: false, reason: exposure };
     if (exposure.status === "acknowledged") return { ok: false, reason: "already_acknowledged" };
     if (exposure.status === "closed") return { ok: false, reason: "closed" };
+    const viewer = await getViewer(ctx, args.actingUserId);
     await ctx.db.patch("exposures", exposure._id, {
       status: "acknowledged",
-      acknowledgedBy: args.actingUserId,
+      acknowledgedBy: viewer.user._id,
     });
     return { ok: true };
   },
 });
 
 export const closeExposure = mutation({
-  args: { exposureId: v.id("exposures"), actingUserId: v.id("users") },
+  args: { exposureId: v.id("exposures"), actingUserId: v.optional(v.id("users")) },
   handler: async (ctx, args): Promise<StatusChange> => {
     const exposure = await loadOwnExposure(ctx, args.exposureId, args.actingUserId);
     if (typeof exposure === "string") return { ok: false, reason: exposure };

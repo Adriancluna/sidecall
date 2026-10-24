@@ -7,6 +7,7 @@ The data shapes and function signatures every role builds against. Owned by Role
 
 ## Changelog
 
+- **Oct 23, ~7:20pm.** Login (Convex Auth, email + password) on the backend. `actingUserId` is now **optional** everywhere: a signed-in session always wins and the arg is ignored; without a session the arg is the fallback. New query `api.access.me`. Users have `email`. See "Sign-in" below.
 - **Oct 23, ~7pm.** `getBlastRadius` `nodes[].relation` is now typed as the `NodeRelation` union (exported from `convex/blastRadius.ts`), not `string`.
 - **Oct 23, ~6:45pm (PR #3).** Every query and mutation takes `actingUserId`, except `listCompanies`, `listUsers`, `listAssets` and `resetDemo`. New: `getMyExposures`, `getMyAlerts`, `getIncidentAlerts`, `listCompanies`, `listUsers`, `listAssets`, `seed.resetDemo` (needs `DEMO_MODE=true`). `getBlastRadius` nodes gained `relation`, `exposureId`, `confidence`; edges gained `compromised`; incident gained `reportedByName`. `getHeldPayments` returns every payment an incident touched (held, paid, rejected). `getLedger` returns `{ entries, balances }`. `rejectPayment` takes optional `note`.
 
@@ -16,7 +17,7 @@ The data shapes and function signatures every role builds against. Owned by Role
 companies: { name, domain, sector, headcount, holdRuleEnabled: boolean }
 
 users:     { companyId?, name, role: "ap_clerk" | "controller" | "it" | "pe_partner",
-             tokenIdentifier? }                  // companyId absent for pe_partner; tokenIdentifier set once auth lands
+             email?, ...Convex Auth optional fields }   // companyId absent for pe_partner
 
 assets:    { name, vendorName, kind: "msp" | "idp" | "payroll" | "email" | "other",
              phoneOnFile }                       // the number to call when verifying a held payment
@@ -93,7 +94,16 @@ Module prefix in brackets: `api.blastRadius.listIncidents`, etc. `null` means "n
 **Every query and mutation takes `actingUserId`** (the demo user switcher's current user; pick from `listUsers`). The backend scopes to that viewer:
 - `pe_partner` (Jordan Ames, Northpass Capital) = PE firm view: sees every company, the map and who reported. Cannot acknowledge or release.
 - Anyone else sees only their own company. Passing another company's id returns your own data (or nothing), never theirs.
-- Once login lands, `actingUserId` comes from the session instead; the backend helper (`convex/access.ts`) is the only place that changes.
+- **When signed in, the session decides who you are and `actingUserId` is ignored** (a spoofed id can't act as someone else). `actingUserId` stays optional only until the UI signs everyone in; then it's removed.
+
+## Sign-in (Convex Auth, Password provider)
+
+- Invite-only: only emails that exist in `users` can sign up; anyone else gets "That email isn't on a portfolio team."
+- Demo emails are `first.last@<company domain>`, e.g. `jamie.chen@summithomehealth.example`, `rosa.alvarez@summithomehealth.example`, PE: `jordan.ames@northpasscapital.example`. Demo password (any user): `sidecall-demo`.
+- Client: wrap the app in `ConvexAuthProvider` from `@convex-dev/auth/react` (instead of `ConvexProvider`), then `const { signIn, signOut } = useAuthActions()`.
+  - First time for an email: `signIn("password", { email, password, flow: "signUp" })`. Afterwards: `flow: "signIn"`. A "Sign in as" quick-pick can try `signIn` and fall back to `signUp`.
+- `api.access.me` → `null | { _id, name, email, role, companyId, companyName }`. Use it to choose PE vs company view.
+- `seed.resetDemo` also wipes sign-ins (users are recreated), so everyone is signed out after a reset.
 
 ```ts
 [blastRadius] listIncidents({ actingUserId }) -> { _id, externalId, assetId, createdAt, assetName, vendorName,
@@ -116,6 +126,7 @@ Module prefix in brackets: `api.blastRadius.listIncidents`, etc. `null` means "n
                                        reasons, confidence, evidence, urgency, score, status, acknowledgedBy | null }
 [blastRadius] getMyExposures({ actingUserId }) -> Exposure[]       // company user's home screen; [] for the firm
 [blastRadius] listCompanies() · listUsers({ companyId? }) · listAssets()   // pickers / demo user switcher (no actingUserId)
+[access]      me() -> null | { _id, name, email, role, companyId, companyName }
 
 [payments] getHeldPayments({ actingUserId, incidentId?, companyId? }) -> {   // every payment the incident held, incl. later paid/rejected
                                                                          // companyId is a firm-only filter

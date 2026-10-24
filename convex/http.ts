@@ -1,8 +1,12 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { auth } from "./auth";
 
 const http = httpRouter();
+
+// Convex Auth sign-in endpoints (JWT issuance, JWKS).
+auth.addHttpRoutes(http);
 
 // The demo button calls this from the browser, so allow cross-origin POSTs.
 const CORS = {
