@@ -198,3 +198,40 @@ export const closeExposure = mutation({
     return { ok: true };
   },
 });
+
+// PE firm marks an incident contained once the vendor has remediated (e.g. rotated every
+// shared credential, confirmed by phone). From then on new payments to that vendor are not
+// held. Payments already held stay held until a controller at each company decides.
+export const containIncident = mutation({
+  args: { incidentId: v.id("incidents"), note: v.string() },
+  returns: v.union(
+    v.object({ ok: v.literal(true) }),
+    v.object({ ok: v.literal(false), reason: v.string() }),
+  ),
+  handler: async (ctx, args) => {
+    const viewer = await getViewer(ctx);
+    if (!viewer.firm) return { ok: false as const, reason: "Only the PE firm marks an incident contained." };
+    const incident = await ctx.db.get("incidents", args.incidentId);
+    if (!incident) return { ok: false as const, reason: "Incident not found." };
+    if (incident.containedAt !== undefined) return { ok: false as const, reason: "Already contained." };
+    const note = args.note.trim();
+    if (note.length < 15) {
+      return { ok: false as const, reason: "Say what the vendor fixed and how it was confirmed." };
+    }
+    const now = Date.now();
+    await ctx.db.patch("incidents", incident._id, {
+      containedAt: now,
+      containedBy: viewer.user._id,
+      containmentNote: note,
+    });
+    await ctx.db.insert("auditLog", {
+      at: now,
+      actor: viewer.user._id,
+      action: "contain",
+      incidentId: incident._id,
+      rule: "pe_firm_marks_contained",
+      reason: note,
+    });
+    return { ok: true as const };
+  },
+});

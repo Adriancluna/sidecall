@@ -227,7 +227,11 @@ export const requestPayment = mutation({
       .order("desc")
       .take(1);
     const company = await ctx.db.get("companies", bill.companyId);
-    if (!incident || now - incident.createdAt > ACTIVE_INCIDENT_MS || !company?.holdRuleEnabled) {
+    const active =
+      incident !== undefined &&
+      incident.containedAt === undefined &&
+      now - incident.createdAt <= ACTIVE_INCIDENT_MS;
+    if (!active || !company?.holdRuleEnabled) {
       return { ok: true as const, paymentId, held: false, flagged: false };
     }
 

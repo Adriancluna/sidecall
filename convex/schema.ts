@@ -77,6 +77,7 @@ export const auditAction = v.union(
   v.literal("reject"),
   v.literal("refused"),
   v.literal("escalate"),
+  v.literal("contain"),
 );
 
 export const evidenceItem = v.object({ kind: v.string(), detail: v.string() });
@@ -139,6 +140,11 @@ export default defineSchema({
     reportedByCompanyId: v.optional(v.id("companies")), // only the PE firm view may show this
     summary: v.optional(v.string()),
     createdAt: v.number(),
+    // Set by the PE firm once the vendor has remediated. New payments stop being held;
+    // payments already held still need a controller's decision.
+    containedAt: v.optional(v.number()),
+    containedBy: v.optional(v.id("users")),
+    containmentNote: v.optional(v.string()),
   })
     .index("by_externalId", ["externalId"])
     .index("by_assetId", ["assetId"]),
