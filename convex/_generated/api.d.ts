@@ -25,6 +25,7 @@ import type * as notifications from "../notifications.js";
 import type * as notify from "../notify.js";
 import type * as ops from "../ops.js";
 import type * as payments from "../payments.js";
+import type * as responses from "../responses.js";
 import type * as scoring from "../scoring.js";
 import type * as seed from "../seed.js";
 import type * as shared from "../shared.js";
@@ -53,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   notify: typeof notify;
   ops: typeof ops;
   payments: typeof payments;
+  responses: typeof responses;
   scoring: typeof scoring;
   seed: typeof seed;
   shared: typeof shared;

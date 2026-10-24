@@ -262,6 +262,10 @@ type TimelineEvent = {
     | "refused"
     | "release"
     | "reject"
+    | "respond"
+    | "approve"
+    | "undo"
+    | "expire"
     | "alert_ready"
     | "vendor_letter_ready"
     | "acknowledged";
@@ -271,7 +275,18 @@ type TimelineEvent = {
 
 // Audit actions that are timeline events. "contain" is added separately with a viewer-safe
 // label; "import" and "agent_call" are bookkeeping, not incident events.
-const TIMELINE_AUDIT_ACTIONS = ["hold", "flag", "escalate", "refused", "release", "reject"] as const;
+const TIMELINE_AUDIT_ACTIONS = [
+  "hold",
+  "flag",
+  "escalate",
+  "refused",
+  "release",
+  "reject",
+  "respond",
+  "approve",
+  "undo",
+  "expire",
+] as const;
 const isTimelineAction = (a: string): a is (typeof TIMELINE_AUDIT_ACTIONS)[number] =>
   (TIMELINE_AUDIT_ACTIONS as readonly string[]).includes(a);
 

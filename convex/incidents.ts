@@ -13,6 +13,7 @@ import { getViewer } from "./access";
 import { enqueue } from "./notifications";
 import { insertReadyAlert } from "./alerts";
 import { formatUsd, MAX_FANOUT } from "./shared";
+import { expireWaitingSteps, newActBudget, planResponses, type ActBudget } from "./responses";
 
 type RecordIncidentResult =
   | { ok: true; incidentId: Id<"incidents">; duplicate: boolean }
@@ -88,9 +89,12 @@ export async function recordIncidentImpl(
     if (!current || rank(link) > rank(current)) strongest.set(link.companyId, link);
   }
 
+  // Each company's pre-approved steps are planned in this same transaction (one shared blast cap).
+  const budget = newActBudget();
   const exposedCompanies = await Promise.all(
     [...strongest.values()].map(async (link) => {
       await openExposure(ctx, {
+        budget,
         incidentId,
         link,
         asset,
@@ -138,6 +142,13 @@ export async function recordIncidentImpl(
         : ""),
   });
 
+  // Pre-approved steps run once per incident, in a scheduled action (where a live connector would go).
+  const queuedStep = await ctx.db
+    .query("responseSteps")
+    .withIndex("by_incidentId_and_status", (q) => q.eq("incidentId", incidentId).eq("status", "queued"))
+    .first();
+  if (queuedStep) await ctx.scheduler.runAfter(0, internal.responses.execute, { incidentId });
+
   // AI writes once per incident and loops inside the action (scheduler cap is per transaction).
   await ctx.scheduler.runAfter(0, internal.ai.generateAlert, { incidentId });
   await ctx.scheduler.runAfter(0, internal.ai.generateVendorLetter, { incidentId });
@@ -160,6 +171,7 @@ export async function openExposure(
     held: HeldSummary;
     finding: Finding | undefined;
     ready: boolean;
+    budget?: ActBudget; // shared across one incident's fan-out; an AP import gets its own
   },
 ) {
   const { incidentId, link, asset } = args;
@@ -173,6 +185,7 @@ export async function openExposure(
     evidence: [...scored.evidence, ...(sister?.evidence ?? [])],
     path: sister?.path,
   });
+  await planResponses(ctx, { incidentId, exposureId, link, asset, budget: args.budget ?? newActBudget() });
   const pathSentence = sister ? ` ${sister.evidence.find((e) => e.kind === "path")!.detail} ${sister.path.whatToCheck}` : "";
   const alert = {
     incidentId,
@@ -286,6 +299,7 @@ export const containIncident = mutation({
       containedBy: viewer.user._id,
       containmentNote: note,
     });
+    await expireWaitingSteps(ctx, incident._id, viewer.user._id);
     await ctx.db.insert("auditLog", {
       at: now,
       actor: viewer.user._id,

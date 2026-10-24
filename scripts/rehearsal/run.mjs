@@ -17,6 +17,7 @@ const EMAIL = {
   kwame: "kwame.mensah@summithomehealth.example", // Summit IT
   jordan: "jordan.ames@northpasscapital.example", // PE partner
   sam: "sam.kowalski@cedarridge.example", // Cedar Ridge IT (shares the Ironclad admin login)
+  ben: "ben.carter@granitepeak.example", // Granite Peak IT (one-click playbook)
 };
 // The stage button "Red-team finding (Ironclad login)": id and asset only; the server supplies the finding.
 const RED_TEAM = { externalId: "demo-armadin-004", assetName: "Ironclad shared admin account" };
@@ -100,6 +101,7 @@ const rosa = await signIn(EMAIL.rosa);
 const kwame = await signIn(EMAIL.kwame);
 const jordan = await signIn(EMAIL.jordan);
 const sam = await signIn(EMAIL.sam);
+const ben = await signIn(EMAIL.ben);
 check("0 reset + five people signed in", true);
 
 // 1. Fire the incident through the real webhook; replay it.
@@ -255,6 +257,25 @@ const leaks = ["Pinecrest", "PC-OPS-12", "jump01", "ironclad-svc", "ARM-2026", "
 check("  sister never sees who was tested or how", leaks.length === 0, leaks.join(", "));
 const kwameExposures = await query("blastRadius:getMyExposures", {}, kwame);
 check("  Summit (own Ironclad login) not alerted", !kwameExposures.some((e) => e.incidentId === rtId));
+
+// 9b. Each company's own response playbook: Cedar pre-approved the pause, Granite wants one click.
+await sleep(1000); // the scheduled executor records the pre-approved step
+const samPlan = await query("responses:getMyResponsePlan", { incidentId: rtId }, sam);
+const pause = samPlan.find((p) => p.action === "pause_shared_login");
+check("9b Cedar's pre-approved pause ran", pause?.status === "done", pause?.msAfterReport != null ? `${pause.msAfterReport} ms after the report` : pause?.status);
+let tracker = await query("responses:getResponseTracker", { incidentId: rtId }, jordan);
+const tt = tracker?.totals;
+check(
+  "  firm: first step done at 1 of 3 · 1 ready · 1 notified",
+  tt?.exposed === 3 && tt.firstStepDone === 1 && tt.ready === 1 && tt.notifyOnly === 1,
+  tt ? `${tt.firstStepDone} of ${tt.exposed} · ${tt.ready} ready · ${tt.notifyOnly} notified` : "no tracker",
+);
+const benStep = (await query("responses:getMyResponsePlan", { incidentId: rtId }, ben)).find((p) => p.canApprove);
+const ran = benStep ? await mutation("responses:approveStep", { stepId: benStep.stepId }, ben) : null;
+await sleep(1000);
+tracker = await query("responses:getResponseTracker", { incidentId: rtId }, jordan);
+check("  Granite runs it with one click → 2 of 3", ran?.ok === true && tracker?.totals.firstStepDone === 2);
+check("  the plan never names who was hit", !JSON.stringify(samPlan).includes("Pinecrest"));
 
 await reset();
 console.log(`\n${failures === 0 ? "PASS: every beat works. Deployment reset to a clean slate." : `FAIL: ${failures} beat(s) failed. Deployment reset.`}`);

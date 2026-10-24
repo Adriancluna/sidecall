@@ -5,7 +5,7 @@ import type { Infer } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { formatUsd, MAX_FANOUT } from "./shared";
 import { ATTACK_TECHNIQUES, techniqueLabel, type Finding } from "./findings";
-import type { exposurePath } from "./schema";
+import type { exposurePath, responseAction, responseMode } from "./schema";
 
 const BASE_SCORE: Record<Doc<"links">["shareType"], number> = {
   shared_credential: 90,
@@ -179,6 +179,39 @@ export function sisterPath(
       { kind: "what_to_check", detail: check },
     ],
   };
+}
+
+// ---- Response playbook rules (docs/specs/response-playbook.md) ----
+// Which pre-approvable steps apply to a link, and the highest mode each may run at. The company's
+// own setting is lowered to this cap; nothing here is ever raised by an incident.
+
+export type ResponseAction = Infer<typeof responseAction>;
+export type ResponseMode = Infer<typeof responseMode>;
+const MODE_RANK: Record<ResponseMode, number> = { notify: 0, prepare: 1, act: 2 };
+export const lowerMode = (a: ResponseMode, b: ResponseMode): ResponseMode => (MODE_RANK[a] <= MODE_RANK[b] ? a : b);
+export const raisesMode = (from: ResponseMode, to: ResponseMode) => MODE_RANK[to] > MODE_RANK[from];
+
+export function responseFor(
+  link: Doc<"links">,
+  asset: Doc<"assets">,
+): { action: ResponseAction; cap: ResponseMode; capNote?: string }[] {
+  // Only confirmed shared access gets steps: being a customer of the same vendor shares nothing to
+  // pause, and a DNS guess never moves anything (precision; "validated" stays sacred).
+  if (link.shareType === "same_vendor_only") return [];
+  if (link.source === "dns_inferred") {
+    const capNote = "Notify only: this link is a guess from public DNS, not confirmed by your team.";
+    return [
+      { action: "pause_shared_login", cap: "notify", capNote },
+      { action: "revoke_vendor_tokens", cap: "notify", capNote },
+    ];
+  }
+  const pause: { action: ResponseAction; cap: ResponseMode; capNote?: string } =
+    asset.kind === "payroll"
+      ? { action: "pause_shared_login", cap: "prepare", capNote: "One click at most: pausing a payroll login can stop payroll." }
+      : link.shareType === "shared_admin_access"
+        ? { action: "pause_shared_login", cap: "prepare", capNote: "One click at most: the vendor's admin account may be running your recovery." }
+        : { action: "pause_shared_login", cap: "act" };
+  return [pause, { action: "revoke_vendor_tokens", cap: "act" }];
 }
 
 // For scripts/scorecard (Role 4): `npx convex run scoring:exportOutcomes '{"externalId":"..."}'`.

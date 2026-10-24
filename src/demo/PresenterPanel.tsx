@@ -76,6 +76,12 @@ const BEATS: Beat[] = [
     as: JORDAN,
   },
   {
+    title: "Red-team finding, each company's own rule",
+    say: "An AI red team proves a path at Pinecrest that ends at Ironclad's shared login. Cedar Ridge shares it and decided months ago: if it leaks, pause it. Sidecall paused it a tenth of a second after the report, logged, one click to undo. Granite Peak chose one click. Harborline only wants the warning. Summit has its own login: nothing happens there.",
+    as: JORDAN,
+    tip: 'Simulator: "Red-team finding (Ironclad login)", Fire. Point at "First step done at 1 of 3" in Response by company. Optional: sign in as Ben Carter and press Run now → 2 of 3.',
+  },
+  {
     title: "Discipline (optional)",
     say: "A shared Ironclad login leaks. Summit uses Ironclad too, but with its own login, so Summit gets no alert. Same vendor isn't the same weakness.",
     as: JAMIE,

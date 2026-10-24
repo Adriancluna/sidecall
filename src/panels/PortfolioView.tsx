@@ -20,6 +20,7 @@ import { ProofPanel } from "./ProofPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import type { BlastRadius } from "./types";
 import { VendorLetterActions } from "./VendorLetterActions";
+import { FirstStepCell } from "./ResponsePlaybook";
 import { Card, Chip, Empty, LookChip } from "./ui";
 
 const PIN_KEY = "sidecall-pe-incident";
@@ -278,6 +279,8 @@ function PortfolioHero({
 }) {
   const { incident, totals, asset } = blast;
   const finding = incident.finding;
+  const tracker = useQuery(api.responses.getResponseTracker, { incidentId: incident._id });
+  const stepFor = new Map((tracker?.companies ?? []).map((c) => [c.companyId, c]));
   const contained = incident.containedAt !== undefined;
   return (
     <section
@@ -336,6 +339,12 @@ function PortfolioHero({
       <div className="mt-8 flex items-baseline justify-between gap-4">
         <h2 className="text-xs font-semibold tracking-wider text-ash uppercase">Response by company</h2>
         <p className="text-sm text-ash tabular-nums">
+          {tracker && tracker.totals.exposed > 0 && (
+            <>
+              First step done at {tracker.totals.firstStepDone} of {tracker.totals.exposed} · {tracker.totals.ready} ready ·{" "}
+              {tracker.totals.notifyOnly} notified ·{" "}
+            </>
+          )}
           {acknowledged} of {exposed.length} acknowledged
         </p>
       </div>
@@ -348,7 +357,7 @@ function PortfolioHero({
               <button
                 type="button"
                 onClick={() => onOpenCompany(n.companyId)}
-                className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-4 py-3 text-left hover:bg-graphite sm:grid-cols-[minmax(0,1.4fr)_auto_minmax(0,1.2fr)_auto]"
+                className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-4 py-3 text-left hover:bg-graphite sm:grid-cols-[minmax(0,1.3fr)_auto_minmax(0,1fr)_minmax(0,1fr)_auto]"
               >
                 <span className="min-w-0 truncate font-medium">{n.name}</span>
                 {n.urgency && <LookChip look={URGENCY[n.urgency]} />}
@@ -361,6 +370,9 @@ function PortfolioHero({
                     EXPOSURE_STATUS[n.status ?? "open"]
                   )}
                   {n.status === "closed" && " · resolved"}
+                </span>
+                <span className="text-sm">
+                  <FirstStepCell row={stepFor.get(n.companyId)} />
                 </span>
                 <span className="text-sm tabular-nums sm:text-right">
                   {n.heldCents > 0 ? <span className="text-amber">{money(n.heldCents)} held</span> : <span className="text-ash">no holds</span>}

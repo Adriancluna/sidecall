@@ -949,3 +949,172 @@ describe("red-team finding, one step ahead", () => {
     expect(harborline?.whatToCheck).toContain("Ask Ironclad Managed IT to rotate the admin account it uses for you");
   });
 });
+
+describe("response playbook (pre-approved steps)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const fireRedTeam = async (s: Awaited<ReturnType<typeof seeded>>) => {
+    vi.useFakeTimers();
+    const r = await s.t.mutation(internal.seed.fireDemoIncident, { scenario: "armadinFinding" });
+    if (!r.ok) throw new Error(r.error);
+    await s.t.finishAllScheduledFunctions(vi.runAllTimers);
+    return r.incidentId;
+  };
+  const stepsOf = (t: Awaited<ReturnType<typeof seeded>>["t"]) =>
+    t.run(async (ctx) => await ctx.db.query("responseSteps").take(100));
+
+  test("each company's own rule runs: Cedar pre-approved, Granite one click, Harborline notify", async () => {
+    const s = await seeded();
+    const incidentId = await fireRedTeam(s);
+    const cedar = await s.companyId("Cedar Ridge Manufacturing");
+    const granite = await s.companyId("Granite Peak Software");
+    const steps = await stepsOf(s.t);
+    const find = (c: string, a: string) => steps.find((x) => x.companyId === c && x.action === a);
+    expect(find(cedar, "pause_shared_login")).toMatchObject({ mode: "act", status: "done", policyRule: "playbook:pause_shared_login:act:v1" });
+    expect(find(cedar, "revoke_vendor_tokens")).toMatchObject({ mode: "prepare", status: "awaiting_approval" });
+    expect(find(granite, "pause_shared_login")).toMatchObject({ mode: "prepare", status: "awaiting_approval" });
+    const harborline = await s.companyId("Harborline Foods");
+    expect(steps.some((x) => x.companyId === harborline)).toBe(false);
+
+    const tracker = await (await s.as(PE)).query(api.responses.getResponseTracker, { incidentId });
+    expect(tracker?.totals).toEqual({ exposed: 3, firstStepDone: 1, ready: 1, notifyOnly: 1 });
+    expect(tracker?.companies.find((c) => c.companyId === cedar)?.firstStepMs).toBeGreaterThanOrEqual(0);
+
+    // The plan Cedar's IT lead sees: what ran, what's one click away, nothing about who was hit.
+    const plan = await (await s.as("Sam Kowalski")).query(api.responses.getMyResponsePlan, { incidentId });
+    expect(plan.map((p) => [p.action, p.status])).toEqual([
+      ["pause_shared_login", "done"],
+      ["revoke_vendor_tokens", "awaiting_approval"],
+    ]);
+    expect(plan[0]).toMatchObject({ canUndo: true, effect: expect.stringContaining("Ironclad shared admin account") });
+    expect(JSON.stringify(plan)).not.toMatch(/Pinecrest|jump01|ARM-2026/);
+
+    // On the record, as the system acting under Cedar's own rule.
+    const timeline = await (await s.as("Sam Kowalski")).query(api.blastRadius.getIncidentTimeline, { incidentId });
+    expect(timeline?.events.some((e) => e.kind === "respond" && e.label.includes("Simulated connector"))).toBe(true);
+  });
+
+  test("a replayed report plans and runs nothing new", async () => {
+    const s = await seeded();
+    await fireRedTeam(s);
+    const before = (await stepsOf(s.t)).length;
+    const again = await s.t.mutation(internal.seed.fireDemoIncident, { scenario: "armadinFinding" });
+    expect(again).toMatchObject({ duplicate: true });
+    expect((await stepsOf(s.t)).length).toBe(before);
+  });
+
+  test("two people click one-click at once: exactly one runs it", async () => {
+    const s = await seeded();
+    await fireRedTeam(s);
+    const granite = await s.companyId("Granite Peak Software");
+    const step = (await stepsOf(s.t)).find((x) => x.companyId === granite)!;
+    const [ben, aisha] = [await s.as("Ben Carter"), await s.as("Aisha Rahman")];
+    const results = await Promise.all([
+      ben.mutation(api.responses.approveStep, { stepId: step._id }),
+      aisha.mutation(api.responses.approveStep, { stepId: step._id }),
+    ]);
+    expect(results.filter((r) => r.ok).length).toBe(1);
+    await s.t.finishAllScheduledFunctions(vi.runAllTimers);
+    expect((await stepsOf(s.t)).find((x) => x._id === step._id)?.status).toBe("done");
+  });
+
+  test("only the company's IT lead or controller acts; everyone else is refused and logged", async () => {
+    const s = await seeded();
+    await fireRedTeam(s);
+    const granite = await s.companyId("Granite Peak Software");
+    const step = (await stepsOf(s.t)).find((x) => x.companyId === granite)!;
+    for (const who of ["Noah Fischer", PE, "Sam Kowalski"]) {
+      expect(await (await s.as(who)).mutation(api.responses.approveStep, { stepId: step._id })).toMatchObject({ ok: false });
+    }
+    expect(await (await s.as(PE)).mutation(api.responses.setPlaybookMode, { action: "pause_shared_login", mode: "act" })).toMatchObject({ ok: false });
+    expect(await (await s.as("Noah Fischer")).mutation(api.responses.setPlaybookMode, { action: "pause_shared_login", mode: "act" })).toMatchObject({ ok: false });
+    const refusals = await s.t.run(async (ctx) =>
+      (await ctx.db.query("auditLog").take(200)).filter((a) => a.action === "refused" && a.rule === "response_playbook"),
+    );
+    expect(refusals.length).toBe(5);
+  });
+
+  test("caps: payroll logins and vendor admin accounts stop at one click; DNS guesses and same-vendor links get nothing", async () => {
+    const s = await seeded();
+    // Harborline (vendor admin access) and every company pre-approve pausing.
+    await s.t.run(async (ctx) => {
+      for (const p of await ctx.db.query("responsePolicies").take(50)) await ctx.db.patch("responsePolicies", p._id, { mode: "act" });
+      const harborline = (await ctx.db.query("companies").take(20)).find((c) => c.name === "Harborline Foods")!;
+      const pause = (await ctx.db.query("responsePolicies").take(50)).find((p) => p.companyId === harborline._id && p.action === "pause_shared_login")!;
+      await ctx.db.patch("responsePolicies", pause._id, { mode: "act" });
+    });
+    await fireRedTeam(s);
+    const harborline = await s.companyId("Harborline Foods");
+    const pause = (await stepsOf(s.t)).find((x) => x.companyId === harborline && x.action === "pause_shared_login");
+    expect(pause).toMatchObject({ mode: "prepare", status: "awaiting_approval", capNote: expect.stringContaining("recovery") });
+
+    // Brightline is a payroll vendor: Cedar's pre-approved pause waits for a click there.
+    const s2 = await seeded();
+    vi.useFakeTimers();
+    const { incidentId } = await s2.fire();
+    await s2.t.finishAllScheduledFunctions(vi.runAllTimers);
+    const cedar = await s2.companyId("Cedar Ridge Manufacturing");
+    const bl = (await stepsOf(s2.t)).filter((x) => x.incidentId === incidentId);
+    expect(bl.find((x) => x.companyId === cedar && x.action === "pause_shared_login")).toMatchObject({
+      mode: "prepare",
+      capNote: expect.stringContaining("payroll"),
+    });
+    expect(bl.every((x) => x.companyId === cedar)).toBe(true); // Summit (same vendor) and Bayview (DNS) get no steps
+  });
+
+  test("no more than 3 companies run steps without a click from one report", async () => {
+    const s = await seeded();
+    await s.t.run(async (ctx) => {
+      const asset = (await ctx.db.query("assets").take(20)).find((a) => a.name === "Ironclad shared admin account")!;
+      for (const p of await ctx.db.query("responsePolicies").take(50)) await ctx.db.patch("responsePolicies", p._id, { mode: "act" });
+      for (const name of ["Extra One", "Extra Two"]) {
+        const companyId = await ctx.db.insert("companies", { name, domain: `${name.replace(" ", "").toLowerCase()}.example`, sector: "Test", headcount: 10, holdRuleEnabled: false });
+        await ctx.db.insert("links", { companyId, assetId: asset._id, shareType: "shared_credential", source: "self_reported" });
+        await ctx.db.insert("responsePolicies", { companyId, action: "pause_shared_login", mode: "act", version: 1, setBy: "seed", setAt: 0 });
+      }
+    });
+    await fireRedTeam(s);
+    const steps = await stepsOf(s.t);
+    const actCompanies = new Set(steps.filter((x) => x.mode === "act").map((x) => x.companyId));
+    expect(actCompanies.size).toBe(3);
+    expect(steps.some((x) => x.capNote?.includes("no more than 3"))).toBe(true);
+  });
+
+  test("raising a step to pre-approved takes two different people; lowering takes one", async () => {
+    const s = await seeded();
+    const [ben, aisha] = [await s.as("Ben Carter"), await s.as("Aisha Rahman")];
+    const set = (who: typeof ben, mode: "notify" | "prepare" | "act") =>
+      who.mutation(api.responses.setPlaybookMode, { action: "pause_shared_login", mode });
+    expect(await set(ben, "act")).toMatchObject({ ok: true, applied: false, awaitingSecondPerson: true });
+    expect(await set(ben, "act")).toMatchObject({ applied: false, awaitingSecondPerson: true }); // same person again
+    expect(await set(aisha, "act")).toMatchObject({ ok: true, applied: true });
+    const row = (await aisha.query(api.responses.getMyPlaybook, {})).find((r) => r.action === "pause_shared_login");
+    expect(row).toMatchObject({ mode: "act", version: 2, setByName: "Ben Carter", confirmedByName: "Aisha Rahman" });
+    expect(await set(ben, "notify")).toMatchObject({ applied: true });
+    expect((await ben.query(api.responses.getMyPlaybook, {})).find((r) => r.action === "pause_shared_login")?.mode).toBe("notify");
+  });
+
+  test("payment holds keep their single controller switch", async () => {
+    const s = await seeded();
+    const summit = await s.companyId("Summit Home Health");
+    expect(await (await s.as("Kwame Mensah")).mutation(api.responses.setPlaybookMode, { action: "hold_payments", mode: "notify" })).toMatchObject({ ok: false });
+    expect(await (await s.as("Rosa Alvarez")).mutation(api.responses.setPlaybookMode, { action: "hold_payments", mode: "notify" })).toMatchObject({ ok: true, applied: true });
+    expect((await s.t.run((ctx) => ctx.db.get("companies", summit)))?.holdRuleEnabled).toBe(false);
+  });
+
+  test("undo restores; containment expires steps nobody ran", async () => {
+    const s = await seeded();
+    const incidentId = await fireRedTeam(s);
+    const cedar = await s.companyId("Cedar Ridge Manufacturing");
+    const done = (await stepsOf(s.t)).find((x) => x.companyId === cedar && x.status === "done")!;
+    const sam = await s.as("Sam Kowalski");
+    expect(await sam.mutation(api.responses.undoStep, { stepId: done._id })).toEqual({ ok: true });
+    expect(await sam.mutation(api.responses.undoStep, { stepId: done._id })).toEqual({ ok: false, reason: "already_undone" });
+    await (await s.as(PE)).mutation(api.incidents.containIncident, { incidentId, note: "Ironclad rotated the shared admin account, confirmed by phone" });
+    const after = await stepsOf(s.t);
+    expect(after.filter((x) => x.status === "awaiting_approval")).toEqual([]);
+    expect(after.filter((x) => x.status === "expired").length).toBe(2);
+  });
+});
