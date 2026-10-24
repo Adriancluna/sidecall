@@ -22,7 +22,7 @@ Vercel project → Settings → Environment Variables (Production):
 | Name | Value |
 |---|---|
 | `CONVEX_DEPLOY_KEY` | Convex dashboard → sidecall → Production → Settings → Generate production deploy key |
-| `VITE_CONVEX_SITE_URL` | `https://<prod-deployment>.convex.site` (the Fire incident button posts here) |
+| `VITE_CONVEX_SITE_URL` | Optional. The Fire incident button derives it from `VITE_CONVEX_URL` (`.convex.cloud` → `.convex.site`). |
 
 `VITE_CONVEX_URL` is set automatically by `convex deploy` during the build.
 
