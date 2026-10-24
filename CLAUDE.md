@@ -3,11 +3,17 @@
 For Claude / coding agents. Read this first, then `CONTRACT.md` (exact data shapes) and your role file.
 If this conflicts with your role file on *what* to build, ask your human. On *which files you may touch*, your role file wins.
 
+## Handoff (every agent, every prompt)
+
+- **Session start:** `git pull --rebase origin main`, then read every file in `handoff/` before doing anything. Act on items addressed to your role.
+- **End of every prompt:** update your own `handoff/role-N-*.md` (status, in progress, needs from others, gotchas), commit, push to main.
+- Only edit your own role's handoff file. Ask other roles for things in your file's "Needs from others". Rules: `handoff/README.md`.
+
 ## Folder ownership (only the owner edits)
 
 | Role | Person | Owns |
 |---|---|---|
-| 1 Backend | Adrian | `convex/schema.ts`, `convex.config.ts`, `access.ts`, `seed.ts`, `incidents.ts`, `blastRadius.ts`, `alerts.ts`, `payments.ts`, `scoring.ts`, `http.ts`, `data/answer_key.json`, `CONTRACT.md`, `CLAUDE.md` |
+| 1 Backend | Adrian | `handoff/README.md`, `convex/schema.ts`, `convex.config.ts`, `access.ts`, `seed.ts`, `incidents.ts`, `blastRadius.ts`, `alerts.ts`, `payments.ts`, `scoring.ts`, `http.ts`, `data/answer_key.json`, `CONTRACT.md`, `CLAUDE.md` |
 | 2 Frontend | Marco | `src/App.tsx`, `src/main.tsx`, `src/layout/`, `src/panels/`, `src/demo/`, `src/auth/`, styles |
 | 3 Map + evidence | Waterloo #1 | `src/map/` |
 | 4 AI + scorecard + DNS | Waterloo #2 | `convex/ai.ts`, `prompts/`, `scripts/dns/`, `scripts/scorecard/`, `data/dns_links.json`, `data/scorecard.json` |
