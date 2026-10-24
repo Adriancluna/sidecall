@@ -32,3 +32,11 @@ After the first deploy, once:
 npx convex env set DEMO_MODE true --prod   # enables the Reset button (demo data only)
 npx convex run seed:run --prod             # load the demo portfolio
 ```
+
+## Before a demo
+
+```
+npm run rehearse                                   # plays the whole demo on your dev deployment (~11 s), resets after
+npm run rehearse -- --url https://<prod>.convex.cloud   # same against production, then it's left clean
+npx convex run ops:demoReadiness --prod            # read-only readiness check
+```
