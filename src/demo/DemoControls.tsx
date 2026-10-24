@@ -10,6 +10,7 @@ import { IS_STAGE } from "./stage";
 const SCENARIOS = [
   {
     label: "Brightline payroll breach",
+    about: "A payroll vendor four companies use is breached. See who is exposed and which payments are held.",
     body: {
       externalId: "demo-brightline-001",
       assetName: "Brightline Payroll",
@@ -20,6 +21,7 @@ const SCENARIOS = [
   },
   {
     label: "Ironclad shared login leaked",
+    about: "One shared IT login leaks. Only companies that share that login are alerted, not every Ironclad customer.",
     body: {
       externalId: "demo-ironclad-cred-002",
       assetName: "Ironclad shared admin account",
@@ -30,6 +32,7 @@ const SCENARIOS = [
   },
   {
     label: "Ironclad MSP compromised",
+    about: "The IT contractor itself is breached, so every customer is exposed and a changed bank account is caught.",
     body: {
       externalId: "demo-ironclad-msp-003",
       assetName: "Ironclad IT Services",
@@ -40,6 +43,7 @@ const SCENARIOS = [
   {
     // The server fills in the red-team finding itself; unsigned demo requests send only the id.
     label: "Red-team finding (Ironclad login)",
+    about: "An AI red team proves an attack path at one company. See which sister companies it reaches and what they should check.",
     body: {
       externalId: "demo-armadin-004",
       assetName: "Ironclad shared admin account",
@@ -106,13 +110,14 @@ export function DemoControls() {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {IS_STAGE && (
+    <div className="border-t border-line bg-panel/60">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 md:px-8 xl:px-12">
+        <p className="text-xs font-semibold tracking-wider text-amber uppercase">
+          Data leak simulator
+        </p>
         <label className="sr-only" htmlFor="demo-scenario">
           Scenario
         </label>
-      )}
-      {IS_STAGE && (
         <select
           id="demo-scenario"
           value={scenario.body.externalId}
@@ -122,7 +127,7 @@ export function DemoControls() {
                 SCENARIOS[0],
             )
           }
-          className="rounded-md border border-line bg-panel px-2 py-1.5 text-sm text-paper"
+          className="rounded-md border border-line bg-graphite px-2 py-1.5 text-sm text-paper"
         >
           {SCENARIOS.map((s) => (
             <option key={s.body.externalId} value={s.body.externalId}>
@@ -130,46 +135,44 @@ export function DemoControls() {
             </option>
           ))}
         </select>
-      )}
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => void run("Fire incident", send)}
-        className={`${BUTTON} border-amber bg-amber text-graphite hover:bg-amber/90`}
-      >
-        Fire incident
-      </button>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => void run("Replay webhook", send)}
-        className={`${BUTTON} border-line text-paper hover:border-ash`}
-      >
-        Replay webhook
-      </button>
-      {IS_STAGE && (
         <button
           type="button"
           disabled={busy}
-          onClick={() =>
-            window.confirm(
-              "Reset the demo? This wipes every incident, hold and sign-in and reseeds the portfolio.",
-            ) &&
-            void run("Reset", async () => {
-              await resetDemo({});
-              return "portfolio reseeded.";
-            })
-          }
-          className={`${BUTTON} border-transparent text-ash hover:text-paper`}
+          onClick={() => void run("Fire incident", send)}
+          className={`${BUTTON} border-amber bg-amber text-graphite hover:bg-amber/90`}
         >
-          Reset
+          Fire incident
         </button>
-      )}
-      {status && (
-        <span role="status" className="text-xs text-ash">
-          {status}
-        </span>
-      )}
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void run("Replay webhook", send)}
+          className={`${BUTTON} border-line text-paper hover:border-ash`}
+        >
+          Replay webhook
+        </button>
+        {IS_STAGE && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() =>
+              window.confirm(
+                "Reset the demo? This wipes every incident, hold and sign-in and reseeds the portfolio.",
+              ) &&
+              void run("Reset", async () => {
+                await resetDemo({});
+                return "portfolio reseeded.";
+              })
+            }
+            className={`${BUTTON} border-transparent text-ash hover:text-paper`}
+          >
+            Reset
+          </button>
+        )}
+        <p className="min-w-0 flex-1 basis-64 text-xs text-ash" aria-live="polite">
+          {status ?? scenario.about}
+        </p>
+      </div>
     </div>
   );
 }
