@@ -115,6 +115,7 @@ export function DemoControls() {
   const [status, setStatus] = useState<string>();
   const [scenario, setScenario] = useState<Scenario>(SCENARIOS[0]);
   const [presenterKey, setPresenterKey] = useState(loadKey);
+  const [editingKey, setEditingKey] = useState(false);
 
   const run = async (label: string, action: () => Promise<string>) => {
     setBusy(true);
@@ -194,23 +195,38 @@ export function DemoControls() {
             Reset
           </button>
         )}
-        {IS_STAGE && (
-          <label className="flex items-center gap-2 text-xs text-ash">
-            Presenter key
-            <input
-              type="password"
-              autoComplete="off"
-              value={presenterKey}
-              onChange={(e) => {
-                setPresenterKey(e.target.value);
-                saveKey(e.target.value);
-              }}
-              placeholder="only needed on prod"
-              className="w-32 rounded-md border border-line bg-graphite px-2 py-1 text-sm text-paper"
-            />
-          </label>
-        )}
-        <p className="min-w-0 flex-1 basis-64 text-xs text-ash" aria-live="polite">
+        {IS_STAGE &&
+          (presenterKey && !editingKey ? (
+            // Once set, the key field gets out of the projected frame.
+            <button
+              type="button"
+              onClick={() => setEditingKey(true)}
+              className="text-xs text-ash hover:text-paper"
+            >
+              Presenter key set ✓
+            </button>
+          ) : (
+            <label className="flex items-center gap-2 text-xs text-ash">
+              Presenter key
+              <input
+                type="password"
+                autoComplete="off"
+                value={presenterKey}
+                onChange={(e) => {
+                  setPresenterKey(e.target.value);
+                  saveKey(e.target.value);
+                }}
+                autoFocus={editingKey}
+                onBlur={() => setEditingKey(false)}
+                placeholder="prod only"
+                className="w-28 rounded-md border border-line bg-graphite px-2 py-1 text-sm text-paper"
+              />
+            </label>
+          ))}
+        <p
+          className={`min-w-0 flex-1 basis-64 text-xs text-ash ${status ? "" : "hidden sm:block"}`}
+          aria-live="polite"
+        >
           {status ?? scenario.about}
         </p>
       </div>

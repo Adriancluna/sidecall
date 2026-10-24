@@ -41,6 +41,14 @@ const SIMULATED = [
     : ["Alert wording (placeholder text until the AI texts are generated)"]),
 ];
 
+// Scenario ids as the presenter's simulator names them (src/demo/DemoControls.tsx).
+const SCENARIO_NAME: Record<string, string> = {
+  "demo-brightline-001": "Brightline payroll breach",
+  "demo-ironclad-cred-002": "Ironclad shared login leaked",
+  "demo-ironclad-msp-003": "Ironclad MSP compromised",
+  "demo-armadin-004": "Red-team finding (Ironclad login)",
+};
+
 const RESULT_TONE: Record<string, "ok" | "danger"> = {
   caught: "ok",
   correct_no_action: "ok",
@@ -90,10 +98,18 @@ function ScorecardBody() {
   if (scorecard.generatedAt === null || scorecard.scenarios.length === 0) {
     return <Empty>Awaiting scorecard run.</Empty>;
   }
+  const cases = scorecard.scenarios.reduce((n, s) => n + s.cases.length, 0);
+  const missed = scorecard.scenarios.reduce((n, s) => n + s.missed, 0);
+  const falseHolds = scorecard.scenarios.reduce((n, s) => n + s.falseHolds, 0);
   return (
     <div className="space-y-6">
+      {/* The one line to end the demo on; the detail follows. */}
+      <p className="text-2xl font-semibold tracking-tight tabular-nums md:text-3xl">
+        {cases} planted cases · <span className={missed ? "text-danger" : "text-ok"}>{missed} missed</span> ·{" "}
+        <span className={falseHolds ? "text-danger" : "text-ok"}>{falseHolds} false holds</span>
+      </p>
       <p className="text-xs text-ash">
-        Generated {dateTime(Date.parse(scorecard.generatedAt))}
+        Our own planted cases, not a benchmark · generated {dateTime(Date.parse(scorecard.generatedAt))}
       </p>
       {scorecard.scenarios.map((s) => (
         <ScenarioBlock key={s.externalId} scenario={s} />
@@ -115,7 +131,10 @@ function ScenarioBlock({ scenario: s }: { scenario: ScorecardScenario }) {
   ];
   return (
     <section>
-      <h4 className="mb-2 font-mono text-xs text-ash">{s.externalId}</h4>
+      <h4 className="mb-2 text-sm font-semibold">
+        {SCENARIO_NAME[s.externalId] ?? s.externalId}{" "}
+        <span className="font-mono text-xs font-normal text-ash">{s.externalId}</span>
+      </h4>
       <dl className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {tiles.map((t) => (
           <div key={t.label} className="rounded-lg border border-line p-3">

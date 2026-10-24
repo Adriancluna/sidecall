@@ -6,7 +6,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { BlastRadiusMap } from "../map/BlastRadiusMap";
 import { EvidencePanel } from "../map/EvidencePanel";
-import { QuickLinks, Tabs, type QuickLink, type TabDef } from "../layout/Tabs";
+import { Tabs, type TabDef } from "../layout/Tabs";
 import { useTabs } from "../layout/useTabs";
 import { dateTime, money } from "./format";
 import { ExposureAcknowledgedBy } from "./AcknowledgedBy";
@@ -14,14 +14,14 @@ import { ApImportPanel } from "./ApImportPanel";
 import { ContainPanel } from "./ContainPanel";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
-import { EXPOSURE_STATUS, paymentLook, URGENCY } from "./labels";
+import { EXPOSURE_STATUS, paymentLook } from "./labels";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { ProofPanel } from "./ProofPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import type { BlastRadius } from "./types";
 import { VendorLetterActions } from "./VendorLetterActions";
 import { FirstStepCell } from "./ResponsePlaybook";
-import { Card, Chip, Empty, LookChip } from "./ui";
+import { Card, Chip, Empty, LookChip, UrgencyChip } from "./ui";
 
 const PIN_KEY = "sidecall-pe-incident";
 function loadPinned(): Id<"incidents"> | undefined {
@@ -39,7 +39,8 @@ function savePinned(id: Id<"incidents">) {
   }
 }
 
-const TAB_IDS = ["map", "alerts", "payments", "timeline", "letter", "closeout", "onboard", "notifications", "proof"] as const;
+// Six tabs so every one fits on a projected laptop screen; related panels share a tab.
+const TAB_IDS = ["map", "alerts", "payments", "timeline", "onboard", "proof"] as const;
 
 export function PortfolioView() {
   const incidents = useQuery(api.blastRadius.listIncidents, {});
@@ -61,8 +62,8 @@ export function PortfolioView() {
 
   if (!incidentId) {
     const tabs: TabDef[] = [
-      { id: "onboard", label: "Onboard a company", content: () => <ApImportPanel /> },
-      { id: "notifications", label: "Slack & alerts out", content: () => <NotificationsPanel scope="firm" canManage /> },
+      { id: "onboard", label: "Onboard", content: () => <ApImportPanel /> },
+      { id: "alerts", label: "Slack & alerts out", content: () => <NotificationsPanel scope="firm" canManage /> },
       { id: "proof", label: "Proof", content: () => <ProofPanel /> },
     ];
     return (
@@ -109,7 +110,7 @@ export function PortfolioView() {
   const tabs: TabDef[] = [
     {
       id: "map",
-      label: "Blast radius map",
+      label: "Map & evidence",
       content: () => (
         <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_400px] lg:grid-cols-[minmax(0,1fr)_360px]">
           <BlastRadiusMap blast={blast} selected={selected} onSelect={setSelected} />
@@ -140,21 +141,45 @@ export function PortfolioView() {
     },
     {
       id: "alerts",
-      label: "What each company was told",
+      label: "Alerts & letter",
       count: companyAlerts.length,
       content: () => (
-        <div className="grid gap-4 xl:grid-cols-2">
-          {companyAlerts.map(({ alert, node }) => (
-            <article key={alert._id} className="rounded-2xl border border-line bg-panel p-5">
-              <div className="mb-2 flex flex-wrap items-center gap-2">
-                <span className="font-semibold">{node?.name}</span>
-                {node?.urgency && <LookChip look={URGENCY[node.urgency]} />}
-                {node?.status && <Chip tone="muted">{EXPOSURE_STATUS[node.status]}</Chip>}
-                {alert.exposureId && <ExposureAcknowledgedBy exposureId={alert.exposureId} />}
-              </div>
-              <p className="max-w-prose text-sm leading-relaxed">{alert.status === "ready" ? alert.body : "Writing alert…"}</p>
-            </article>
-          ))}
+        <div className="space-y-8">
+          <section aria-labelledby="told-title">
+            <h2 id="told-title" className="mb-3 text-xs font-semibold tracking-wider text-ash uppercase">
+              What each company was told
+            </h2>
+            <div className="grid gap-4 xl:grid-cols-2">
+              {companyAlerts.map(({ alert, node }) => (
+                <article key={alert._id} className="rounded-2xl border border-line bg-panel p-5">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className="font-semibold">{node?.name}</span>
+                    {node?.urgency && <UrgencyChip urgency={node.urgency} resolved={node.status === "closed"} />}
+                    {node?.status && node.status !== "closed" && <Chip tone="muted">{EXPOSURE_STATUS[node.status]}</Chip>}
+                    {alert.exposureId && <ExposureAcknowledgedBy exposureId={alert.exposureId} />}
+                  </div>
+                  <p className="max-w-prose text-sm leading-relaxed">{alert.status === "ready" ? alert.body : "Writing alert…"}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+          {letter ? (
+            <Card
+              title={`Letter to ${blast.asset.vendorName}`}
+              aside={
+                letter.status === "ready" ? (
+                  <VendorLetterActions vendorName={blast.asset.vendorName} body={letter.body} />
+                ) : (
+                  <Chip tone="muted">writing…</Chip>
+                )
+              }
+            >
+              <p className="max-w-3xl leading-relaxed whitespace-pre-wrap">{letter.body}</p>
+            </Card>
+          ) : (
+            <Card><Empty>No vendor letter for this incident.</Empty></Card>
+          )}
+          <NotificationsPanel scope="firm" canManage incidentId={incident._id} />
         </div>
       ),
     },
@@ -173,86 +198,35 @@ export function PortfolioView() {
         </div>
       ),
     },
-    { id: "timeline", label: "Timeline", content: () => <TimelinePanel incidentId={incident._id} /> },
     {
-      id: "letter",
-      label: "Vendor letter",
-      count: letter?.status === "ready" ? "ready" : undefined,
-      content: () =>
-        letter ? (
-          <Card
-            title={`Letter to ${blast.asset.vendorName}`}
-            aside={
-              letter.status === "ready" ? (
-                <VendorLetterActions vendorName={blast.asset.vendorName} body={letter.body} />
-              ) : (
-                <Chip tone="muted">writing…</Chip>
-              )
-            }
-          >
-            <p className="max-w-3xl leading-relaxed whitespace-pre-wrap">{letter.body}</p>
-          </Card>
-        ) : (
-          <Card><Empty>No letter for this incident.</Empty></Card>
-        ),
-    },
-    {
-      id: "closeout",
-      label: "Mark contained",
+      id: "timeline",
+      label: "Timeline & close-out",
+      count: incident.containedAt !== undefined ? "contained" : undefined,
       content: () => (
-        <ContainPanel key={incident._id} incidentId={incident._id} containedAt={incident.containedAt ?? null} />
+        <div className="space-y-6">
+          <TimelinePanel incidentId={incident._id} />
+          <ContainPanel key={incident._id} incidentId={incident._id} containedAt={incident.containedAt ?? null} />
+        </div>
       ),
     },
-    { id: "onboard", label: "Onboard a company", content: () => <ApImportPanel /> },
-    {
-      id: "notifications",
-      label: "Slack & alerts out",
-      content: () => <NotificationsPanel scope="firm" canManage incidentId={incident._id} />,
-    },
+    { id: "onboard", label: "Onboard", content: () => <ApImportPanel /> },
     { id: "proof", label: "Proof", content: () => <ProofPanel /> },
-  ];
-
-  const links: QuickLink[] = [
-    { tab: "map", label: "Blast radius map", detail: "Who shares it, and how" },
-    { tab: "alerts", label: "What each company was told", detail: `${companyAlerts.length} tailored alerts` },
-    {
-      tab: "payments",
-      label: "Payments held",
-      detail: `${totals.paymentsHeld} held · ${money(totals.heldCents)}`,
-      tone: totals.heldCents > 0 ? "amber" : undefined,
-    },
-    {
-      tab: "letter",
-      label: `Letter to ${blast.asset.vendorName}`,
-      detail: letter?.status === "ready" ? "Ready to send" : "Being written",
-      tone: letter?.status === "ready" ? "ok" : undefined,
-    },
-    { tab: "timeline", label: "What happened, second by second" },
-    {
-      tab: "closeout",
-      label: "Mark contained",
-      detail: incident.containedAt !== undefined ? `Contained ${dateTime(incident.containedAt)}` : "When the vendor confirms a fix",
-      tone: incident.containedAt !== undefined ? "ok" : undefined,
-    },
   ];
 
   return (
     <div className="space-y-8">
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <PortfolioHero
-          blast={blast}
-          incidents={incidents}
-          onPickIncident={(id) => {
-            setChosen(id);
-            setSelected(undefined);
-          }}
-          releasedCents={releasedCents}
-          exposed={exposed}
-          acknowledged={acknowledged}
-          onOpenCompany={openCompany}
-        />
-        <QuickLinks links={links} onPick={(t) => select(t, true)} />
-      </div>
+      <PortfolioHero
+        blast={blast}
+        incidents={incidents}
+        onPickIncident={(id) => {
+          setChosen(id);
+          setSelected(undefined);
+        }}
+        releasedCents={releasedCents}
+        exposed={exposed}
+        acknowledged={acknowledged}
+        onOpenCompany={openCompany}
+      />
       <Tabs tabs={tabs} active={active} onSelect={(t) => select(t)} label="Incident details" />
     </div>
   );
@@ -282,6 +256,7 @@ function PortfolioHero({
   const tracker = useQuery(api.responses.getResponseTracker, { incidentId: incident._id });
   const stepFor = new Map((tracker?.companies ?? []).map((c) => [c.companyId, c]));
   const contained = incident.containedAt !== undefined;
+  const resolved = exposed.filter((n) => n.status === "closed").length;
   return (
     <section
       aria-labelledby="hero-title"
@@ -313,16 +288,21 @@ function PortfolioHero({
         )}
       </div>
 
-      <h1 id="hero-title" className="mt-3 text-3xl font-semibold tracking-tight text-balance md:text-5xl">
-        {totals.companiesExposed} {totals.companiesExposed === 1 ? "company" : "companies"} exposed ·{" "}
-        {totals.peopleExposed.toLocaleString()} people ·{" "}
-        {totals.heldCents > 0 ? (
-          <span className="text-amber">{money(totals.heldCents)} held</span>
-        ) : (
-          <span className="text-ash">no payments held</span>
-        )}
+      <h1 id="hero-title" className="sr-only">
+        {totals.companiesExposed} {totals.companiesExposed === 1 ? "company" : "companies"} exposed,{" "}
+        {totals.peopleExposed.toLocaleString()} people, {totals.heldCents > 0 ? `${money(totals.heldCents)} held` : "no payments held"}
       </h1>
-      {releasedCents > 0 && <p className="mt-1 text-ok">{money(releasedCents)} released after phone verification</p>}
+      {/* Three stats, number over label, so the zoom-out line never wraps mid-number on a projector. */}
+      <dl aria-hidden className="mt-4 grid grid-cols-3 gap-4 md:max-w-4xl">
+        <Stat value={String(totals.companiesExposed)} label={totals.companiesExposed === 1 ? "company exposed" : "companies exposed"} />
+        <Stat value={totals.peopleExposed.toLocaleString()} label="people behind them" />
+        <Stat
+          value={totals.heldCents > 0 ? money(totals.heldCents) : "$0"}
+          label={totals.heldCents > 0 ? "in payments held" : "no payments held"}
+          tone={totals.heldCents > 0 ? "text-amber" : "text-ash"}
+        />
+      </dl>
+      {releasedCents > 0 && <p className="mt-2 text-ok">{money(releasedCents)} released after phone verification</p>}
       {incident.summary && <p className="mt-3 max-w-3xl text-ash">{incident.summary}</p>}
 
       {finding && (
@@ -339,13 +319,11 @@ function PortfolioHero({
       <div className="mt-8 flex items-baseline justify-between gap-4">
         <h2 className="text-xs font-semibold tracking-wider text-ash uppercase">Response by company</h2>
         <p className="text-sm text-ash tabular-nums">
-          {tracker && tracker.totals.exposed > 0 && (
-            <>
-              First step done at {tracker.totals.firstStepDone} of {tracker.totals.exposed} · {tracker.totals.ready} ready ·{" "}
-              {tracker.totals.notifyOnly} notified ·{" "}
-            </>
+          {tracker && tracker.totals.firstStepDone > 0 && (
+            <>First step done at {tracker.totals.firstStepDone} of {tracker.totals.exposed} · </>
           )}
           {acknowledged} of {exposed.length} acknowledged
+          {resolved > 0 && ` · ${resolved} resolved`}
         </p>
       </div>
       {exposed.length === 0 ? (
@@ -360,7 +338,7 @@ function PortfolioHero({
                 className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-4 py-3 text-left hover:bg-graphite sm:grid-cols-[minmax(0,1.3fr)_auto_minmax(0,1fr)_minmax(0,1fr)_auto]"
               >
                 <span className="min-w-0 truncate font-medium">{n.name}</span>
-                {n.urgency && <LookChip look={URGENCY[n.urgency]} />}
+                {n.urgency && <UrgencyChip urgency={n.urgency} resolved={n.status === "closed"} />}
                 <span className="text-sm text-ash">
                   {n.status === "open" ? (
                     <span className="text-amber">Not acknowledged yet</span>
@@ -383,5 +361,15 @@ function PortfolioHero({
         </ul>
       )}
     </section>
+  );
+}
+
+function Stat({ value, label, tone = "text-paper" }: { value: string; label: string; tone?: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="sr-only">{label}</dt>
+      <dd className={`text-3xl font-semibold tracking-tight tabular-nums md:text-5xl ${tone}`}>{value}</dd>
+      <dd className="mt-1 text-sm text-ash md:text-base">{label}</dd>
+    </div>
   );
 }

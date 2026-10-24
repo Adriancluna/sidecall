@@ -1,6 +1,6 @@
 // Small shared building blocks for the panels.
 import type { ReactNode } from "react";
-import type { Look } from "./labels";
+import { URGENCY, type Look } from "./labels";
 
 export function Card({
   title,
@@ -50,6 +50,12 @@ export function Chip({ tone, children }: { tone: Tone; children: ReactNode }) {
 // A status chip from a labels.ts entry.
 export function LookChip({ look }: { look: Look }) {
   return <Chip tone={look.tone}>{look.label}</Chip>;
+}
+
+// A resolved exposure keeps its urgency as history, greyed out, so red always means "still open".
+export function UrgencyChip({ urgency, resolved }: { urgency: keyof typeof URGENCY; resolved: boolean }) {
+  if (resolved) return <Chip tone="muted">{URGENCY[urgency].label} · resolved</Chip>;
+  return <LookChip look={URGENCY[urgency]} />;
 }
 
 export function Empty({ children }: { children: ReactNode }) {

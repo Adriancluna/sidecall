@@ -4,6 +4,7 @@ import { useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { DEMO_START_EMAIL, useSwitchTo } from "../auth/useSignInAs";
+import { loadStage, saveStage } from "./stage";
 
 const JAMIE = { name: "Jamie Chen", email: DEMO_START_EMAIL };
 const ROSA = {
@@ -44,13 +45,13 @@ const BEATS: Beat[] = [
     title: "New requests are caught too",
     say: "Jamie requests the $38K November bill to the same vendor. It's held and flagged the moment it's requested, not just what was already in flight.",
     as: JAMIE,
-    tip: "Jump to → Bills to pay → Request payment on the $38,000 bill.",
+    tip: "Bills to pay tab → Request payment on the $38,000 bill.",
   },
   {
     title: "It reached their Slack (optional)",
     say: "Nobody had to have the dashboard open: the same warning already went to Summit's #summit-finance channel. Here it's simulated so the demo doesn't depend on Wi-Fi.",
     as: JAMIE,
-    tip: "Jump to → Slack messages sent (Outbox).",
+    tip: "Slack & alerts out tab (Outbox).",
   },
   {
     title: "Requester refused, controller verifies",
@@ -68,7 +69,7 @@ const BEATS: Beat[] = [
     title: "A new acquisition (optional)",
     say: "A new acquisition closes today. Here's its AP export: it already pays Brightline at the 7731 account. Import, and its payments are held on the spot: 4 companies, 4,650 people.",
     as: JORDAN,
-    tip: "Onboard a company tab → Use sample files → point at the red warning → Import. Sign in as Daniel Okoro (Lakeside controller) to show the holds. Reset removes Lakeside.",
+    tip: "Onboard tab → Use sample files → point at the red warning → Import. Sign in as Daniel Okoro (Lakeside controller) to show the holds. Reset removes Lakeside.",
   },
   {
     title: "Evidence",
@@ -91,7 +92,7 @@ const BEATS: Beat[] = [
     title: "Tailored alerts + vendor letter",
     say: "Urgent where a credential is shared, advisory where it's only the same vendor. One letter to the vendor fixes it for everyone.",
     as: JORDAN,
-    tip: "Tabs: What each company was told, then Vendor letter.",
+    tip: "Alerts & letter tab: the tailored alerts, then the vendor letter under them.",
   },
   {
     title: "Convex guarantees",
@@ -103,7 +104,7 @@ const BEATS: Beat[] = [
     title: "Contained",
     say: "The vendor fixed it and confirmed by phone. The firm marks the incident contained, with a note, and it's on the record.",
     as: JORDAN,
-    tip: "Jump to → Mark contained: say what was fixed and how it was confirmed.",
+    tip: "Timeline & close-out tab → Mark contained: say what was fixed and how it was confirmed.",
   },
   {
     title: "Scorecard",
@@ -116,11 +117,21 @@ const BEATS: Beat[] = [
 export function PresenterPanel() {
   const me = useQuery(api.access.me);
   const switchTo = useSwitchTo();
-  // Collapsed on phones so it doesn't cover the app; open on laptops.
-  const [open, setOpen] = useState(() => window.innerWidth >= 768);
-  const [current, setCurrent] = useState(0);
+  // Starts as a small pill so it never covers the product on the projector; remembered per tab.
+  const [open, setOpenState] = useState(() => loadStage("open", false));
+  const [current, setCurrentState] = useState(() => Math.min(loadStage("beat", 0), BEATS.length - 1));
+  const [showAll, setShowAll] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
+  const setOpen = (v: boolean) => {
+    setOpenState(v);
+    saveStage("open", v);
+  };
+  const setCurrent = (i: number) => {
+    setCurrentState(i);
+    saveStage("beat", i);
+    setShowAll(false);
+  };
 
   const become = async (person: Person) => {
     setBusy(true);
@@ -139,82 +150,91 @@ export function PresenterPanel() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed right-4 bottom-4 z-20 rounded-full border border-amber bg-graphite px-4 py-2 text-sm font-semibold text-amber shadow-lg"
+        className="fixed bottom-3 left-3 z-20 rounded-full border border-line bg-graphite/90 px-3 py-1.5 text-xs font-medium text-ash shadow-lg hover:text-paper"
       >
-        Presenter · beat {current + 1}/{BEATS.length}
+        Presenter · {current + 1}/{BEATS.length}
       </button>
     );
   }
 
+  const beat = BEATS[current];
+  const isMe = me?.email === beat.as.email;
   return (
     <aside
       aria-label="Presenter steps"
-      className="fixed right-4 bottom-4 z-20 max-h-[70vh] w-[min(380px,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-amber/60 bg-graphite p-4 shadow-2xl"
+      className="fixed bottom-3 left-3 z-20 max-h-[60vh] w-[min(320px,calc(100vw-1.5rem))] overflow-y-auto rounded-xl border border-line bg-graphite p-3 text-sm shadow-2xl"
     >
-      <header className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-amber">Presenter</h2>
+      <header className="mb-2 flex items-center justify-between gap-2">
         <button
           type="button"
-          onClick={() => setOpen(false)}
-          className="text-sm text-ash hover:text-paper"
+          onClick={() => setShowAll(!showAll)}
+          aria-expanded={showAll}
+          className="text-xs font-semibold text-amber"
         >
+          Presenter · {current + 1}/{BEATS.length} {showAll ? "▴" : "▾"}
+        </button>
+        <button type="button" onClick={() => setOpen(false)} className="text-xs text-ash hover:text-paper">
           Hide
         </button>
       </header>
-      <ol className="space-y-2">
-        {BEATS.map((beat, i) => {
-          const isCurrent = i === current;
-          const isMe = me?.email === beat.as.email;
-          return (
-            <li
-              key={beat.title}
-              className={`rounded-lg border p-3 ${isCurrent ? "border-amber bg-panel" : "border-line"}`}
-            >
+      {showAll ? (
+        <ol className="space-y-1">
+          {BEATS.map((b, i) => (
+            <li key={b.title}>
               <button
                 type="button"
                 onClick={() => setCurrent(i)}
-                aria-current={isCurrent ? "step" : undefined}
-                className="w-full text-left text-sm font-medium"
+                aria-current={i === current ? "step" : undefined}
+                className={`w-full rounded-md px-2 py-1 text-left ${i === current ? "bg-panel text-paper" : "text-ash hover:text-paper"}`}
               >
-                {i + 1}. {beat.title}
+                {i + 1}. {b.title}
               </button>
-              {isCurrent && (
-                <div className="mt-2 space-y-2 text-sm">
-                  <p>{beat.say}</p>
-                  {beat.tip && <p className="text-ash">{beat.tip}</p>}
-                  <div className="flex flex-wrap items-center gap-2">
-                    {isMe ? (
-                      <span className="text-ok">
-                        Signed in as {beat.as.name}
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void become(beat.as)}
-                        className="rounded-md bg-amber px-3 py-1 font-semibold text-graphite disabled:opacity-50"
-                      >
-                        Sign in as {beat.as.name}
-                      </button>
-                    )}
-                    {i < BEATS.length - 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setCurrent(i + 1)}
-                        className="rounded-md border border-line px-3 py-1 hover:border-ash"
-                      >
-                        Next beat
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
             </li>
-          );
-        })}
-      </ol>
+          ))}
+        </ol>
+      ) : (
+        <div className="space-y-2">
+          <p className="font-medium">{beat.title}</p>
+          <p>{beat.say}</p>
+          {beat.tip && <p className="text-ash">{beat.tip}</p>}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            {isMe ? (
+              <span className="text-ok">Signed in as {beat.as.name}</span>
+            ) : (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void become(beat.as)}
+                className="rounded-md bg-amber px-3 py-1 font-semibold text-graphite disabled:opacity-50"
+              >
+                Sign in as {beat.as.name}
+              </button>
+            )}
+            <span className="ml-auto flex gap-1">
+              <button
+                type="button"
+                disabled={current === 0}
+                onClick={() => setCurrent(current - 1)}
+                aria-label="Previous beat"
+                className="rounded-md border border-line px-2 py-1 hover:border-ash disabled:opacity-40"
+              >
+                ←
+              </button>
+              <button
+                type="button"
+                disabled={current === BEATS.length - 1}
+                onClick={() => setCurrent(current + 1)}
+                aria-label="Next beat"
+                className="rounded-md border border-line px-2 py-1 hover:border-ash disabled:opacity-40"
+              >
+                →
+              </button>
+            </span>
+          </div>
+        </div>
+      )}
       {error && (
-        <p role="alert" className="mt-2 text-sm text-danger">
+        <p role="alert" className="mt-2 text-danger">
           {error}
         </p>
       )}

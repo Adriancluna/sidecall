@@ -1,17 +1,18 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 24, 20:00 by Marco's Claude
+Last updated: Oct 24, 20:15 by Marco's Claude
 
-## → Adrian (Role 1): Marco is taking the UI polish back. Please read before your next src/ change
-Marco asked for this: Role 2 does the UI fixes from a UX critique of prod (`impeccable critique`, 27/40). **Nothing has started yet.** We wait for your OK here (or in chat with Marco) so we don't collide with your dashboards work.
-- **Files we plan to edit:** `src/demo/PresenterPanel.tsx`, `src/demo/DemoControls.tsx`, `src/demo/stage.ts`, `src/layout/AppShell.tsx`, `src/layout/Tabs.tsx`, `src/panels/PortfolioView.tsx`, `src/panels/CompanyView.tsx`, `src/panels/ExposureHero.tsx`, `src/panels/PaymentCard.tsx`, `src/panels/ProofPanel.tsx`, `src/auth/UserMenu.tsx`. One branch (`polish/critique-fixes`), one PR, not merged by us.
-- **Not touching:** `src/panels/ResponsePlaybook.tsx` (your #96), `src/map/` (Omar), `convex/`.
-- **Planned fixes:**
-  - P0 presenter clutter on the projector: Presenter collapses to a slim pill; the key field shows "Key set ✓" once set; the simulator strip becomes a separate demo band.
-  - P1 navigation: drop "Jump to" (it repeats the tabs); firm view down to 5 tabs or fewer ("Proof" is clipped at 1440); IT page loses the repeated "What to check" and the second Acknowledge.
-  - P1 `?stage` dropped once on a header person switch, and the beat resets on reload: keep both in sessionStorage.
-  - P2 firm view: resolved companies stop showing "Urgent"; headline as three stat blocks (it wraps mid-number "3,950 / people"); one timezone.
-  - P3: the clerk's All clear screen previews the $480,000 payment; Proof opens with "18 cases · 0 missed · 0 false holds"; the segregation-of-duties refusal gets a neutral "Working as designed" style instead of error red.
-- If you're mid-change in any of these files, say which and we'll skip or wait.
+## UI polish from the UX critique: PR `polish/critique-fixes` (not merged)
+Marco took the UI polish back (Adrian told in #100 and on #96). Fixes, all outside `src/map/`, `ResponsePlaybook.tsx` and `convex/`:
+- **Presenter (P0):** starts as a small "Presenter · 3/15" pill bottom-left; open, it shows only the current beat with ← → and a beat list behind the header. Open state and beat are remembered per tab (sessionStorage). Presenter key field turns into "Presenter key set ✓" once entered. Scenario blurb hidden on phones until there's a status.
+- **`?stage` (P1):** remembered per tab, so a sign-in or reload that drops the query string keeps presenter mode (`src/demo/stage.ts`).
+- **Navigation (P1):** "Jump to" rail removed in both views (it repeated the tabs); heroes take the full width. Firm view tabs 9 → 6: Map & evidence · Alerts & letter (alerts, vendor letter, Slack outbox) · Payments & controls log · Timeline & close-out (timeline + Mark contained) · Onboard · Proof. Presenter tips updated to the new tab names.
+- **IT page:** the hero exposure's tab entry no longer repeats "What to check" or the Acknowledge / Mark resolved buttons.
+- **Firm hero (P2):** headline is three stat blocks (companies exposed · people · held), no mid-number wrap; summary line is "First step done at X of Y · N of M acknowledged · K resolved"; resolved companies show a grey "Urgent · resolved" chip, never red.
+- **Times:** every `dateTime` is UTC ("Oct 24, 8:04 PM UTC"), matching the backend's "What to check" text. "What to check" evidence starts with a capital.
+- **Story beats (P3):** clerk/controller All clear shows "Next payment out $480,000 to Brightline Payroll Inc. · due Oct 25" before the incident; the segregation-of-duties refusal reads "Working as designed: … Nothing was released." in a calm box (`role=status`), not error red; Proof opens with "18 planted cases · 0 missed · 0 false holds" and scenario names next to the ids.
+- Phones: company name visible in the header.
+- Checked: `npm run lint`, `npm test` (66), `npm run build`; on Marco's dev (`next-ibis-853`, reseeded): Jamie All clear → Fire Brightline → $480K hero → release refused (calm box); switch to Jordan via the header keeps `?stage` and beat 3; reload without `?stage` keeps presenter; Proof summary; red-team scenario as Sam (no repeated steps, "Urgent · resolved" after resolving Brightline); 375 px no horizontal scroll.
+- `docs/demo-script.md` beat 7b says "Containment card"; it's now in the Timeline & close-out tab.
 
 ## → Omar (Role 3), from the same critique (your call, `src/map/`)
 - Map labels render at about 8-10 CSS px at 1440 wide (unreadable projected); the zoom card overlaps the Pinecrest label; two Ironclad nodes ("Ironclad Managed IT" breached, "Ironclad IT Services" not affected) confuse; the 8-item legend sits below the map.

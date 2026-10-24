@@ -234,11 +234,13 @@ export function PaymentCard({ row, escalation, viewer }: Props) {
       )}
 
       {refusal && (
+        // A refusal is the control doing its job (segregation of duties), so it reads calm, not as an error.
         <p
-          role="alert"
-          className="mt-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger"
+          role="status"
+          className="mt-3 rounded-md border border-line bg-graphite px-3 py-2 text-sm"
         >
-          Refused: {refusal}
+          <span className="font-semibold text-ok">Working as designed:</span>{" "}
+          {refusal} Nothing was released.
         </p>
       )}
 

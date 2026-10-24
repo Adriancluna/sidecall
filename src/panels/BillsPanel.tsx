@@ -5,14 +5,11 @@ import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { friendlyError } from "../layout/errors";
-import { money } from "./format";
+import { money, shortDate } from "./format";
 import { paymentLook } from "./labels";
 import { Card, Empty, LookChip } from "./ui";
 
 const TEXT_TONE = { amber: "text-amber", danger: "text-danger", ok: "text-ok" };
-
-const shortDate = (ms: number) =>
-  new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
 export function BillsPanel() {
   const bills = useQuery(api.payments.getMyBills, {});

@@ -20,9 +20,9 @@ export function AppShell({ me, children }: { me: CurrentUser; children: ReactNod
           <div className="flex min-w-0 items-center gap-4">
             <img src={logoUrl} alt="Sidecall" width={132} height={32} className="h-8 w-auto" />
             <span className="hidden h-6 w-px bg-line sm:block" aria-hidden />
-            <p className="hidden min-w-0 truncate text-sm sm:block">
+            <p className="min-w-0 truncate text-sm">
               <span className="font-medium">{me.companyName ?? "Northpass Capital"}</span>
-              <span className="text-ash"> · {ROLE_LABEL[me.role]} view</span>
+              <span className="hidden text-ash sm:inline"> · {ROLE_LABEL[me.role]} view</span>
             </p>
           </div>
           <UserMenu me={me} />
