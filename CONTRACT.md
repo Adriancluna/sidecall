@@ -5,6 +5,11 @@ The data shapes and function signatures every role builds against. Owned by Role
 
 **Don't change the schema yourself.** Need a field, index or query? Tell Adrian.
 
+## Changelog
+
+- **Oct 23, ~7pm.** `getBlastRadius` `nodes[].relation` is now typed as the `NodeRelation` union (exported from `convex/blastRadius.ts`), not `string`.
+- **Oct 23, ~6:45pm (PR #3).** Every query and mutation takes `actingUserId`, except `listCompanies`, `listUsers`, `listAssets` and `resetDemo`. New: `getMyExposures`, `getMyAlerts`, `getIncidentAlerts`, `listCompanies`, `listUsers`, `listAssets`, `seed.resetDemo` (needs `DEMO_MODE=true`). `getBlastRadius` nodes gained `relation`, `exposureId`, `confidence`; edges gained `compromised`; incident gained `reportedByName`. `getHeldPayments` returns every payment an incident touched (held, paid, rejected). `getLedger` returns `{ entries, balances }`. `rejectPayment` takes optional `note`.
+
 ## Tables
 
 ```ts
@@ -100,7 +105,7 @@ Module prefix in brackets: `api.blastRadius.listIncidents`, etc. `null` means "n
   incident: Incident & { reportedByName: string | null },
   asset,
   nodes: { companyId, name, headcount, exposed,
-           relation: "exposed" | "reporter" | "same_vendor_separate_access" | "linked_not_exposed" | "unrelated",
+           relation: NodeRelation,   // "exposed" | "reporter" | "same_vendor_separate_access" | "linked_not_exposed" | "unrelated"
            exposureId | null, urgency | null, score, confidence | null, status | null,
            heldCents }[],                                    // heldCents counts status "held" only
   edges: { companyId, assetId, shareType, source, compromised: boolean }[],
