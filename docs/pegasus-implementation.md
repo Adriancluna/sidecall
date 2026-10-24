@@ -96,3 +96,7 @@ Optional sample data is created through **Bills to pay → Automatic purchasing 
 Validation: 118 app/backend tests and 40 prompt/scorecard tests pass; app/backend typechecks, lint and production build pass. The original full live rehearsal passes. `scripts/purchases/rehearse.mjs` verified 11 live cases on Pegasus DEV, including a real HTTP concurrency race and continued unrelated purchasing; results are in `docs/pegasus-purchase-rehearsal.json`. Test evidence is synthetic and is not a population-level accuracy metric.
 
 The supplied Visa PDF makes proprietary Visa APIs unavailable and requires meaningful generative AI. Use the existing source-grounded investigation and actual MCP assistant/tool sequence for that part of the demonstration; do not label the deterministic controls or a fallback parser as generative AI. The teammates’ chatbot is outside Pegasus’s edits. Track-by-track criteria and source references are in `team-notes/pegasus-track-depth.md`.
+
+## Release status after Adrian's freeze review
+
+Incident lifecycle fixes are separately reviewable in PR #116 (`fix/pegasus-incident-lifecycle`), based on main's 14-company portfolio. This branch retains automatic purchasing in draft PR #113, **hold: Adrian decides after freeze review**. PR #113 is based on #116 so its diff isolates purchasing; it must not be merged/deployed before that decision. Pegasus DEV currently runs the lifecycle-only branch. The purchasing tests/11-case live report above describe the previously verified feature; this split does not redeploy it.

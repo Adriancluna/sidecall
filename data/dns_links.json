@@ -60,8 +60,103 @@
     "detail": "CNAME sso.meridiandental.example → meridian.keystone-sso.example"
   },
   {
+    "companyDomain": "meridiandental.example",
+    "assetName": "Fleetline MDM",
+    "detail": "TXT fleetline-site-verification"
+  },
+  {
     "companyDomain": "pinecreststaffing.example",
     "assetName": "Relay Mail",
     "detail": "MX → mx.relaymail.example · SPF include:spf.relaymail.example"
+  },
+  {
+    "companyDomain": "ridgewaycomfort.example",
+    "assetName": "Relay Mail",
+    "detail": "MX → mx1.relaymail.example · SPF include:spf.relaymail.example"
+  },
+  {
+    "companyDomain": "ridgewaycomfort.example",
+    "assetName": "Fleetline MDM",
+    "detail": "TXT fleetline-site-verification"
+  },
+  {
+    "companyDomain": "ridgewaycomfort.example",
+    "assetName": "Tether Remote Support",
+    "detail": "CNAME support.ridgewaycomfort.example → ridgeway.tether-remote.example"
+  },
+  {
+    "companyDomain": "ridgewaycomfort.example",
+    "assetName": "Bramble ERP",
+    "detail": "SPF include:spf.bramble-erp.example"
+  },
+  {
+    "companyDomain": "oakmontrx.example",
+    "assetName": "Bramble ERP",
+    "detail": "SPF include:spf.bramble-erp.example"
+  },
+  {
+    "companyDomain": "oakmontrx.example",
+    "assetName": "Inkwell eSign",
+    "detail": "TXT inkwell-domain-verification"
+  },
+  {
+    "companyDomain": "fairhavenpt.example",
+    "assetName": "Keystone SSO",
+    "detail": "CNAME sso.fairhavenpt.example → fairhaven.keystone-sso.example"
+  },
+  {
+    "companyDomain": "fairhavenpt.example",
+    "assetName": "Fleetline MDM",
+    "detail": "TXT fleetline-site-verification"
+  },
+  {
+    "companyDomain": "fairhavenpt.example",
+    "assetName": "Helmsman Service Desk",
+    "detail": "CNAME help.fairhavenpt.example → fairhaven.helmsman-desk.example"
+  },
+  {
+    "companyDomain": "kestrelins.example",
+    "assetName": "Ledgerly AP Portal",
+    "detail": "SPF include:spf.ledgerly.example"
+  },
+  {
+    "companyDomain": "kestrelins.example",
+    "assetName": "Vaultline Passwords",
+    "detail": "TXT vaultline-verification"
+  },
+  {
+    "companyDomain": "kestrelins.example",
+    "assetName": "Bramble ERP",
+    "detail": "SPF include:spf.bramble-erp.example"
+  },
+  {
+    "companyDomain": "wrenfield.example",
+    "assetName": "Fleetline MDM",
+    "detail": "TXT fleetline-site-verification"
+  },
+  {
+    "companyDomain": "wrenfield.example",
+    "assetName": "Helmsman Service Desk",
+    "detail": "CNAME help.wrenfield.example → wrenfield.helmsman-desk.example"
+  },
+  {
+    "companyDomain": "saltmarshpool.example",
+    "assetName": "Relay Mail",
+    "detail": "MX → mx.relaymail.example · SPF include:spf.relaymail.example"
+  },
+  {
+    "companyDomain": "saltmarshpool.example",
+    "assetName": "Tether Remote Support",
+    "detail": "CNAME it.saltmarshpool.example → saltmarsh.tether-remote.example"
+  },
+  {
+    "companyDomain": "saltmarshpool.example",
+    "assetName": "Bramble ERP",
+    "detail": "SPF include:spf.bramble-erp.example"
+  },
+  {
+    "companyDomain": "saltmarshpool.example",
+    "assetName": "Inkwell eSign",
+    "detail": "TXT inkwell-domain-verification"
   }
 ]

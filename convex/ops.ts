@@ -24,7 +24,7 @@ export const readinessChecks = internalQuery({
 
     const companies = await ctx.db.query("companies").take(100);
     const users = await ctx.db.query("users").take(200);
-    add("Seed data", companies.length === 8 && users.length === 21, `${companies.length} companies, ${users.length} users (want 8 and 21)`);
+    add("Seed data", companies.length === 14 && users.length === 34, `${companies.length} companies, ${users.length} users (want 14 and 34)`);
 
     // The money moment: the $480K must still be pending (not yet fired), or Reset first.
     const summit = companies.find((c) => c.name === "Summit Home Health");
@@ -123,6 +123,33 @@ export const demoReadiness = internalAction({
 //   npx convex run seed:fireDemoIncident '{"scenario":"brightline"}'
 // shows one report fanning out to every one of them in a single transaction.
 // Refuses unless DEMO_MODE=true; Reset or seed:run removes the extra companies.
+// Made-up but ordinary company names for the scale run (place × trade, unique for the first 330),
+// so a 300-company map reads like a portfolio, not a test fixture.
+const SCALE_PLACES = [
+  "Ashford", "Birchwood", "Calder", "Dunmore", "Elmhurst", "Foxglove", "Glenrock", "Hartwell", "Ivydale", "Juniper",
+  "Kingsley", "Larkspur", "Millbrook", "Northgate", "Orchard", "Prescott", "Quarry", "Redfern", "Stonebridge",
+  "Thornbury", "Upland", "Vale", "Westbrook", "Yarrow", "Alcott", "Bellmont", "Copley", "Driftwood", "Easton", "Fernhill",
+];
+const SCALE_TRADES: [string, string][] = [
+  ["Dental Group", "Dental"],
+  ["Veterinary Clinics", "Veterinary"],
+  ["Home Health", "Healthcare"],
+  ["HVAC Services", "Home services"],
+  ["Logistics", "Logistics"],
+  ["Physical Therapy", "Physical therapy"],
+  ["Insurance Partners", "Insurance brokerage"],
+  ["Foods", "Food distribution"],
+  ["Staffing", "Staffing"],
+  ["Software", "Software"],
+  ["Pharmacy", "Specialty pharmacy"],
+];
+const scaleCompany = (i: number) => {
+  const place = SCALE_PLACES[(i - 1) % SCALE_PLACES.length];
+  const [trade, sector] = SCALE_TRADES[Math.floor((i - 1) / SCALE_PLACES.length + i) % SCALE_TRADES.length];
+  const round = Math.floor((i - 1) / (SCALE_PLACES.length * SCALE_TRADES.length)); // names repeat after 330
+  return { name: `${place} ${trade}${round ? ` ${round + 1}` : ""}`, sector };
+};
+
 export const addScalePortfolio = internalMutation({
   args: { count: v.number() },
   handler: async (ctx, { count }) => {
@@ -143,9 +170,8 @@ export const addScalePortfolio = internalMutation({
     const now = Date.now();
     for (let i = 1; i <= count; i++) {
       const companyId = await ctx.db.insert("companies", {
-        name: `Scale Portfolio Co ${i}`,
+        ...scaleCompany(i),
         domain: `scale-${i}.example`,
-        sector: "Benchmark",
         headcount: 100,
         holdRuleEnabled: true,
       });

@@ -40,6 +40,39 @@ export const VENDORS = [
     cname: ["ironclad-it.example"],
   },
 
+  // Background stack: fictional vendors shaped like what the real portfolio scan found
+  // (scripts/dns/portfolio_report.json: device management, remote access, passwords, ERP).
+  {
+    vendor: "Fleetline Device Management",
+    assetName: "Fleetline MDM",
+    txt: ["fleetline-site-verification="],
+  },
+  {
+    vendor: "Tether Remote",
+    assetName: "Tether Remote Support",
+    cname: ["tether-remote.example"],
+  },
+  {
+    vendor: "Vaultline",
+    assetName: "Vaultline Passwords",
+    txt: ["vaultline-verification="],
+  },
+  {
+    vendor: "Bramble Software",
+    assetName: "Bramble ERP",
+    spf: ["spf.bramble-erp.example"],
+  },
+  {
+    vendor: "Inkwell",
+    assetName: "Inkwell eSign",
+    txt: ["inkwell-domain-verification="],
+  },
+  {
+    vendor: "Helmsman",
+    assetName: "Helmsman Service Desk",
+    cname: ["helmsman-desk.example"],
+  },
+
   // Real vendors (for the scan of real public domains)
   {
     vendor: "Google Workspace",
