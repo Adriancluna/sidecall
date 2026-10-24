@@ -1,4 +1,4 @@
-// Presenter mode (/?stage): the 9 demo beats from CLAUDE.md "Demo story", who to be at each,
+// Presenter mode (/?stage): the demo beats from CLAUDE.md "Demo story", who to be at each,
 // and one click to become that person. Not shown to judges.
 import { useQuery } from "convex/react";
 import { useState } from "react";
@@ -66,6 +66,12 @@ const BEATS: Beat[] = [
     say: "3 companies exposed, 4,200 people behind them, $650K in payments held: the $612K in flight plus the new $38K request.",
     as: JORDAN,
     tip: '$650K while Rosa\'s payment is still held ($612K if you skipped the $38K request); after her release it drops to $170K with "$480,000 released after verification".',
+  },
+  {
+    title: "A new acquisition (optional)",
+    say: "A new acquisition closes today. Here's its AP export: it already pays Brightline at the 7731 account. Import, and its payments are held on the spot: 4 companies, 4,650 people.",
+    as: JORDAN,
+    tip: "Onboard card → Use sample files → point at the red warning → Import. Sign in as Daniel Okoro (Lakeside controller) to show the holds. Reset removes Lakeside.",
   },
   {
     title: "Evidence",

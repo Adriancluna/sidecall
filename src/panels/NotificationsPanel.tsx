@@ -263,7 +263,7 @@ function Outbox({ incidentId }: { incidentId?: Id<"incidents"> }) {
                 <span className="font-mono text-xs">{r.event}</span>
                 <Chip tone={STATUS_TONE[r.status]}>{r.status}</Chip>
               </div>
-              <p className="mt-0.5 line-clamp-2 text-ash">{r.text}</p>
+              <p className="mt-0.5 line-clamp-2 whitespace-pre-line text-ash">{r.text}</p>
               {r.error && <p className="text-xs text-danger">{r.error}</p>}
             </li>
           ))}

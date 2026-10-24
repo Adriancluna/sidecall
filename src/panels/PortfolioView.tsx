@@ -7,6 +7,7 @@ import { BlastRadiusMap } from "../map/BlastRadiusMap";
 import { EvidencePanel } from "../map/EvidencePanel";
 import { dateTime, money } from "./format";
 import { ExposureAcknowledgedBy } from "./AcknowledgedBy";
+import { ApImportPanel } from "./ApImportPanel";
 import { ContainPanel } from "./ContainPanel";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
@@ -40,12 +41,15 @@ export function PortfolioView() {
   if (incidents === undefined) return <Empty>Loading…</Empty>;
   if (!incidentId) {
     return (
-      <Card>
-        <Empty>
-          No open incidents across the portfolio. Fire the demo incident to
-          start.
-        </Empty>
-      </Card>
+      <div className="space-y-6">
+        <Card>
+          <Empty>
+            No open incidents across the portfolio. Fire the demo incident to
+            start.
+          </Empty>
+        </Card>
+        <ApImportPanel />
+      </div>
     );
   }
   if (!blast) return <Empty>Loading…</Empty>;
@@ -221,6 +225,8 @@ export function PortfolioView() {
           </p>
         </Card>
       )}
+
+      <ApImportPanel />
 
       <NotificationsPanel scope="firm" canManage incidentId={incident._id} />
 
