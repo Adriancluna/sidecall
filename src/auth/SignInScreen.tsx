@@ -3,10 +3,7 @@ import { useState, type FormEvent } from "react";
 import logoUrl from "../../brand/logo/sidecall-stacked-dark.svg";
 import { Card, Empty } from "../panels/ui";
 import { ROLE_LABEL, useDirectory } from "./directory";
-import { DEMO_PASSWORD, useSignInAs } from "./useSignInAs";
-
-// The demo opens on the money moment: the AP clerk who requested the $480K payment (convex/seed.ts).
-const DEMO_START_EMAIL = "jamie.chen@summithomehealth.example";
+import { DEMO_PASSWORD, DEMO_START_EMAIL, useSignInAs } from "./useSignInAs";
 
 const errorText = (err: unknown) =>
   err instanceof Error && /portfolio team/.test(err.message)

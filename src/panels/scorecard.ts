@@ -2,7 +2,7 @@
 // shape-checked here: a malformed file shows an "unreadable" state instead of breaking the PE view.
 import raw from "../../data/scorecard.json?raw";
 
-export type ScorecardCase = {
+type ScorecardCase = {
   ref: string;
   type: string;
   expected: string;
@@ -41,7 +41,7 @@ const isScenario = (s: unknown) =>
       all(c, ["ref", "type", "expected", "actual", "result", "why"], "string"),
   );
 
-export function parseScorecard(text: string): Scorecard | null {
+function parseScorecard(text: string): Scorecard | null {
   try {
     const data: unknown = JSON.parse(text);
     const ok =
