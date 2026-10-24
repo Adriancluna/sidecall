@@ -7,6 +7,8 @@ Ashwa explicitly requested more implementation and parallel Claude work after #1
 
 ## Source controls implemented on this branch
 
+**Ready for review: [PR #120](https://github.com/Adriancluna/sidecall/pull/120)**, implementation commit `2144877`; Adrian is requested as reviewer. Deployed only to Pegasus DEV. No self-merge or production deployment.
+
 - Each detector has exact asset/reporter scope, default observation authority, expiry and its own hashed credential. Operator-only mint/rotation/revoke; caller JSON cannot choose its identity or authority.
 - Intake and authority checks share a Convex transaction. Separate source+external-ID receipts preserve replay identity across rotation; global asset/class correlation still prevents restarted active-episode effects. A replay returns its original accepted assessment.
 - Official Convex rate-limiter: burst 10, refill 30/minute per source; rotation preserves quota, another source has its own capacity. Streamed body cap is 32 KiB with bounded fields. Legacy HMAC and all 4 stage scenarios remain compatible.
@@ -17,7 +19,7 @@ Ashwa explicitly requested more implementation and parallel Claude work after #1
 
 ## Latest incoming handoff checked
 
-Omar's `2c48d93` recommendation handoff asks Pegasus to review #114 with Adrian's OK and Marco to mount it only after merge; its updated shared advice types are already on Omar's branch. This does not change the recorded hold. → **Role 1:** include #114 and the new stop-loss work in the explicit release decision; → **Role 4:** continue the assigned adversarial evaluation while those features remain unmounted. Pegasus has not merged them or changed the chatbot.
+Omar's `2c48d93` recommendation handoff asks Pegasus to review #114 with Adrian's OK and Marco to mount it only after merge; its updated shared advice types are already on Omar's branch. The new stop-loss feature is now **PR #119**, explicitly unmounted and requiring Adrian's OK; it is not shipped. → **Role 1:** include #114 and #119 in the explicit release decision; → **Role 4:** continue the assigned adversarial evaluation while those features remain unmounted. Pegasus has not merged them or changed the chatbot.
 
 ## Active ownership and acceptance criteria
 
