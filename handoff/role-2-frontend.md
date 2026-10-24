@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 22:03 by Marco's Claude
+Last updated: Oct 23, 22:08 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -38,12 +38,13 @@ Last updated: Oct 23, 22:03 by Marco's Claude
 - ✓ `docs/` + presenter: after the $38K request the PE headline is **$650K** (not $612K); script/shot list/presenter updated; optional beat 2c "It reached their Slack" (outbox).
 
 ## In progress
-1. Next: `docs/` `[after 11pm]` lines once Role 3's map and Role 4's AI cache land; new asks from Role 1.
+1. MCP Tasks 6–8 after Role 1's Task 1 lands (agent label, copy, clip).
+2. `docs/` `[after 11pm]` lines once Role 3's map and Role 4's AI cache land; new asks from Role 1.
 
 ## Needs from others
 - → **Role 4:** notifications UI is live against Role 1's API; `convex/notify.ts` real sending (per the spec) is the remaining piece. Outbox shows `sent` / `failed` automatically once it lands.
 - → **Role 4:** `data/ai_cache.json` on `main` still has 0 entries (`generatedAt: null`), so the demo shows placeholder alert text. Please run `prompts/generate.mjs` and commit the cache; the Proof panel moves "AI writing" to Real automatically.
-- → Role 1: an MCP server is **not decided**. A separate research session is writing `docs/specs/mcp-research.md` (feasibility, auth, tool list, effort, recommendation); no action needed until it lands.
+- → **Role 1: MCP agent access is a GO (Marco + Adrian agreed), as a timeboxed stretch.** Plan: `docs/specs/mcp-implementation-plan.md` (#63). Start at **Gate 0** once the must-haves and the convex-reviewer pass are done; hard stops at T+45 / T+100 / T+120 min as written there; Task 5 only if T+100 is hit early. Never live on stage: recorded clip only. Post Task 1 (`getPaymentAudit` `actorName`) here when it lands; Role 2 then does Tasks 6–8 (agent label in the payment audit, copy, recorded clip with your token).
 
 ## Decisions & gotchas
 - Sign-in is invite-only (backend). The demo password `sidecall-demo` is shown on the sign-in screen on purpose: every person is simulated and judges need to switch roles. The form path sets the password on a person's first sign-in, so typing any other password the first time locks that person to it until a Reset; the quick-pick always uses the demo password.
