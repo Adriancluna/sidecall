@@ -1,0 +1,57 @@
+{
+  "_comment": "SIMULATED DNS records for the fictional seed domains (*.example does not resolve). scan.mjs runs the same detector over them to produce data/dns_links.json. Real scans of real domains go to data/dns_findings.json.",
+  "domains": {
+    "alderfreight.example": {
+      "mx": ["mx1.relaymail.example.", "mx2.relaymail.example."],
+      "txt": [
+        "v=spf1 include:spf.relaymail.example include:spf.ledgerly.example ~all"
+      ],
+      "cname": { "sso": "alderfreight.keystone-sso.example." }
+    },
+    "cedarridge.example": {
+      "mx": ["cedarridge-example.mail.protection.outlook.com."],
+      "txt": [
+        "v=spf1 include:spf.protection.outlook.com include:spf.ledgerly.example -all",
+        "ledgerly-domain-verification=4f1c9e"
+      ],
+      "cname": { "autodiscover": "autodiscover.outlook.com." }
+    },
+    "summithomehealth.example": {
+      "mx": ["mx.relaymail.example."],
+      "txt": [
+        "v=spf1 include:spf.relaymail.example include:spf.ledgerly.example ~all"
+      ],
+      "cname": {}
+    },
+    "bayviewvet.example": {
+      "mx": ["aspmx.l.google.com.", "alt1.aspmx.l.google.com."],
+      "txt": [
+        "v=spf1 include:_spf.google.com include:spf.ledgerly.example ~all"
+      ],
+      "cname": {}
+    },
+    "granitepeak.example": {
+      "mx": ["aspmx.l.google.com."],
+      "txt": [
+        "v=spf1 include:_spf.google.com ~all",
+        "keystone-site-verification=88ab02"
+      ],
+      "cname": { "login": "granitepeak.keystone-sso.example." }
+    },
+    "harborlinefoods.example": {
+      "mx": ["mx.relaymail.example."],
+      "txt": ["v=spf1 include:spf.relaymail.example ~all"],
+      "cname": { "sso": "harborline.keystone-sso.example." }
+    },
+    "meridiandental.example": {
+      "mx": ["mx1.relaymail.example."],
+      "txt": ["v=spf1 include:spf.relaymail.example ~all"],
+      "cname": { "sso": "meridian.keystone-sso.example." }
+    },
+    "pinecreststaffing.example": {
+      "mx": ["mx.relaymail.example."],
+      "txt": ["v=spf1 include:spf.relaymail.example ~all"],
+      "cname": {}
+    }
+  }
+}
