@@ -23,8 +23,12 @@ type Props = {
 const HOUR = 3_600_000;
 
 export function PaymentCard({ row, escalation, viewer }: Props) {
-  const canDecide = viewer !== undefined;
   const { payment } = row;
+  const canDecide = viewer !== undefined;
+  // Mirrors the backend rule (controller, not the requester) only to word the card and skip a
+  // pointless dialog; releasePayment/rejectPayment still enforce it.
+  const isRequester = viewer?.id === payment.requestedBy;
+  const isDecider = viewer?.isController === true && !isRequester;
   const release = useMutation(api.payments.releasePayment);
   const reject = useMutation(api.payments.rejectPayment);
   const audit = useQuery(api.payments.getPaymentAudit, {
@@ -51,11 +55,8 @@ export function PaymentCard({ row, escalation, viewer }: Props) {
       action === "release"
         ? `Release ${money(payment.amountCents)} to ${row.vendorName} account ••${payment.accountLast4}${changed}?`
         : `Reject the ${money(payment.amountCents)} payment to ${row.vendorName}? This is final.`;
-    // Only a controller who didn't request it can decide; everyone else goes straight to the
-    // backend's refusal (demo beat 3), without a dialog in the way.
-    const canActuallyDecide =
-      viewer?.isController === true && viewer.id !== payment.requestedBy;
-    if (canActuallyDecide && !window.confirm(question)) return;
+    // Everyone else goes straight to the backend's refusal (demo beat 3), with no dialog.
+    if (isDecider && !window.confirm(question)) return;
     setBusy(action);
     setRefusal(undefined);
     const args = { paymentId: payment._id };
@@ -81,12 +82,12 @@ export function PaymentCard({ row, escalation, viewer }: Props) {
       Waiting on {row.companyName}'s controller to verify by calling {phone},
       the number on file.
     </>
-  ) : viewer?.id === payment.requestedBy ? (
+  ) : isRequester ? (
     <>
       You requested this payment, so a controller must release it after calling{" "}
       {phone}, the number on file.
     </>
-  ) : viewer?.isController ? (
+  ) : isDecider ? (
     <>
       Call {row.vendorName} at {phone}, the number on file, never one from a
       recent email. Then release or reject.
@@ -99,12 +100,13 @@ export function PaymentCard({ row, escalation, viewer }: Props) {
   );
   const msLeft =
     payment.dueDate === undefined ? undefined : payment.dueDate - now;
+  const hours = msLeft === undefined ? undefined : Math.round(msLeft / HOUR);
   const dueIn =
-    msLeft === undefined
+    msLeft === undefined || hours === undefined
       ? ""
       : msLeft < HOUR
         ? " · due within the hour"
-        : ` · due in about ${Math.round(msLeft / HOUR)} ${Math.round(msLeft / HOUR) === 1 ? "hour" : "hours"}`;
+        : ` · due in about ${hours} ${hours === 1 ? "hour" : "hours"}`;
   return (
     <article className="rounded-lg border border-line bg-graphite p-4">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
