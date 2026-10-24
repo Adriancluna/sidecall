@@ -9,6 +9,8 @@ import { money } from "./format";
 import { PAYMENT_STATUS } from "./labels";
 import { Card, Empty, LookChip } from "./ui";
 
+const TEXT_TONE = { amber: "text-amber", danger: "text-danger", ok: "text-ok" };
+
 const shortDate = (ms: number) =>
   new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
@@ -89,11 +91,6 @@ function BillRow({
     }
   };
 
-  const textTone = {
-    amber: "text-amber",
-    danger: "text-danger",
-    ok: "text-ok",
-  };
   return (
     <li className="py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -122,7 +119,7 @@ function BillRow({
         </div>
       </div>
       {result && (
-        <p role="status" className={`mt-2 text-sm ${textTone[result.tone]}`}>
+        <p role="status" className={`mt-2 text-sm ${TEXT_TONE[result.tone]}`}>
           {result.text}
         </p>
       )}

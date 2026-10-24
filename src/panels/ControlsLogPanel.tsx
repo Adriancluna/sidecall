@@ -1,7 +1,7 @@
 // Controls log: every hold, flag, release, reject and refusal for an incident, newest first.
 // The backend scopes rows (firm = whole portfolio, company = own rows). Export is client-side CSV.
 import { useQuery } from "convex/react";
-import { Fragment } from "react";
+import { Fragment, useMemo } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -40,6 +40,12 @@ type Props = { incidentId: Id<"incidents">; fileLabel: string };
 
 export function ControlsLogPanel({ incidentId, fileLabel }: Props) {
   const rows = useQuery(api.payments.getIncidentAudit, { incidentId });
+  // Rebuilt only when the rows change, not on every render.
+  const csvHref = useMemo(
+    () =>
+      rows && `data:text/csv;charset=utf-8,${encodeURIComponent(toCsv(rows))}`,
+    [rows],
+  );
 
   return (
     <Card
@@ -49,7 +55,7 @@ export function ControlsLogPanel({ incidentId, fileLabel }: Props) {
         rows.length > 0 && (
           <a
             download={`sidecall-controls-log-${fileLabel}.csv`}
-            href={`data:text/csv;charset=utf-8,${encodeURIComponent(toCsv(rows))}`}
+            href={csvHref}
             className="rounded-md border border-line px-3 py-1 text-sm hover:border-ash"
           >
             Export CSV
