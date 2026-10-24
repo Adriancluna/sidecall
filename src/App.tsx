@@ -9,6 +9,8 @@ import { useEffect } from "react";
 import { api } from "../convex/_generated/api";
 import { CurrentUserContext } from "./auth/currentUser";
 import { SignInScreen } from "./auth/SignInScreen";
+import { PresenterPanel } from "./demo/PresenterPanel";
+import { IS_STAGE } from "./demo/stage";
 import { AppShell } from "./layout/AppShell";
 import { CompanyView } from "./panels/CompanyView";
 import { PortfolioView } from "./panels/PortfolioView";
@@ -53,6 +55,7 @@ export default function App() {
       <Authenticated>
         <SignedIn />
       </Authenticated>
+      {IS_STAGE && <PresenterPanel />}
     </>
   );
 }
