@@ -121,7 +121,7 @@ export async function holdPaymentsForIncident(
     if (change) {
       const days = Math.round((incident.createdAt - change.changedAt) / DAY_MS);
       holdReasons.push(
-        `Bank details for ${asset.vendorName} changed ${Math.abs(days)} day(s) ${days >= 0 ? "before" : "after"} the incident via ${change.requestChannel}. Verify by calling the number on file.`,
+        `Bank details for ${asset.vendorName} changed ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ${days >= 0 ? "before" : "after"} the incident via ${change.requestChannel.replace("_", " ")}. Verify by calling the number on file.`,
       );
     }
 
@@ -174,6 +174,10 @@ export async function holdPaymentsForIncident(
 }
 
 type Decision = { ok: true } | { ok: false; reason: string };
+const decisionValidator = v.union(
+  v.object({ ok: v.literal(true) }),
+  v.object({ ok: v.literal(false), reason: v.string() }),
+);
 
 // Shared checks for release and reject. Refusals are logged, so they return instead of throwing.
 async function checkDecision(
@@ -219,6 +223,7 @@ export const releasePayment = mutation({
     paymentId: v.id("payments"),
     verificationNote: v.string(),
   },
+  returns: decisionValidator,
   handler: async (ctx, args): Promise<Decision> => {
     const payment = await ctx.db.get("payments", args.paymentId);
     if (!payment) return { ok: false, reason: "Payment not found." };
@@ -283,6 +288,7 @@ export const rejectPayment = mutation({
     paymentId: v.id("payments"),
     note: v.optional(v.string()),
   },
+  returns: decisionValidator,
   handler: async (ctx, args): Promise<Decision> => {
     const payment = await ctx.db.get("payments", args.paymentId);
     if (!payment) return { ok: false, reason: "Payment not found." };

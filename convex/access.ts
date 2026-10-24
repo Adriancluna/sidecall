@@ -1,10 +1,11 @@
 // Who is looking, and what they may see. Identity comes only from the signed-in Convex Auth
 // session; no function accepts a user id from the client.
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { ConvexError } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
+import { userRole } from "./schema";
 
 export type Viewer =
   | { user: Doc<"users">; firm: true } // PE firm: sees every company, never decides payments
@@ -29,6 +30,17 @@ export function canSeeCompany(viewer: Viewer, companyId: Id<"companies">): boole
 // The signed-in user, or null. The UI uses this to pick the PE or company view.
 export const me = query({
   args: {},
+  returns: v.union(
+    v.null(),
+    v.object({
+      _id: v.id("users"),
+      name: v.string(),
+      email: v.union(v.string(), v.null()),
+      role: userRole,
+      companyId: v.union(v.id("companies"), v.null()),
+      companyName: v.union(v.string(), v.null()),
+    }),
+  ),
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;

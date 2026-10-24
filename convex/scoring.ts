@@ -9,11 +9,26 @@ const BASE_SCORE: Record<Doc<"links">["shareType"], number> = {
   same_vendor_only: 40,
 };
 
-const SHARE_LABEL: Record<Doc<"links">["shareType"], string> = {
-  shared_credential: "shares a login credential with",
-  shared_admin_access: "gives admin access to the same",
-  same_vendor_only: "is a customer of",
+// One sentence per link type. Shown in the exposed company's own view, so it never mentions
+// the reporting company.
+const SHARE_SENTENCE: Record<Doc<"links">["shareType"], (vendor: string) => string> = {
+  shared_credential: (vendor) => sentence(`Your company shares a login credential with ${vendor}`),
+  shared_admin_access: (vendor) => `Your company gives ${vendor} admin access through a shared account.`,
+  same_vendor_only: (vendor) => sentence(`Your company is a customer of ${vendor}`),
 };
+
+// Avoid "Inc.." when a vendor name already ends in a period.
+function sentence(text: string): string {
+  return text.endsWith(".") ? text : `${text}.`;
+}
+
+// "Brightline Payroll Inc." rather than "Brightline Payroll Inc. (Brightline Payroll)";
+// keep the asset name only when it adds something (e.g. a specific shared account).
+function vendorLabel(asset: Doc<"assets">): string {
+  return asset.vendorName.toLowerCase().startsWith(asset.name.toLowerCase())
+    ? asset.vendorName
+    : `${asset.vendorName} (${asset.name})`;
+}
 
 // dns_inferred links are candidates, not confirmed: they score lower and carry less confidence.
 const SOURCE_WEIGHT: Record<Doc<"links">["source"], number> = {
@@ -45,9 +60,7 @@ export function scoreExposure(
   held: HeldSummary,
 ): ExposureScore {
   let score = BASE_SCORE[link.shareType] * SOURCE_WEIGHT[link.source];
-  const reasons = [
-    `Your company ${SHARE_LABEL[link.shareType]} ${asset.vendorName} (${asset.name}), which is under an active incident.`,
-  ];
+  const reasons = [SHARE_SENTENCE[link.shareType](vendorLabel(asset))];
   const evidence = [
     { kind: "link", detail: `${link.shareType} via ${asset.name}` },
     {
@@ -68,7 +81,9 @@ export function scoreExposure(
   if (held.flagged > 0) {
     score += FLAGGED_HOLD_BUMP;
     reasons.push(
-      `${held.flagged} held payment(s) go to bank details ${asset.vendorName} changed within 30 days of the incident.`,
+      held.flagged === 1
+        ? `1 held payment goes to bank details ${asset.vendorName} changed within 30 days of the incident.`
+        : `${held.flagged} held payments go to bank details ${asset.vendorName} changed within 30 days of the incident.`,
     );
   }
 

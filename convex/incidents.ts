@@ -138,6 +138,19 @@ export const recordIncident = internalMutation({
   },
 });
 
+const statusChangeValidator = v.union(
+  v.object({ ok: v.literal(true) }),
+  v.object({
+    ok: v.literal(false),
+    reason: v.union(
+      v.literal("not_found"),
+      v.literal("not_your_company"),
+      v.literal("already_acknowledged"),
+      v.literal("closed"),
+    ),
+  }),
+);
+
 type StatusChange =
   | { ok: true }
   | { ok: false; reason: "not_found" | "not_your_company" | "already_acknowledged" | "closed" };
@@ -158,6 +171,7 @@ async function loadOwnExposure(
 // one re-reads "acknowledged" and returns ok: false. Exactly one wins.
 export const acknowledgeExposure = mutation({
   args: { exposureId: v.id("exposures") },
+  returns: statusChangeValidator,
   handler: async (ctx, args): Promise<StatusChange> => {
     const exposure = await loadOwnExposure(ctx, args.exposureId);
     if (typeof exposure === "string") return { ok: false, reason: exposure };
@@ -175,6 +189,7 @@ export const acknowledgeExposure = mutation({
 
 export const closeExposure = mutation({
   args: { exposureId: v.id("exposures") },
+  returns: statusChangeValidator,
   handler: async (ctx, args): Promise<StatusChange> => {
     const exposure = await loadOwnExposure(ctx, args.exposureId);
     if (typeof exposure === "string") return { ok: false, reason: exposure };

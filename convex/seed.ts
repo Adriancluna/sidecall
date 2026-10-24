@@ -337,6 +337,15 @@ export const run = internalMutation({
 // on the deployment (`npx convex env set DEMO_MODE true`). Never set it on a real deployment.
 export const resetDemo = mutation({
   args: {},
+  returns: v.object({
+    companies: v.number(),
+    assets: v.number(),
+    links: v.number(),
+    payments: v.number(),
+    bankChanges: v.number(),
+    dnsImported: v.number(),
+    dnsSkipped: v.array(v.string()),
+  }),
   handler: async (ctx) => {
     if (env.DEMO_MODE !== "true") {
       throw new ConvexError("Demo reset is disabled on this deployment (DEMO_MODE is not true).");
