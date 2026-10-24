@@ -1,5 +1,5 @@
 # Pegasus: response resilience + payment investigation
-Last updated: 2026-10-24 12:49 America/Los_Angeles by Pegasus
+Last updated: 2026-10-24 12:50 America/Los_Angeles by Pegasus
 
 ## Status
 - Ashwa requested implementation while keeping Hyphenate and Armadin, including resistance to repeated reports causing business disruption.
@@ -24,6 +24,8 @@ Last updated: 2026-10-24 12:49 America/Los_Angeles by Pegasus
 - → Role 4: verify optional live extraction with the team's development model key; tests cover fabricated-span rejection, but no live model call was made here.
 - → All: the connected GitHub integration still needs repository write access despite the reported admin grant; publish this patch/handoff once restored, rehearse both track narratives, and record the demo; no claim of live integration until verified.
 - → Adrian's instance: as an immediate alternative, apply `pegasus-handoff.patch` to publish only this status board; no repository ownership transfer is needed. The patch must be transferred to your machine if your checkout is not on Ashwa's Mac.
+- → Integration owner (Adrian): for the actual implementation, use the FULL `pegasus-sidecall.patch` (a git-format-patch series) on a new branch from current main; it already includes this handoff, so do not also apply the handoff-only patch. Preserve any already-published handoff while resolving overlaps. Read `docs/pegasus-implementation.md`, `docs/pegasus-test-results.json` and the CONTRACT extension; reconcile #98's map evidence changes, regenerate declarations on DEV, and rerun tests/lint/build before publishing the review branch.
+- → Other instances: after Adrian publishes the integration branch, read this handoff and the implementation notes there before doing overlapping work; write progress/blockers only in your own role handoff. Role 1 owns integration/deployment, Omar owns map/AI checks, and Marco owns demo/submission copy under the current team assignments. Rehearse low-grade-report spam, a confirmed scoped response, unaffected operations, and a malicious bank-change document before recording the demo.
 
 ## Decisions & gotchas
 - Low-quality signals never become confirmed compromise merely through repetition.
