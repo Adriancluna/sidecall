@@ -1,6 +1,7 @@
 // Controls log: every hold, flag, release, reject and refusal for an incident, newest first.
 // The backend scopes rows (firm = whole portfolio, company = own rows). Export is client-side CSV.
 import { useQuery } from "convex/react";
+import { Fragment } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -82,9 +83,14 @@ export function ControlsLogPanel({ incidentId, fileLabel }: Props) {
                   <td className="py-1.5 pr-3">{r.actorName}</td>
                   <td className="py-1.5 pr-3 font-mono text-xs">{r.action}</td>
                   <td className="py-1.5 pr-3 font-mono text-xs text-ash">
-                    {r.rule}
+                    {r.rule.split("_").map((part, i) => (
+                      <Fragment key={i}>
+                        {i > 0 && <>_<wbr /></>}
+                        {part}
+                      </Fragment>
+                    ))}
                   </td>
-                  <td className="py-1.5">{r.reason}</td>
+                  <td className="min-w-56 py-1.5">{r.reason}</td>
                 </tr>
               ))}
             </tbody>
