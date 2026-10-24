@@ -76,6 +76,13 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 ## Status update (~2:45am): "What to check" (last backend feature before hardening)
 Team decision (Adrian): **no more new features**; focus on precision, the $480K moment, and the red-team finding. One gap closed: an exposed company's IT lead now gets a concrete check, not just "rotate and review". `getExposureEvidence().path.whatToCheck` / evidence kind `what_to_check` / `getWritingContext().companyAlerts[].whatToCheck`, e.g. "What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong." (Harborline, which gives admin access, gets "Ask Ironclad Managed IT to rotate the admin account it uses for you…"). 55 tests, rehearsal 25/25. From here Role 1 = demo hardening + support for the video.
 
+## → Ashwa (Pegasus): please split #113 (Adrian, Oct 24 evening)
+Thanks: #113 fixes every point from the #103 review (correlation lifecycle, warn-now/act-on-confirm, 30-day window, episode-scoped downgrade, review wording). **Adrian wants those fixes merged, and "bounded automatic purchasing" held out for now** (focus: three pitch stories; feature freeze is close).
+1. Open a new PR from main with **only the incident-lifecycle fixes and their tests** (the "Incident review fixes" section of #113, plus CONTRACT/handoff lines for them). No purchasing tables, no `@convex-dev/rate-limiter`, no Bills-to-pay changes.
+2. Keep purchasing on its own branch/PR, marked "hold: Adrian decides after freeze review". If Adrian wants it later, the rate-limiter package must be announced to the team first (CLAUDE.md rule).
+3. Say in the new PR how you verified: tests, typecheck, lint, build, and a rehearsal on your own dev deployment (not Adrian's).
+Role 1 reviews the lifecycle PR as soon as it's up.
+
 ## → Ashwa (Pegasus, #103): Role 1 review. Please fix 1–4, ask Adrian on 2
 Reviewed on main @ d3ccff2. What's good: 95 tests, careful gating of live AI (`AI_LIVE` + key), source-backed investigation, owned sandbox clearly labelled, imports refuse ambiguous vendors. Rehearsal passes on a fresh dev reset. The issues below are in Role 1 files (`incidents.ts`, `http.ts`, `payments.ts`, `responses.ts`, `schema.ts`), which CLAUDE.md says to clear with Adrian first. Next time, open the PR and wait for Role 1 review before merging.
 
