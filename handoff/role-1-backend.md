@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 23, 22:25 by Adrian's Claude
+Last updated: Oct 23, 22:50 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -27,7 +27,12 @@ Last updated: Oct 23, 22:25 by Adrian's Claude
 - ✓ **Ran Role 4's scripts for Omar** (his container can't reach Convex or the internet): `data/scorecard.json` (Brightline caught 6 / missed 0 / false holds 0 / left alone 4; Ironclad credential 0/0/0/3; Ironclad MSP 4/0/0/1) and `data/dns_findings.json` (83 real findings across 10 public domains). `data/ai_cache.json` still empty: needs `ANTHROPIC_API_KEY=… node prompts/generate.mjs` on a machine with Convex access (Adrian).
 - ✓ done for Role 4: seeded `dns_inferred` links now get their DNS record as `detail` from `dns_links.json` (5 links; `seed:run` reports `dnsDetailed`).
 - **Dress rehearsal: `npm run rehearse`** plays every demo beat against a live deployment with real sign-ins and the real webhook, checks every number, resets before and after (~11 s). 21/21 beats pass on dev. Against prod: `npm run rehearse -- --url https://judicious-tiger-712.convex.cloud` (Adrian runs; leaves prod clean). New `rehearse` script in package.json.
-- `npm test`: 25 tests green (they sign in as each person; added: client can't pass a user id, controls log scoping).
+- **✓ Accepted and built my part of `docs/specs/notifications.md`** (Role 2's spec). Live on dev: firing Brightline fills Summit's `#summit-finance` outbox with alert + hold + escalation and the firm's `#northpass-portfolio-risk` with the headline, all `simulated`; replay adds nothing; `listChannels` returns a masked target only. Shapes in CONTRACT.md → "Notifications". Differences from the spec, on purpose:
+  - `refId` is `"<event>:<id>"` (the firm's `incident` and `contained` rows share an incident id, so a bare id would dedupe one away).
+  - Status `sending` added: dispatch **claims** rows (`internal.notifications.claimQueued`, a mutation) before posting, so two overlapping dispatches never send the same row. Use it instead of the spec's `internal.notify.queued` query. Report with `internal.notifications.markResults`.
+  - `listChannels` rows include `canEdit` (controller / PE partner) so the card can hide the form for others.
+- Rehearsal now checks the outboxes too: 23/23 pass on dev.
+- `npm test`: 27 tests green (they sign in as each person; added: client can't pass a user id, controls log scoping).
 - ✓ done for Role 2: reviewed and merged #26. Earlier: #20, #22, #24.
 
 ## In progress
@@ -35,6 +40,8 @@ Last updated: Oct 23, 22:25 by Adrian's Claude
 2. Watch the handoff for Role 2 asks; keep `convex/` stable while the Waterloo pair onboards.
 
 ## Needs from others
+- → **Role 4 (Omar): `convex/notify.ts` is a stub** that marks every claimed row `simulated`. Replace the inside per the spec (Slack `{ text }`, Discord `{ content }` ≤ 2,000 chars, generic JSON; 5 s timeout, one retry, never throw; `simulated` when `env.NOTIFY_LIVE !== "true"`). Keep the export `dispatch({})`. Rows come from `internal.notifications.claimQueued` (already marked `sending`), results go to `internal.notifications.markResults`. `NOTIFY_LIVE` is declared in `convex.config.ts`.
+- → **Role 2 (Marco): notifications API is on main**, build the card + outbox panel against CONTRACT.md → "Notifications". Seeded channels make the outbox fill on Fire with no setup.
 - → **Everyone: batch merges to `main`.** Vercel hit its deploy rate limit tonight ("retry in 24 hours"): every merge is a production deploy and every PR-branch push created a (cancelled) deployment. Now PR branches don't deploy at all (`vercel.json` `git.deploymentEnabled`), and CLAUDE.md asks for one merge per finished chunk. Live site is current up to #55; #56/#57 ship on the next successful deploy.
 - → **Role 2: next tasks, in priority order** (round 2, since round 1 is done). Pick from the top; note progress in your file.
   1. **Re-test prod end to end now** (session-only + demo password are live): sign in as Jamie → fire → release refused; switch to Rosa → call note → release → ledger cash moves; Jordan → headline 3 · 4,200 · $612K; Reset on `?stage` signs everyone out.
