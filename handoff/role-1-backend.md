@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 23, 22:50 by Adrian's Claude
+Last updated: Oct 23, 23:15 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -32,7 +32,9 @@ Last updated: Oct 23, 22:50 by Adrian's Claude
   - Status `sending` added: dispatch **claims** rows (`internal.notifications.claimQueued`, a mutation) before posting, so two overlapping dispatches never send the same row. Use it instead of the spec's `internal.notify.queued` query. Report with `internal.notifications.markResults`.
   - `listChannels` rows include `canEdit` (controller / PE partner) so the card can hide the form for others.
 - Rehearsal now checks the outboxes too: 23/23 pass on dev.
-- `npm test`: 27 tests green (they sign in as each person; added: client can't pass a user id, controls log scoping).
+- **CEO review (Adrian asked "are we under-ambitious?"):** verdict: scope is fine; the gap is *realism*: judges see only simulated data. Adrian picked **real AP data import** as the expansion. Scores now: Hyphenate 7.5, Convex 8.5, Armadin 5.5, Microsoft 6. Biggest remaining levers: this import (done, backend), Role 4's AI cache, Role 3's visual map, and the video.
+- **New: AP import (backend done, live on dev).** The PE partner onboards a company from two CSVs any AP system exports (vendor master + open bills). Sidecall matches its vendors to tracked ones, books the bills, creates an AP clerk + controller login, and **if a vendor is under an active incident, holds and flags the new company's payments on import** and exposes it. Sample "Lakeside Orthopedics" (`data/samples/`): its AP system already pays Brightline at the attacker's ••7731 → preview warns before any incident; after the Brightline incident, import holds $66,400 (2 payments, both flagged) and the headline becomes **4 companies · 4,650 people**.
+- `npm test`: 31 tests green; rehearsal 25/25 (new beat 7b: import mid-incident). (they sign in as each person; added: client can't pass a user id, controls log scoping).
 - ✓ done for Role 2: reviewed and merged #26. Earlier: #20, #22, #24.
 
 ## In progress
@@ -40,6 +42,12 @@ Last updated: Oct 23, 22:50 by Adrian's Claude
 2. Watch the handoff for Role 2 asks; keep `convex/` stable while the Waterloo pair onboards.
 
 ## Needs from others
+- → **Role 2 (Marco), new and high-value: "Onboard a company from its AP export" card in the PE view.** Shapes in CONTRACT.md → "AP import".
+  1. Two file pickers (vendor master, open bills) read as text, plus **"Use sample files"** buttons that load `data/samples/lakeside-*.csv` via `?raw` (so the stage demo needs no files on disk).
+  2. Company fields (name, domain, sector, headcount, AP clerk name, controller name), prefilled with Lakeside Orthopedics / lakesideortho.example / Healthcare / 450 / Morgan Ellis / Daniel Okoro.
+  3. As soon as both files are loaded, show `previewApImport`: vendor table (matched → "already tracked: Brightline Payroll Inc.", new), **warnings in red** (the ••7731 one is the moment), problems list.
+  4. **Import** → `importPortfolioCompany`; show the result: "6 bills · 2 held on import ($66,400) · exposed to Brightline Payroll Inc." and the two logins with the demo password. Errors come back as readable `ConvexError` messages.
+  5. Presenter beat after the PE headline: "A new acquisition closes today. Here's its AP export." → preview shows the swapped account → Import → headline jumps to 4 companies. Then sign in as Daniel Okoro to show their held payments.
 - → **Role 4 (Omar): `convex/notify.ts` is a stub** that marks every claimed row `simulated`. Replace the inside per the spec (Slack `{ text }`, Discord `{ content }` ≤ 2,000 chars, generic JSON; 5 s timeout, one retry, never throw; `simulated` when `env.NOTIFY_LIVE !== "true"`). Keep the export `dispatch({})`. Rows come from `internal.notifications.claimQueued` (already marked `sending`), results go to `internal.notifications.markResults`. `NOTIFY_LIVE` is declared in `convex.config.ts`.
 - → **Role 2 (Marco): notifications API is on main**, build the card + outbox panel against CONTRACT.md → "Notifications". Seeded channels make the outbox fill on Fire with no setup.
 - → **Everyone: batch merges to `main`.** Vercel hit its deploy rate limit tonight ("retry in 24 hours"): every merge is a production deploy and every PR-branch push created a (cancelled) deployment. Now PR branches don't deploy at all (`vercel.json` `git.deploymentEnabled`), and CLAUDE.md asks for one merge per finished chunk. Live site is current up to #55; #56/#57 ship on the next successful deploy.

@@ -176,6 +176,32 @@ check("  vendor letter written", letter?.status === "ready");
 const firmOutbox = await query("notifications:listOutbox", { incidentId }, jordan);
 check("  firm Slack got the headline", firmOutbox.some((r) => r.event === "incident"));
 
+// 7b. Onboard a new acquisition from its own AP export, mid-incident.
+const sample = (f) => readFileSync(new URL(`../../data/samples/${f}`, import.meta.url), "utf8");
+const imported = await mutation(
+  "imports:importPortfolioCompany",
+  {
+    vendorsCsv: sample("lakeside-vendor-master.csv"),
+    billsCsv: sample("lakeside-open-bills.csv"),
+    company: {
+      name: "Lakeside Orthopedics",
+      domain: "lakesideortho.example",
+      sector: "Healthcare",
+      headcount: 450,
+      apClerkName: "Morgan Ellis",
+      controllerName: "Daniel Okoro",
+    },
+  },
+  jordan,
+);
+check(
+  "7b AP import: new company's Brightline payments held + flagged on import",
+  imported.held === 2 && imported.flagged === 2,
+  `${imported.bills} bills, ${imported.held} held, ${imported.newVendors} new vendors`,
+);
+const afterImport = (await query("blastRadius:getBlastRadius", { incidentId }, jordan)).totals;
+check("  headline now includes it", afterImport.companiesExposed === 4, `${afterImport.companiesExposed} companies · ${afterImport.peopleExposed.toLocaleString()} people`);
+
 // 8. Containment ends it; existing holds stay.
 const contained = await mutation(
   "incidents:containIncident",
@@ -184,7 +210,7 @@ const contained = await mutation(
 );
 check("8 PE marks contained", contained.ok === true, contained.reason);
 held = await query("payments:getHeldPayments", { incidentId }, jordan);
-check("  earlier holds still held", held.filter((r) => r.payment.status === "held").length === 4);
+check("  earlier holds still held", held.filter((r) => r.payment.status === "held").length === 6);
 
 await reset();
 jamie = null;

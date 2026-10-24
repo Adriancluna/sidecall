@@ -78,6 +78,7 @@ export const auditAction = v.union(
   v.literal("refused"),
   v.literal("escalate"),
   v.literal("contain"),
+  v.literal("import"),
 );
 
 export const notifyEvent = v.union(

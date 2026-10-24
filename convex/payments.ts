@@ -83,7 +83,7 @@ export const escalateDueHolds = internalMutation({
 // Runs inside recordIncident's transaction. Holds every pending payment to the
 // compromised asset at companies that opted in. Never cancels anything.
 // Bank-detail changes to this vendor within 30 days of the incident.
-async function recentBankChanges(ctx: MutationCtx, assetId: Id<"assets">, incidentAt: number) {
+export async function recentBankChanges(ctx: MutationCtx, assetId: Id<"assets">, incidentAt: number) {
   return await ctx.db
     .query("bankDetailChanges")
     .withIndex("by_assetId_and_changedAt", (q) =>
@@ -97,7 +97,7 @@ async function recentBankChanges(ctx: MutationCtx, assetId: Id<"assets">, incide
 
 // Holds one payment for an incident: reasons, flag, audit rows, escalation if due soon.
 // Shared by the incident fan-out and by payments requested while the incident is active.
-async function holdPayment(
+export async function holdPayment(
   ctx: MutationCtx,
   payment: Doc<"payments">,
   incident: Doc<"incidents">,
@@ -177,6 +177,17 @@ export async function holdPaymentsForIncident(
 
 const ACTIVE_INCIDENT_MS = 30 * DAY_MS;
 
+// The vendor's latest incident, if it is still active: not contained and under 30 days old.
+export async function activeIncidentFor(ctx: MutationCtx, assetId: Id<"assets">, now: number) {
+  const [incident] = await ctx.db
+    .query("incidents")
+    .withIndex("by_assetId", (q) => q.eq("assetId", assetId))
+    .order("desc")
+    .take(1);
+  if (!incident || incident.containedAt !== undefined || now - incident.createdAt > ACTIVE_INCIDENT_MS) return null;
+  return incident;
+}
+
 // AP clerk requests payment of a bill. Pays the vendor's current bank details on file
 // (the latest change). If the vendor had an incident in the last 30 days, the new payment
 // is held on creation, like the ones the incident caught.
@@ -224,17 +235,9 @@ export const requestPayment = mutation({
       dueDate: bill.dueDate,
     });
 
-    const [incident] = await ctx.db
-      .query("incidents")
-      .withIndex("by_assetId", (q) => q.eq("assetId", asset._id))
-      .order("desc")
-      .take(1);
+    const incident = await activeIncidentFor(ctx, asset._id, now);
     const company = await ctx.db.get("companies", bill.companyId);
-    const active =
-      incident !== undefined &&
-      incident.containedAt === undefined &&
-      now - incident.createdAt <= ACTIVE_INCIDENT_MS;
-    if (!active || !company?.holdRuleEnabled) {
+    if (!incident || !company?.holdRuleEnabled) {
       return { ok: true as const, paymentId, held: false, flagged: false };
     }
 
