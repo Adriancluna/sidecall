@@ -9,6 +9,7 @@ import { dateTime, money } from "./format";
 import { ExposureAcknowledgedBy } from "./AcknowledgedBy";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
+import { ProofPanel } from "./ProofPanel";
 import { Card, Chip, Empty } from "./ui";
 
 export function PortfolioView() {
@@ -180,6 +181,8 @@ export function PortfolioView() {
           </p>
         </Card>
       )}
+
+      <ProofPanel />
     </div>
   );
 }
