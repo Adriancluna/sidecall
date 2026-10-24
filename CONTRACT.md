@@ -192,7 +192,7 @@ internal.alerts.saveAlert({ incidentId, exposureId?, companyId?, paymentId?, kin
 
 // Everything a writer needs for one incident. Never contains the reporting company.
 internal.alerts.getWritingContext({ incidentId }) -> null | {
-  incidentId, summary, asset: { name, vendorName, kind, phoneOnFile },
+  incidentId, externalId, summary, asset: { name, vendorName, kind, phoneOnFile },
   companyAlerts: { exposureId, companyId, companyName, urgency, reasons, confidence }[],
   heldPayments: { paymentId, companyId, companyName, amountCents, accountLast4, bankChangeFlag, holdReasons }[]
 }

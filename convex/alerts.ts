@@ -94,6 +94,7 @@ export const getWritingContext = internalQuery({
 
     return {
       incidentId: incident._id,
+      externalId: incident.externalId, // e.g. "demo-brightline-001": key for pre-generated text
       summary: incident.summary ?? null,
       asset: {
         name: asset.name,

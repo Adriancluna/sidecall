@@ -5,6 +5,8 @@ const app = defineApp({
   env: {
     DEMO_MODE: v.optional(v.string()), // "true" enables seed:resetDemo and unsigned demo incidents
     INCIDENT_WEBHOOK_SECRET: v.optional(v.string()), // HMAC key real senders sign POST /incident with
+    ANTHROPIC_API_KEY: v.optional(v.string()), // Role 4: only for generating text off stage
+    AI_LIVE: v.optional(v.string()), // Role 4: "true" lets ai.ts call the model; otherwise cached text only
   },
 });
 
