@@ -139,7 +139,9 @@ Module prefix in brackets: `api.blastRadius.listIncidents`, etc. `null` means "n
   bankChange: null | { changedAt, accountLast4, requestChannel, daysBeforeIncident,
                        previousAccountLast4 | null,       // the change just before this one (may itself be suspect)
                        lastVerifiedAccountLast4 | null }, // last account confirmed by phone: the real "old" account
-  holdReasons, notice: string | null
+  holdReasons,                                  // why it was held (stays after the decision)
+  notice: string | null,                        // the hold notice; null once paid or rejected
+  decision: null | { status: "paid" | "rejected", byName, note, at }
 }[]
 
 [payments] getPaymentAudit({ paymentId }) -> AuditLog[]
