@@ -422,6 +422,7 @@ Rules (enforced in Convex):
 
 ## Pegasus extension and Role 1 review fixes
 
+- **Intake policy (Pegasus decision, Role 1 #112): warn immediately on signed unconfirmed reports; holds and pre-approved access steps wait for firm confirmation or an explicitly enrolled detector's confirmed report; the four built-in demo scenarios remain instant.**
 - `incidents` gains optional `responseClass` (observation/vendor/credential), server-derived `correlationKey`, bounded `correlatedReports` and `evidenceRefs`, `lastReportedAt`, fixed `reviewDueAt`, `reviewedAt`, and `reviewEscalatedAt`; new index `by_correlationKey`.
 - Signed HTTP intake defaults to observation. It opens explicitly unconfirmed, notify-only exposures and company alerts, visible in `listIncidents` and `getBlastRadius`; no holds, response steps, vendor letter or AI alert rewrite. Observation map payloads have zero confirmed exposure totals, `compromised:false` and no validated paths; `totals.companiesNotified` counts notified companies. Company payloads still omit reporter identity and raw summary.
 - Confirmed automation requires `INCIDENT_AUTO_RESPONSE=true`, `assessment: "confirmed"`, and nonempty bounded `evidenceRefs`, as well as the existing `INCIDENT_WEBHOOK_SECRET` HMAC signature. Stage scenarios retain their confirmed behavior. Signing authenticates the sender, not the truth of its claims; these flags do not connect a real detector.
