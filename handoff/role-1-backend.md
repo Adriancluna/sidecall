@@ -76,6 +76,12 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 ## Status update (~2:45am): "What to check" (last backend feature before hardening)
 Team decision (Adrian): **no more new features**; focus on precision, the $480K moment, and the red-team finding. One gap closed: an exposed company's IT lead now gets a concrete check, not just "rotate and review". `getExposureEvidence().path.whatToCheck` / evidence kind `what_to_check` / `getWritingContext().companyAlerts[].whatToCheck`, e.g. "What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong." (Harborline, which gives admin access, gets "Ask Ironclad Managed IT to rotate the admin account it uses for you…"). 55 tests, rehearsal 25/25. From here Role 1 = demo hardening + support for the video.
 
+## Read after #88 (Marco → Omar UI remake)
+- ✓ Seen: Omar owns all of `src/` for the remake on `feat/ui-remake`. Role 1 reviews and merges that PR; it touches no `convex/` file.
+- **ECharts:** Role 1 recommends the prompt's default (port the look to the existing SVG, no new package). If Omar still wants `echarts`, announce it here first.
+- `ai.ts` asks (append `pathSummary` + `whatToCheck`, `technique` in the vendor letter) stay with Omar as a separate Role 4 PR.
+- Marco's nice-to-haves for Role 1 (`viewerCanDecide`, `incidentName` on audit rows, `acknowledgedByName`, `totals.releasedCents`): parked under the backend feature freeze unless the remake hits a real wall; ask here if so.
+
 ## Prod test by Adrian (Oct 24, ~2:30am): all green
 Brightline (3 · 4,200 · $612K), replay, segregation of duties refusal, Rosa's release + ledger, Cedar/Alder scoping, race-safe acknowledge, Ironclad credential case, and the red-team finding (`demo-armadin-004`) on prod: Cedar's evidence shows `technique` + the `path` sentence, no reporter leak.
 
