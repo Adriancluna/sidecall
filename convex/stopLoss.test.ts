@@ -94,21 +94,26 @@ describe("stop-loss advice", () => {
   test("the PE firm gets the portfolio rollup and every company", async () => {
     const { as } = await seeded();
     const advice = await (await as(PE)).query(api.ai.getStopLossAdvice, { asOf: Date.now() });
-    expect(advice.companies).toHaveLength(8);
+    expect(advice.companies).toHaveLength(14);
     expect(advice.portfolio).not.toBeNull();
     const rollup = advice.portfolio!;
     expect(rollup.scope).toBe("portfolio");
     expect(rollup.recommendations.every((r) => r.owner === "firm")).toBe(true);
     const holds = rollup.recommendations.find((r) => r.id === "portfolio:hold_payments")!;
-    expect(holds.title).toBe("Ask 3 companies to turn on payment holds");
-    expect(holds.why).toContain("Granite Peak Software, Meridian Dental Group and Pinecrest Staffing");
+    expect(holds.title).toBe("Ask 5 companies to turn on payment holds");
+    expect(holds.why).toContain(
+      "Fairhaven Physical Therapy, Granite Peak Software, Meridian Dental Group, Pinecrest Staffing and Wrenfield Fleet Software",
+    );
     expect(ids(rollup)).toContain("portfolio:separate_credentials:Ironclad shared admin account");
   });
 
   test("every seeded brief uses its pre-generated summary", async () => {
     const { as } = await seeded();
     const advice = await (await as(PE)).query(api.ai.getStopLossAdvice, { asOf: Date.now() });
-    expect([advice.portfolio!, ...advice.companies].map((b) => b.source)).toEqual(Array(9).fill("cache"));
+    // A company with nothing to set up shows the canned "in place" line instead.
+    const briefs = [advice.portfolio!, ...advice.companies];
+    for (const b of briefs) expect(b.source).toBe(b.recommendations.length > 0 ? "cache" : "canned");
+    expect(briefs.filter((b) => b.source === "canned").map((b) => b.companyName)).toEqual(["Oakmont Specialty Pharmacy"]);
   });
 
   test("firing an incident doesn't change the advice (held payments still count as unpaid)", async () => {

@@ -62,9 +62,10 @@ const names = (list: string[]) =>
     ? list.join(" and ")
     : `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
 const isShared = (l: StopLossLink) => l.shareType !== "same_vendor_only";
-// Connected-app (OAuth) grants: identity, email, payroll and app vendors; an MSP works through
-// admin access instead.
-const TOKEN_KINDS = new Set(["idp", "email", "payroll", "other"]);
+// Connected-app (OAuth) grants worth a prepared revoke: identity, email and payroll vendors reach
+// accounts and people data. An MSP works through admin access instead, and "other" (ERP, e-sign,
+// device management) stays off the list so the advice doesn't flag every app a company uses.
+const TOKEN_KINDS = new Set(["idp", "email", "payroll"]);
 
 // Money waiting on vendors this company shares with a sister company: what a shared-vendor
 // breach would put at risk first.
@@ -458,6 +459,7 @@ export function companyBrief<CompanyId>(
   c: StopLossCompany<CompanyId>,
   cache: StopLossCache,
 ): AdviceBrief<CompanyId> {
+  // Nothing to set up: the canned "in place" line says it; the AI isn't asked (generateStopLoss.mjs).
   const hit = cache.entries[companyKey(c.companyName)];
   const fresh = hit && hit.facts === factsKey(companyFacts(c));
   return {

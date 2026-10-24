@@ -23,6 +23,7 @@ import {
   factsKey,
   portfolioFacts,
   portfolioSummaryPrompt,
+  stopLossRecommendations,
   summaryProblems,
 } from "./stopLoss.ts";
 
@@ -46,7 +47,8 @@ const companies = run("ai:stopLossContexts", { asOf: Date.now() });
 const allNames = companies.map((c) => c.companyName);
 
 const jobs = [
-  ...companies.map((c) => ({
+  // A company with nothing to set up keeps the canned "in place" line; no model call.
+  ...companies.filter((c) => stopLossRecommendations(c).length > 0).map((c) => ({
     key: companyKey(c.companyName),
     facts: companyFacts(c),
     prompt: companySummaryPrompt(c),
