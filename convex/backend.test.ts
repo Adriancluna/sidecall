@@ -1,7 +1,8 @@
 /// <reference types="vite/client" />
 // The guarantees we claim on stage, checked against the real functions:
 // idempotent replay, atomic fan-out, race-safe acknowledge, segregation of duties,
-// balanced ledger, per-company scoping, and "same vendor ≠ shared weakness".
+// balanced ledger, per-company scoping, session-only identity, and
+// "same vendor ≠ shared weakness".
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { api, internal } from "./_generated/api";
@@ -14,21 +15,23 @@ const BRIGHTLINE = {
   assetName: "Brightline Payroll",
   reportedByDomain: "pinecreststaffing.example",
 };
+const PE = "Jordan Ames (Northpass Capital)";
 
 async function seeded() {
   const t = convexTest(schema, modules);
   await t.mutation(internal.seed.run, {});
   const userId = (name: string) =>
     t.run(async (ctx) => {
-      const users = await ctx.db.query("users").take(200);
-      const user = users.find((u) => u.name === name);
+      const user = (await ctx.db.query("users").take(200)).find((u) => u.name === name);
       if (!user) throw new Error(`no seed user ${name}`);
       return user._id;
     });
+  // Signed in as a seeded person. Convex Auth puts "<userId>|<sessionId>" in the JWT subject.
+  const as = async (name: string) =>
+    t.withIdentity({ subject: `${await userId(name)}|session` });
   const companyId = (name: string) =>
     t.run(async (ctx) => {
-      const companies = await ctx.db.query("companies").take(100);
-      const company = companies.find((c) => c.name === name);
+      const company = (await ctx.db.query("companies").take(100)).find((c) => c.name === name);
       if (!company) throw new Error(`no seed company ${name}`);
       return company._id;
     });
@@ -37,10 +40,8 @@ async function seeded() {
     if (!result.ok) throw new Error(result.error);
     return result;
   };
-  return { t, userId, companyId, fire };
+  return { t, as, userId, companyId, fire };
 }
-
-const PE = "Jordan Ames (Northpass Capital)";
 
 describe("incident intake", () => {
   test("replaying the webhook writes nothing new", async () => {
@@ -60,12 +61,9 @@ describe("incident intake", () => {
   });
 
   test("one write fans out to the demo headline numbers", async () => {
-    const { t, fire, userId } = await seeded();
+    const { as, fire } = await seeded();
     const { incidentId } = await fire();
-    const blast = await t.query(api.blastRadius.getBlastRadius, {
-      incidentId,
-      actingUserId: await userId(PE),
-    });
+    const blast = await (await as(PE)).query(api.blastRadius.getBlastRadius, { incidentId });
     expect(blast?.totals).toEqual({
       companiesExposed: 3,
       peopleExposed: 4200,
@@ -83,38 +81,33 @@ describe("incident intake", () => {
   });
 
   test("only payments to recently changed accounts are flagged", async () => {
-    const { t, fire } = await seeded();
+    const { t, as, fire } = await seeded();
     await fire();
     const outcomes = await t.query(internal.scoring.exportOutcomes, {
       externalId: BRIGHTLINE.externalId,
     });
     const byRef = Object.fromEntries(outcomes!.payments.map((p) => [p.seedRef, p]));
     expect(byRef.pay_C_brightline_480k).toMatchObject({ held: true, bankChangeFlag: true });
-    const clerk = await t.run(async (ctx) =>
-      (await ctx.db.query("users").take(200)).find((u) => u.name === "Jamie Chen")!._id,
-    );
-    const [summit] = await t.query(api.payments.getHeldPayments, { actingUserId: clerk });
+    expect(byRef.pay_B_brightline_92k).toMatchObject({ held: true, bankChangeFlag: false });
+    expect(byRef.pay_H_brightline_35k).toMatchObject({ held: false, status: "pending" }); // opted out
+    expect(byRef.pay_B_brightline_paid).toMatchObject({ held: false, status: "paid" });
+
+    const [summit] = await (await as("Jamie Chen")).query(api.payments.getHeldPayments, {});
     expect(summit.bankChange).toMatchObject({
       accountLast4: "7731",
       previousAccountLast4: "4419", // also an email change: suspect
       lastVerifiedAccountLast4: "2208", // the account confirmed by phone
     });
-    expect(byRef.pay_B_brightline_92k).toMatchObject({ held: true, bankChangeFlag: false });
-    expect(byRef.pay_H_brightline_35k).toMatchObject({ held: false, status: "pending" }); // opted out
-    expect(byRef.pay_B_brightline_paid).toMatchObject({ held: false, status: "paid" });
   });
 
   test("same vendor is not a shared weakness", async () => {
-    const { t, fire, userId } = await seeded();
+    const { as, fire } = await seeded();
     const { incidentId } = await fire({
       externalId: "demo-ironclad-cred-002",
       assetName: "Ironclad shared admin account",
       reportedByDomain: "pinecreststaffing.example",
     });
-    const blast = await t.query(api.blastRadius.getBlastRadius, {
-      incidentId,
-      actingUserId: await userId(PE),
-    });
+    const blast = await (await as(PE)).query(api.blastRadius.getBlastRadius, { incidentId });
     const summit = blast!.nodes.find((n) => n.name === "Summit Home Health");
     expect(summit).toMatchObject({ exposed: false, relation: "same_vendor_separate_access" });
     expect(blast!.totals.paymentsHeld).toBe(0); // a leaked login is not the vendor's payee account
@@ -123,28 +116,25 @@ describe("incident intake", () => {
 
 describe("acknowledge", () => {
   test("two simultaneous clicks: exactly one wins", async () => {
-    const { t, fire, userId } = await seeded();
+    const { as, fire } = await seeded();
     await fire();
-    const controller = await userId("Rosa Alvarez");
-    const it = await userId("Kwame Mensah");
-    const [exposure] = await t.query(api.blastRadius.getMyExposures, { actingUserId: controller });
+    const controller = await as("Rosa Alvarez");
+    const itLead = await as("Kwame Mensah");
+    const [exposure] = await controller.query(api.blastRadius.getMyExposures, {});
     const results = await Promise.all([
-      t.mutation(api.incidents.acknowledgeExposure, { exposureId: exposure._id, actingUserId: controller }),
-      t.mutation(api.incidents.acknowledgeExposure, { exposureId: exposure._id, actingUserId: it }),
+      controller.mutation(api.incidents.acknowledgeExposure, { exposureId: exposure._id }),
+      itLead.mutation(api.incidents.acknowledgeExposure, { exposureId: exposure._id }),
     ]);
     expect(results.filter((r) => r.ok)).toHaveLength(1);
     expect(results.find((r) => !r.ok)).toEqual({ ok: false, reason: "already_acknowledged" });
   });
 
   test("another company cannot acknowledge your exposure", async () => {
-    const { t, fire, userId } = await seeded();
+    const { as, fire } = await seeded();
     await fire();
-    const [exposure] = await t.query(api.blastRadius.getMyExposures, {
-      actingUserId: await userId("Rosa Alvarez"),
-    });
-    const result = await t.mutation(api.incidents.acknowledgeExposure, {
+    const [exposure] = await (await as("Rosa Alvarez")).query(api.blastRadius.getMyExposures, {});
+    const result = await (await as("Tom Becker")).mutation(api.incidents.acknowledgeExposure, {
       exposureId: exposure._id,
-      actingUserId: await userId("Tom Becker"),
     });
     expect(result).toEqual({ ok: false, reason: "not_your_company" });
   });
@@ -154,23 +144,18 @@ describe("payment release", () => {
   async function heldPayment() {
     const s = await seeded();
     await s.fire();
-    const clerk = await s.userId("Jamie Chen"); // requested the $480K
-    const [row] = await s.t.query(api.payments.getHeldPayments, { actingUserId: clerk });
+    const clerk = await s.as("Jamie Chen"); // requested the $480K
+    const [row] = await clerk.query(api.payments.getHeldPayments, {});
     return { ...s, clerk, paymentId: row.payment._id };
   }
 
   test("requester, other companies and the PE firm are refused, and each refusal is logged", async () => {
-    const { t, userId, clerk, paymentId } = await heldPayment();
-    const note = "Called the number on file";
-    for (const actor of [clerk, await userId("Elena Ruiz"), await userId(PE)]) {
-      const result = await t.mutation(api.payments.releasePayment, {
-        paymentId,
-        actingUserId: actor,
-        verificationNote: note,
-      });
-      expect(result.ok).toBe(false);
+    const { as, clerk, paymentId } = await heldPayment();
+    const args = { paymentId, verificationNote: "Called the number on file" };
+    for (const actor of [clerk, await as("Elena Ruiz"), await as(PE)]) {
+      expect((await actor.mutation(api.payments.releasePayment, args)).ok).toBe(false);
     }
-    const audit = await t.query(api.payments.getPaymentAudit, { paymentId, actingUserId: clerk });
+    const audit = await clerk.query(api.payments.getPaymentAudit, { paymentId });
     expect(audit.filter((a) => a.action === "refused").map((a) => a.rule)).toEqual([
       "segregation_of_duties",
       "controller_at_company",
@@ -179,19 +164,19 @@ describe("payment release", () => {
   });
 
   test("controller release needs a note, pays once, and moves cash", async () => {
-    const { t, userId, paymentId } = await heldPayment();
-    const controller = await userId("Rosa Alvarez");
-    const ledger = () => t.query(api.payments.getLedger, { actingUserId: controller });
+    const { as, paymentId } = await heldPayment();
+    const controller = await as("Rosa Alvarez");
+    const ledger = () => controller.query(api.payments.getLedger, {});
     const cashBefore = (await ledger())!.balances.cash;
 
     expect(
-      await t.mutation(api.payments.releasePayment, { paymentId, actingUserId: controller, verificationNote: "  " }),
+      await controller.mutation(api.payments.releasePayment, { paymentId, verificationNote: "  " }),
     ).toMatchObject({ ok: false });
     expect((await ledger())!.balances.cash).toBe(cashBefore); // held money never moves
 
-    const args = { paymentId, actingUserId: controller, verificationNote: "Called +1 415 555-0142, confirmed" };
-    expect(await t.mutation(api.payments.releasePayment, args)).toEqual({ ok: true });
-    expect(await t.mutation(api.payments.releasePayment, args)).toMatchObject({ ok: false });
+    const args = { paymentId, verificationNote: "Called +1 415 555-0142, confirmed" };
+    expect(await controller.mutation(api.payments.releasePayment, args)).toEqual({ ok: true });
+    expect(await controller.mutation(api.payments.releasePayment, args)).toMatchObject({ ok: false });
 
     const after = (await ledger())!.balances;
     expect(cashBefore - after.cash).toBe(48_000_000);
@@ -199,19 +184,17 @@ describe("payment release", () => {
   });
 
   test("reject leaves cash and the bill untouched", async () => {
-    const { t, userId, paymentId } = await heldPayment();
-    const controller = await userId("Rosa Alvarez");
-    const before = (await t.query(api.payments.getLedger, { actingUserId: controller }))!.balances;
-    expect(await t.mutation(api.payments.rejectPayment, { paymentId, actingUserId: controller })).toEqual({ ok: true });
-    const after = (await t.query(api.payments.getLedger, { actingUserId: controller }))!.balances;
-    expect(after).toEqual(before);
+    const { as, paymentId } = await heldPayment();
+    const controller = await as("Rosa Alvarez");
+    const before = (await controller.query(api.payments.getLedger, {}))!.balances;
+    expect(await controller.mutation(api.payments.rejectPayment, { paymentId })).toEqual({ ok: true });
+    expect((await controller.query(api.payments.getLedger, {}))!.balances).toEqual(before);
   });
 
   test("every ledger entry balances", async () => {
-    const { t, userId, paymentId } = await heldPayment();
-    await t.mutation(api.payments.releasePayment, {
+    const { t, as, paymentId } = await heldPayment();
+    await (await as("Rosa Alvarez")).mutation(api.payments.releasePayment, {
       paymentId,
-      actingUserId: await userId("Rosa Alvarez"),
       verificationNote: "Verified by phone",
     });
     const entries = await t.run((ctx) => ctx.db.query("ledgerEntries").take(500));
@@ -223,68 +206,60 @@ describe("payment release", () => {
   });
 });
 
+describe("controls log", () => {
+  test("PE sees every company's rows, a company only its own", async () => {
+    const { as, fire } = await seeded();
+    const { incidentId } = await fire();
+    const peRows = await (await as(PE)).query(api.payments.getIncidentAudit, { incidentId });
+    const summitRows = await (await as("Jamie Chen")).query(api.payments.getIncidentAudit, { incidentId });
+    expect(new Set(peRows.map((r) => r.companyName))).toEqual(
+      new Set(["Summit Home Health", "Cedar Ridge Manufacturing", "Bayview Veterinary Partners"]),
+    );
+    expect(peRows.filter((r) => r.action === "hold")).toHaveLength(4);
+    expect(peRows.filter((r) => r.action === "flag")).toHaveLength(2);
+    expect(new Set(summitRows.map((r) => r.companyName))).toEqual(new Set(["Summit Home Health"]));
+  });
+});
+
 describe("scoping", () => {
   test("a company never sees another company's data or who reported", async () => {
-    const { t, fire, userId, companyId } = await seeded();
+    const { as, fire, companyId } = await seeded();
     const { incidentId } = await fire();
-    const cedarClerk = await userId("Tom Becker");
-    const summit = await companyId("Summit Home Health");
+    const cedarClerk = await as("Tom Becker");
 
-    expect(await t.query(api.blastRadius.getBlastRadius, { incidentId, actingUserId: cedarClerk })).toBeNull();
-    expect(await t.query(api.alerts.getIncidentAlerts, { incidentId, actingUserId: cedarClerk })).toEqual([]);
+    expect(await cedarClerk.query(api.blastRadius.getBlastRadius, { incidentId })).toBeNull();
+    expect(await cedarClerk.query(api.alerts.getIncidentAlerts, { incidentId })).toEqual([]);
 
-    const held = await t.query(api.payments.getHeldPayments, {
+    const held = await cedarClerk.query(api.payments.getHeldPayments, {
       incidentId,
-      companyId: summit, // asking for someone else's company
-      actingUserId: cedarClerk,
+      companyId: await companyId("Summit Home Health"), // asking for someone else's company
     });
     expect(held.map((r) => r.companyName)).toEqual(["Cedar Ridge Manufacturing"]);
 
-    const [incident] = await t.query(api.blastRadius.listIncidents, { actingUserId: cedarClerk });
+    const [incident] = await cedarClerk.query(api.blastRadius.listIncidents, {});
     expect(incident).toMatchObject({ reportedByCompanyId: null, summary: null });
 
-    const alerts = await t.query(api.alerts.getMyAlerts, { actingUserId: cedarClerk });
-    for (const alert of alerts) expect(alert.body).not.toContain("Pinecrest");
+    for (const alert of await cedarClerk.query(api.alerts.getMyAlerts, {})) {
+      expect(alert.body).not.toContain("Pinecrest");
+    }
   });
 });
 
 describe("identity", () => {
-  test("signed-out calls with no actingUserId are refused", async () => {
+  test("signed-out calls are refused", async () => {
     const { t } = await seeded();
     await expect(t.query(api.blastRadius.getMyExposures, {})).rejects.toThrow(/Not signed in/);
+    await expect(t.query(api.payments.getLedger, {})).rejects.toThrow(/Not signed in/);
   });
 
-  test("a signed-in session beats a spoofed actingUserId", async () => {
-    const { t, fire, userId } = await seeded();
-    await fire();
-    const clerk = await userId("Jamie Chen");
-    // Convex Auth puts "<userId>|<sessionId>" in the JWT subject.
-    const asClerk = t.withIdentity({ subject: `${clerk}|session` });
-    const [row] = await asClerk.query(api.payments.getHeldPayments, {});
-    const result = await asClerk.mutation(api.payments.releasePayment, {
-      paymentId: row.payment._id,
-      actingUserId: await userId("Rosa Alvarez"), // claims to be the controller
-      verificationNote: "spoof",
-    });
-    expect(result).toMatchObject({ ok: false, reason: expect.stringMatching(/requested/) });
+  test("functions no longer accept a user id from the client", async () => {
+    const { as, userId } = await seeded();
+    const clerk = await as("Jamie Chen");
+    await expect(
+      // @ts-expect-error actingUserId was removed from the API
+      clerk.query(api.blastRadius.getMyExposures, { actingUserId: await userId("Rosa Alvarez") }),
+    ).rejects.toThrow(/actingUserId/);
   });
-});
-
-describe("REQUIRE_SESSION", () => {
-  /* eslint-disable @convex-dev/no-process-env */
-  afterEach(() => {
-    delete process.env.REQUIRE_SESSION;
-  });
-  test("when on, actingUserId alone no longer works", async () => {
-    const { t, userId } = await seeded();
-    const clerk = await userId("Jamie Chen");
-    await expect(t.query(api.blastRadius.getMyExposures, { actingUserId: clerk })).resolves.toEqual([]);
-    process.env.REQUIRE_SESSION = "true";
-    await expect(t.query(api.blastRadius.getMyExposures, { actingUserId: clerk })).rejects.toThrow(/Not signed in/);
-    const signedIn = t.withIdentity({ subject: `${clerk}|session` });
-    await expect(signedIn.query(api.blastRadius.getMyExposures, {})).resolves.toEqual([]);
-  });
-  /* eslint-enable @convex-dev/no-process-env */
 });
 
 // Tests set the deployment env var directly; convex-test exposes process.env as the typed env.

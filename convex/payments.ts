@@ -108,16 +108,16 @@ type Decision = { ok: true } | { ok: false; reason: string };
 async function checkDecision(
   ctx: MutationCtx,
   payment: Doc<"payments">,
-  actingUserId: Id<"users">,
+  actorId: Id<"users">,
   action: "release" | "reject",
 ): Promise<Decision> {
-  const user = await ctx.db.get("users", actingUserId);
+  const user = await ctx.db.get("users", actorId);
   let reason: string | null = null;
   let rule = "";
   if (payment.status !== "held") {
     reason = `Payment is ${payment.status}, not held.`;
     rule = "only_held_payments";
-  } else if (actingUserId === payment.requestedBy) {
+  } else if (actorId === payment.requestedBy) {
     reason = "The person who requested a payment cannot also approve it.";
     rule = "segregation_of_duties";
   } else if (
@@ -146,14 +146,13 @@ async function checkDecision(
 export const releasePayment = mutation({
   args: {
     paymentId: v.id("payments"),
-    actingUserId: v.optional(v.id("users")),
     verificationNote: v.string(),
   },
   handler: async (ctx, args): Promise<Decision> => {
     const payment = await ctx.db.get("payments", args.paymentId);
     if (!payment) return { ok: false, reason: "Payment not found." };
 
-    const actor = (await getViewer(ctx, args.actingUserId)).user._id;
+    const actor = (await getViewer(ctx)).user._id;
     const check = await checkDecision(ctx, payment, actor, "release");
     if (!check.ok) return check;
 
@@ -207,14 +206,13 @@ export const releasePayment = mutation({
 export const rejectPayment = mutation({
   args: {
     paymentId: v.id("payments"),
-    actingUserId: v.optional(v.id("users")),
     note: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<Decision> => {
     const payment = await ctx.db.get("payments", args.paymentId);
     if (!payment) return { ok: false, reason: "Payment not found." };
 
-    const actor = (await getViewer(ctx, args.actingUserId)).user._id;
+    const actor = (await getViewer(ctx)).user._id;
     const check = await checkDecision(ctx, payment, actor, "reject");
     if (!check.ok) return check;
 
@@ -244,12 +242,11 @@ export const rejectPayment = mutation({
 // Company users only ever get their own company's rows. Never includes who reported the incident.
 export const getHeldPayments = query({
   args: {
-    actingUserId: v.optional(v.id("users")),
     incidentId: v.optional(v.id("incidents")),
     companyId: v.optional(v.id("companies")), // firm only; company users are pinned to their own
   },
   handler: async (ctx, rawArgs) => {
-    const viewer = await getViewer(ctx, rawArgs.actingUserId);
+    const viewer = await getViewer(ctx);
     const args = {
       incidentId: rawArgs.incidentId,
       companyId: viewer.firm ? rawArgs.companyId : viewer.companyId,
@@ -329,9 +326,9 @@ export const getHeldPayments = query({
 });
 
 export const getPaymentAudit = query({
-  args: { paymentId: v.id("payments"), actingUserId: v.optional(v.id("users")) },
+  args: { paymentId: v.id("payments") },
   handler: async (ctx, args) => {
-    const viewer = await getViewer(ctx, args.actingUserId);
+    const viewer = await getViewer(ctx);
     const payment = await ctx.db.get("payments", args.paymentId);
     if (!payment || !canSeeCompany(viewer, payment.companyId)) return [];
     return await ctx.db
@@ -343,11 +340,10 @@ export const getPaymentAudit = query({
 
 export const getLedger = query({
   args: {
-    actingUserId: v.optional(v.id("users")),
     companyId: v.optional(v.id("companies")), // firm only; company users get their own
   },
   handler: async (ctx, args) => {
-    const viewer = await getViewer(ctx, args.actingUserId);
+    const viewer = await getViewer(ctx);
     const companyId = viewer.firm ? args.companyId : viewer.companyId;
     if (!companyId) return null;
     const entries = await ctx.db
@@ -365,5 +361,46 @@ export const getLedger = query({
       }
     }
     return { entries, balances };
+  },
+});
+
+// Controls log: every hold, flag, refusal, release and reject an incident caused, with who
+// and where. The PE firm sees the whole portfolio; a company sees only its own rows.
+export const getIncidentAudit = query({
+  args: { incidentId: v.id("incidents") },
+  handler: async (ctx, args) => {
+    const viewer = await getViewer(ctx);
+    const rows = (
+      await ctx.db
+        .query("auditLog")
+        .withIndex("by_incidentId", (q) => q.eq("incidentId", args.incidentId))
+        .order("desc")
+        .take(500)
+    ).filter((row) => row.companyId && canSeeCompany(viewer, row.companyId));
+
+    const names = new Map<string, string>();
+    const nameOf = async (id: Id<"users"> | Id<"companies">, table: "users" | "companies") => {
+      if (!names.has(id)) {
+        const doc =
+          table === "users"
+            ? await ctx.db.get("users", id as Id<"users">)
+            : await ctx.db.get("companies", id as Id<"companies">);
+        names.set(id, doc?.name ?? "");
+      }
+      return names.get(id)!;
+    };
+
+    return await Promise.all(
+      rows.map(async (row) => ({
+        _id: row._id,
+        at: row.at,
+        action: row.action,
+        rule: row.rule,
+        reason: row.reason,
+        paymentId: row.paymentId ?? null,
+        actorName: row.actor === "system" ? "System" : await nameOf(row.actor, "users"),
+        companyName: row.companyId ? await nameOf(row.companyId, "companies") : null,
+      })),
+    );
   },
 });

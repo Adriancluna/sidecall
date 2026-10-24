@@ -1,5 +1,4 @@
-// Read-side queries for the UI. Every query takes the viewer (actingUserId) and scopes
-// to what that viewer may see. getBlastRadius is the PE firm view: the only place the
+// Read-side queries for the UI. Every query scopes to the signed-in viewer. getBlastRadius is the PE firm view: the only place the
 // reporting company is named.
 import { v } from "convex/values";
 import { query } from "./_generated/server";
@@ -17,9 +16,9 @@ export type NodeRelation =
 // Firm: every incident, newest first. Company: only incidents that touch it, with the
 // reporter and the free-text summary removed (the summary can identify who was hit).
 export const listIncidents = query({
-  args: { actingUserId: v.optional(v.id("users")) },
-  handler: async (ctx, args) => {
-    const viewer = await getViewer(ctx, args.actingUserId);
+  args: {},
+  handler: async (ctx) => {
+    const viewer = await getViewer(ctx);
     let incidents: Doc<"incidents">[];
     if (viewer.firm) {
       incidents = await ctx.db.query("incidents").order("desc").take(50);
@@ -52,9 +51,9 @@ export const listIncidents = query({
 });
 
 export const getBlastRadius = query({
-  args: { incidentId: v.id("incidents"), actingUserId: v.optional(v.id("users")) },
+  args: { incidentId: v.id("incidents") },
   handler: async (ctx, args) => {
-    const viewer = await getViewer(ctx, args.actingUserId);
+    const viewer = await getViewer(ctx);
     if (!viewer.firm) return null; // portfolio-wide map is for the PE firm only
     const incident = await ctx.db.get("incidents", args.incidentId);
     if (!incident) return null;
@@ -158,9 +157,9 @@ export const getBlastRadius = query({
 });
 
 export const getExposureEvidence = query({
-  args: { exposureId: v.id("exposures"), actingUserId: v.optional(v.id("users")) },
+  args: { exposureId: v.id("exposures") },
   handler: async (ctx, args) => {
-    const viewer = await getViewer(ctx, args.actingUserId);
+    const viewer = await getViewer(ctx);
     const exposure = await ctx.db.get("exposures", args.exposureId);
     if (!exposure || !canSeeCompany(viewer, exposure.companyId)) return null;
     return {
@@ -180,9 +179,9 @@ export const getExposureEvidence = query({
 
 // A company user's own exposures, newest first (their home screen).
 export const getMyExposures = query({
-  args: { actingUserId: v.optional(v.id("users")) },
-  handler: async (ctx, args) => {
-    const viewer = await getViewer(ctx, args.actingUserId);
+  args: {},
+  handler: async (ctx) => {
+    const viewer = await getViewer(ctx);
     if (viewer.firm) return [];
     return await ctx.db
       .query("exposures")
