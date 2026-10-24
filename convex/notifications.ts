@@ -318,9 +318,10 @@ export const claimQueued = internalMutation({
       .query("notifications")
       .withIndex("by_status", (q) => q.eq("status", "queued"))
       .take(Math.min(args.limit ?? 50, 100));
+    const now = Date.now();
     const claimed = [];
     for (const r of rows) {
-      await ctx.db.patch("notifications", r._id, { status: "sending" });
+      await ctx.db.patch("notifications", r._id, { status: "sending", claimedAt: now });
       const [channel, company] = await Promise.all([
         ctx.db.get("notificationChannels", r.channelId),
         r.companyId ? ctx.db.get("companies", r.companyId) : null,
@@ -336,6 +337,30 @@ export const claimQueued = internalMutation({
       });
     }
     return claimed;
+  },
+});
+
+// A dispatch run that crashed between claiming and markResults leaves rows in "sending" forever.
+// Rows claimed more than STUCK_MS ago go back to "queued" and dispatch runs again. A crash after
+// the webhook POST but before markResults means that row may be delivered twice (at-least-once).
+const STUCK_MS = 10 * 60 * 1000;
+
+export const requeueStuck = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const cutoff = Date.now() - STUCK_MS;
+    const sending = await ctx.db
+      .query("notifications")
+      .withIndex("by_status", (q) => q.eq("status", "sending"))
+      .take(100);
+    let requeued = 0;
+    for (const r of sending) {
+      if ((r.claimedAt ?? 0) > cutoff) continue;
+      await ctx.db.patch("notifications", r._id, { status: "queued", claimedAt: undefined });
+      requeued++;
+    }
+    if (requeued > 0) await ctx.scheduler.runAfter(0, internal.notify.dispatch, {});
+    return requeued;
   },
 });
 

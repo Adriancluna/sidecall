@@ -1,90 +1,73 @@
-# Welcome to your Convex functions directory!
+# Sidecall backend (Convex)
 
-Write your Convex functions here.
-See https://docs.convex.dev/functions for more.
+Everything Sidecall decides happens here. React only subscribes to queries and calls mutations.
+`CONTRACT.md` at the repo root has the exact shapes the frontend relies on.
 
-A query function that takes two arguments looks like:
+## One request, end to end
 
-```ts
-// convex/myFunctions.ts
-import { query } from "./_generated/server";
-import { v } from "convex/values";
+`POST /incident` (http.ts) checks the HMAC signature, then runs `recordIncidentImpl`
+(incidents.ts) in **one transaction**:
 
-export const myQueryFunction = query({
-  // Validators for arguments.
-  args: {
-    first: v.number(),
-    second: v.string(),
-  },
+1. Dedupe on `externalId`: a replayed webhook returns the first incident and writes nothing.
+2. Find every company linked to the asset (`links.by_assetId`) and score each link (scoring.ts).
+   Only shared credentials or shared admin access count, unless the vendor itself fell.
+3. Hold every pending payment to that vendor at companies that opted in, and flag bank details
+   changed within 30 days (payments.ts). Each hold and flag writes an `auditLog` row.
+4. Open one exposure per company and insert pending alerts, hold notices and the vendor letter
+   (template text first).
+5. Queue Slack/Discord/webhook notifications (notifications.ts) and schedule the three AI writers
+   (ai.ts) **once per incident**, not per company.
 
-  // Function implementation.
-  handler: async (ctx, args) => {
-    // Read the database as many times as you need here.
-    // See https://docs.convex.dev/database/reading-data.
-    const documents = await ctx.db.query("tablename").collect();
+Every open dashboard sees the result at the same instant, because they all read the same
+committed snapshot.
 
-    // Arguments passed from the client are properties of the args object.
-    console.log(args.first, args.second);
+## Files
 
-    // Write arbitrary JavaScript here: filter, aggregate, build derived data,
-    // remove non-public properties, or create new objects.
-    return documents;
-  },
-});
-```
+| File | What it owns |
+| --- | --- |
+| `schema.ts` | Every table and index. The data contract. |
+| `access.ts` | `getViewer`: identity comes only from the session. The PE firm sees all companies; everyone else sees only their own. |
+| `auth.ts`, `auth.config.ts` | Convex Auth, Password provider, invite-only (sign-in links to a seeded person by email). |
+| `http.ts` | `POST /incident` (HMAC), `POST /mcp`, auth routes. |
+| `incidents.ts` | Incident intake, exposures, acknowledge/close (race-safe), containment. |
+| `scoring.ts` | How strongly a link exposes a company, and why. Pure functions. |
+| `payments.ts` | Holds, bank-change flags, release/reject with segregation of duties, escalation, ledger reads. |
+| `ledger.ts` | `postLedgerEntry`: double-entry, balanced by construction. |
+| `blastRadius.ts` | Read-side queries for the map, evidence panel, timeline and directory. |
+| `alerts.ts` | Alert storage and the writing context the AI reads. |
+| `ai.ts` | Actions that call the model and write back through `internal.alerts.saveAlert`. |
+| `notifications.ts`, `notify.ts` | Outbox (dedupe per channel + event) and the sender (gated by `NOTIFY_LIVE`). |
+| `imports.ts` | AP CSV import: vendor matching, and holds on import during an active incident. |
+| `agents.ts`, `mcp.ts` | MCP access for AI assistants: hashed bearer tokens, read and request tools, no release tool, every call audited. |
+| `seed.ts`, `ops.ts` | Demo portfolio, reset, readiness checks, scale benchmark. |
+| `crons.ts` | Escalate holds near their due date (15 min); requeue stuck notifications (5 min). |
+| `shared.ts` | Small helpers and limits (`MAX_FANOUT`, `memo`, `formatUsd`). |
 
-Using this query function in a React component looks like:
+## Rules the code follows
 
-```ts
-const data = useQuery(api.myFunctions.myQueryFunction, {
-  first: 10,
-  second: "hello",
-});
-```
+- **Indexes, never `.filter` on a table scan.** Every read is bounded with `take`.
+- **No clock reads in queries.** Time-based work (escalation, stuck notifications) runs in crons
+  and mutations.
+- **Mutations never call the network.** They write template text and schedule an internal action.
+- **Payments are held, never cancelled.** The person who requested a payment can't release it, and
+  the PE firm never releases anything. Refusals are logged too.
+- **A company never learns who was hit.** Only the PE firm view names the reporter.
+- **Only `internal.*` functions are scheduled.** Public functions all check the session.
 
-A mutation function looks like:
+## Environment
 
-```ts
-// convex/myFunctions.ts
-import { mutation } from "./_generated/server";
-import { v } from "convex/values";
+Set with `npx convex env set NAME value`. Typed in `convex.config.ts`.
 
-export const myMutationFunction = mutation({
-  // Validators for arguments.
-  args: {
-    first: v.string(),
-    second: v.string(),
-  },
+| Name | Effect |
+| --- | --- |
+| `DEMO_MODE` | `true` enables Reset, the stage buttons, unsigned demo scenarios and the public sign-in picker. Never on a real deployment. |
+| `INCIDENT_WEBHOOK_SECRET` | HMAC key for `POST /incident`. |
+| `NOTIFY_LIVE` | `true` actually posts notifications. Off, rows end "simulated". |
+| `AI_LIVE`, `ANTHROPIC_API_KEY` | `ai.ts` calls the model only when `AI_LIVE=true` and a key is set; otherwise it uses cached text. On stage it stays off. |
 
-  // Function implementation.
-  handler: async (ctx, args) => {
-    // Insert or modify documents in the database here.
-    // Mutations can also read from the database like queries.
-    // See https://docs.convex.dev/database/writing-data.
-    const message = { body: args.first, author: args.second };
-    const id = await ctx.db.insert("messages", message);
+## Tests
 
-    // Optionally, return a value from your mutation.
-    return await ctx.db.get("messages", id);
-  },
-});
-```
-
-Using this mutation function in a React component looks like:
-
-```ts
-const mutation = useMutation(api.myFunctions.myMutationFunction);
-function handleButtonPress() {
-  // fire and forget, the most common way to use mutations
-  mutation({ first: "Hello!", second: "me" });
-  // OR
-  // use the result once the mutation has completed
-  mutation({ first: "Hello!", second: "me" }).then((result) =>
-    console.log(result),
-  );
-}
-```
-
-Use the Convex CLI to push your functions to a deployment. See everything
-the Convex CLI can do by running `npx convex -h` in your project root
-directory. To learn more, launch the docs with `npx convex docs`.
+`npm test` runs `backend.test.ts` and `mcp.test.ts` against the real functions with
+convex-test: replay, fan-out, race-safe acknowledge, segregation of duties, ledger balance,
+scoping, MCP auth, the notification sender and the reset. `npm run rehearse` drives the full
+demo against a dev deployment.

@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 24, 02:40 by Adrian's Claude
+Last updated: Oct 24, ~02:00 (after the Part C batch) by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -53,9 +53,17 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 ## Status update (02:20)
 - **`convex/notify.ts` real sending done** (now Role 1's): Slack/Discord/generic webhook, 5 s timeout, one retry on 5xx/429/network, never throws, `sent`/`failed` with a URL-free error. Off by default (`simulated`). 45 tests (2 new with a stubbed `fetch`); rehearsal 25/25. ✓ closes Role 2's and Role 4's notify asks. Video recipe in CONTRACT.md → "Notifications".
 
+## Status update: Part C + B3 done (PR `fix/convex-readiness`)
+- **B3:** seed refs `bc_brightline_4419_fraud`, `bc_brightline_7731_fraud`, `bc_ironclad_9902_fraud` → `*_email_change` (seed, answer key, readiness check). `data/scorecard.json` is Omar's: he regenerates it (ask below).
+- **C1:** `listCompanies` / `listUsers` / `listAssets` are public only on `DEMO_MODE` deployments (the quick-pick, prod unchanged); elsewhere signed-out gets `[]` and company users see only their colleagues' emails. `getIncidentTimeline` returns `null` to a company the incident never touched (it used to show the "incident received" line to anyone with the id).
+- **C4:** the AP import preview no longer reads the clock in a query ("set by email on 2026-10-22" instead of "N days ago"). Marco: the preview warning text changed by that much only.
+- **C5:** notifications record `claimedAt`; a 5-min cron requeues rows stuck in `sending` (a crashed dispatch run) and dispatches again.
+- **C6:** reset deletes at most 4,000 rows per transaction; bigger wipes finish in scheduled follow-ups. `resetDemo` returns `continuing: boolean` (UI can ignore it).
+- **C7:** `convex/README.md` is now an architecture page (request flow, file map, rules, env, tests).
+- Skipped C2/C3 as announced. 49 tests (4 new), typecheck, lint, build, dev push and rehearsal 25/25 green. CONTRACT.md changelog updated.
+
 ## In progress (Role 1, from the Armadin spec)
-1. Part C Convex fixes (C1–C7) + B3 rename `_fraud` seed refs → `_email_change` (~1.5 h).
-2. Part A backend: finding intake on `POST /incident` (our schema), storage, `sisterPath`, labels, query fields, the `demo-armadin-004` scenario, tests, CONTRACT (~4–5 h). Omar's UI follows.
+1. Part A backend: finding intake on `POST /incident` (our schema), storage, `sisterPath`, labels, query fields, the `demo-armadin-004` scenario, tests, CONTRACT (~4–5 h). Omar's UI follows.
 
 ## Needs from others
 - → **Role 2 (Marco): optimize first, then pitch.** (1) Run `/simplify` on your `src/` files (not `src/map/`, that's Omar's now) and `PRODUCT.md`-level duplication; behavior unchanged, `npm run build` + `npm run rehearse` green; one PR. (2) Then the **video and Devpost** (they decide judging; numbers are in `docs/devpost.md` and `data/scorecard.json`). (3) MCP clip, then remaining audit polish. Hand the map placeholder to Omar: don't edit `src/map/` from here on.
@@ -69,7 +77,7 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 - → **Role 3+4 (Omar): new spec for you, approved by Adrian: `docs/specs/armadin-one-step-ahead.md`.** Sidecall accepts a validated finding from an autonomous red team *like* Armadin (**our own schema**; Armadin's real format/API isn't available to us, so never write "Armadin integration" or "Armadin's format") and carries it to sister companies as **"reachable here · not tested"**; only the reporter's proven hops are "validated at source", firm view only. Your parts, in order:
   1. **Inside the map build you're already doing (no wait on me):** B1 remove `· score N` from the map tiles (`src/map/BlastRadiusMap.tsx`); B2 replace the bare "Confidence 90%" in `src/map/EvidencePanel.tsx` with words + bar ("High · self-reported link" / "Low · candidate link from public DNS").
   2. **After Role 1 lands Part A** (I'll post here when the shapes are live; until then build against spec §A5): map edge labels from `getBlastRadius().edges[].path`: "validated at source" (reporter edge) / "reachable here · not tested" (exposed edges); `dns_inferred` edges keep "candidate · DNS". `EvidencePanel` shows a path block from `getExposureEvidence().path` (technique + shared hop + "validated at another portfolio company · reachable here, not tested"). AI writers: use `getWritingContext().companyAlerts[].pathSummary` and `technique`, and **never "validated" for a sister company** (add it to `checkCopy`); generate cache entries for `demo-armadin-004`.
-  3. **After Role 1 renames the `_fraud` seed refs (B3):** rerun `node scripts/scorecard/run.mjs` and commit `data/scorecard.json`.
+  3. **✓ B3 is done (renamed to `*_email_change`): now** rerun `node scripts/scorecard/run.mjs` and commit `data/scorecard.json`.
   Ask here if any shape doesn't fit the map; I'll adjust the backend, not you.
 - → **Role 3+4 (Omar): optimize first, then build the map.** Details and order in `handoff/role-3-map.md`. `notify.ts` is no longer yours.
 - → **Role 2 (Marco): second opinion on `docs/specs/ui-audit-2026-10-24.md`** (review only; no code changed on my side; you decide):

@@ -504,6 +504,24 @@ describe("notification sender (NOTIFY_LIVE)", () => {
     return { ...s, calls, rows };
   }
 
+  test("rows stuck in sending after a crashed run are requeued and sent; fresh claims are left alone", async () => {
+    vi.useFakeTimers();
+    const { t } = await seeded();
+    const ids = await t.run(async (ctx) => {
+      const channelId = (await ctx.db.query("notificationChannels").first())!._id;
+      const row = { channelId, event: "test" as const, status: "sending" as const, text: "x", createdAt: 0 };
+      return {
+        stuck: await ctx.db.insert("notifications", { ...row, refId: "stuck", claimedAt: Date.now() - 11 * 60_000 }),
+        fresh: await ctx.db.insert("notifications", { ...row, refId: "fresh", claimedAt: Date.now() }),
+      };
+    });
+    expect(await t.mutation(internal.notifications.requeueStuck, {})).toBe(1);
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const status = (id: typeof ids.stuck) => t.run(async (ctx) => (await ctx.db.get("notifications", id))?.status);
+    expect(await status(ids.stuck)).toBe("simulated");
+    expect(await status(ids.fresh)).toBe("sending");
+  });
+
   test("live: Slack gets { text } and every row ends sent", async () => {
     const { calls, rows } = await fireLive(() => new Response("ok", { status: 200 }));
     expect(rows.length).toBeGreaterThan(0);
@@ -579,6 +597,39 @@ describe("scoping", () => {
   });
 });
 
+describe("directory and timeline access", () => {
+  /* eslint-disable @convex-dev/no-process-env */
+  const original = process.env.DEMO_MODE;
+  afterEach(() => {
+    process.env.DEMO_MODE = original;
+  });
+
+  test("off DEMO_MODE the directory needs a session, and a company sees only its colleagues' emails", async () => {
+    const { t, as, companyId } = await seeded();
+    delete process.env.DEMO_MODE;
+    expect(await t.query(api.blastRadius.listUsers, {})).toEqual([]);
+    expect(await t.query(api.blastRadius.listCompanies, {})).toEqual([]);
+    expect(await t.query(api.blastRadius.listAssets, {})).toEqual([]);
+
+    const summit = await companyId("Summit Home Health");
+    const people = await (await as("Jamie Chen")).query(api.blastRadius.listUsers, {});
+    expect(people.filter((u) => u.companyId === summit).every((u) => u.email)).toBe(true);
+    expect(people.filter((u) => u.companyId !== summit).every((u) => u.email === undefined)).toBe(true);
+    expect((await (await as(PE)).query(api.blastRadius.listUsers, {})).every((u) => u.email)).toBe(true);
+
+    process.env.DEMO_MODE = "true"; // the sign-in quick-pick runs before anyone is signed in
+    expect((await t.query(api.blastRadius.listUsers, {})).length).toBeGreaterThan(0);
+  });
+
+  test("a company can't read the timeline of an incident that never touched it", async () => {
+    const { as, fire } = await seeded();
+    const { incidentId } = await fire();
+    expect(await (await as("Dana Whitfield")).query(api.blastRadius.getIncidentTimeline, { incidentId })).toBeNull();
+    expect(await (await as("Jamie Chen")).query(api.blastRadius.getIncidentTimeline, { incidentId })).not.toBeNull();
+  });
+  /* eslint-enable @convex-dev/no-process-env */
+});
+
 describe("identity", () => {
   test("signed-out calls are refused", async () => {
     const { t } = await seeded();
@@ -613,7 +664,28 @@ describe("demo reset", () => {
     await expect(presenter.mutation(api.seed.resetDemo, {})).rejects.toThrow(/DEMO_MODE/);
     process.env.DEMO_MODE = "true";
     await expect(t.mutation(api.seed.resetDemo, {})).rejects.toThrow(/Not signed in/);
-    await expect(presenter.mutation(api.seed.resetDemo, {})).resolves.toMatchObject({ companies: 8 });
+    await expect(presenter.mutation(api.seed.resetDemo, {})).resolves.toMatchObject({ companies: 8, continuing: false });
+  });
+
+  test("a reset too big for one transaction finishes in follow-up runs", async () => {
+    vi.useFakeTimers();
+    const { t } = await seeded();
+    await t.run(async (ctx) => {
+      const channelId = (await ctx.db.query("notificationChannels").first())!._id;
+      for (let i = 0; i < 4500; i++) {
+        await ctx.db.insert("notifications", {
+          channelId, event: "test", refId: `bulk:${i}`, status: "simulated", text: "x", createdAt: 0,
+        });
+      }
+    });
+    expect(await t.mutation(internal.seed.run, {})).toMatchObject({ continuing: true, companies: 0 });
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+    const after = await t.run(async (ctx) => ({
+      notifications: (await ctx.db.query("notifications").take(5000)).length,
+      companies: (await ctx.db.query("companies").take(100)).length,
+    }));
+    expect(after).toEqual({ notifications: 0, companies: 8 });
+    vi.useRealTimers();
   });
 });
 

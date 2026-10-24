@@ -7,6 +7,7 @@ The data shapes and function signatures every role builds against. Owned by Role
 
 ## Changelog
 
+- **Oct 24, ~2am.** Access and robustness: `listCompanies` / `listUsers` / `listAssets` are public only where `DEMO_MODE=true` (the sign-in quick-pick); elsewhere they return `[]` when signed out, and a company user gets `email`/`phone` only for their own colleagues. `getIncidentTimeline` returns `null` to a company the incident never touched. `resetDemo` / `seed:run` return `continuing: boolean` (true: the wipe was too big for one transaction and finishes in a moment). Notifications gained `claimedAt?`; a 5-min cron requeues rows stuck in `sending`. Bank-change seed refs renamed `*_fraud` → `*_email_change` (answer key updated; `data/scorecard.json` needs a regenerate).
 - **Oct 23, ~10:25pm.** MCP agent access (plan `docs/specs/mcp-implementation-plan.md`, Tasks 1–5): `POST /mcp` (bearer token). New table `agents` (survives resets); audit `actor` may be an agent id; audit action `agent_call`; `getPaymentAudit` rows gained `actorName` (and `getIncidentAudit` labels agents "<name> (agent)"). Tools: `list_held_payments`, `explain_hold`, `list_bills`, `request_payment`. No release/reject tool.
 - **Oct 23, ~11:15pm.** AP import: `imports.previewApImport({ vendorsCsv, billsCsv })` and `imports.importPortfolioCompany({ vendorsCsv, billsCsv, company })` (PE partner only). Audit action `import`. Sample files in `data/samples/`.
 - **Oct 23, ~10:50pm.** Notifications (spec `docs/specs/notifications.md`), backend part: tables `notificationChannels`, `notifications` (outbox); `notifications.listChannels / listOutbox / addChannel / removeChannel / sendTest`; enqueue hooks on ready alerts, holds, escalations, incidents (firm) and containment (firm); `internal.notifications.claimQueued / markResults` for Role 4's `convex/notify.ts` (stub in place); env `NOTIFY_LIVE`. Seed adds `#summit-finance` (Summit) and `#northpass-portfolio-risk` (firm) simulated Slack channels.
@@ -107,7 +108,7 @@ Module prefix in brackets: `api.blastRadius.listIncidents`, etc. `null` means "n
 **Identity comes only from the signed-in session.** No function takes a user id. The backend scopes every call to the signed-in person:
 - `pe_partner` (Jordan Ames, Northpass Capital) = PE firm view: sees every company, the map and who reported. Cannot acknowledge or release.
 - Anyone else sees only their own company. Passing another company's id returns your own data (or nothing), never theirs.
-- Signed out: every scoped function throws "Not signed in". Public (no sign-in needed): `listCompanies`, `listUsers`, `listAssets`, `access.me` (returns null).
+- Signed out: every scoped function throws "Not signed in". Public (no sign-in needed): `access.me` (returns null), and on `DEMO_MODE` deployments `listCompanies`, `listUsers`, `listAssets` (otherwise they return `[]` when signed out).
 
 ## Notifications (Slack / Discord / webhook)
 
@@ -117,7 +118,7 @@ notificationChannels: { scope: "company" | "firm", companyId?, kind: "slack" | "
                         enabled, createdBy }
 notifications (outbox): { channelId, companyId?, incidentId?, event: <event> | "test",
                           refId /* "<event>:<alert or incident id>" | "test:<time>" */,
-                          status: "queued" | "sending" | "sent" | "simulated" | "failed", text, error?, createdAt, sentAt? }
+                          status: "queued" | "sending" | "sent" | "simulated" | "failed", text, error?, createdAt, claimedAt?, sentAt? }
 
 [notifications] listChannels() -> { _id, scope, kind, label, target /* masked: host/…last4 */, events, enabled, canEdit }[]
 [notifications] listOutbox({ incidentId? }) -> { _id, createdAt, channelLabel, kind | null, event, status, text, error | null, sentAt | null }[]
@@ -215,7 +216,7 @@ claude mcp add --transport http sidecall https://<deployment>.convex.site/mcp --
 [blastRadius] getExposureEvidence({ exposureId }) -> null | { exposureId, incidentId, companyId,
                                        reasons, confidence, evidence, urgency, score, status, acknowledgedBy | null }
 [blastRadius] getMyExposures() -> Exposure[]       // company user's home screen; [] for the firm
-[blastRadius] listCompanies() · listUsers({ companyId? }) · listAssets()   // sign-in quick-pick directory (public)
+[blastRadius] listCompanies() · listUsers({ companyId? }) · listAssets()   // sign-in quick-pick directory (public on DEMO_MODE; company users see only colleagues' emails)
 [access]      me() -> null | { _id, name, email, role, companyId, companyName }
 
 [payments] getHeldPayments({ incidentId?, companyId? }) -> {   // every payment the incident held, incl. later paid/rejected
@@ -242,7 +243,7 @@ claude mcp add --transport http sidecall https://<deployment>.convex.site/mcp --
                                                  actorName ("System" or a person), companyName | null }[]
                                              // controls log, newest first: firm = whole portfolio, company = own rows
 
-[blastRadius] getIncidentTimeline({ incidentId }) -> null | {
+[blastRadius] getIncidentTimeline({ incidentId }) -> null | {   // null: no such incident, or it never touched the viewer's company
   events: { at, kind: "reported" | "hold" | "flag" | "escalate" | "refused" | "release" | "reject"
                      | "alert_ready" | "vendor_letter_ready" | "acknowledged",
             label, companyName | null }[],                       // oldest first, scoped to the viewer
@@ -259,7 +260,7 @@ claude mcp add --transport http sidecall https://<deployment>.convex.site/mcp --
 ```ts
 [incidents] acknowledgeExposure({ exposureId }) -> { ok: true } | { ok: false, reason: "not_found" | "not_your_company" | "already_acknowledged" | "closed" }
 [incidents] closeExposure({ exposureId })       -> same shape
-[seed]      resetDemo({}) -> counts                          // "Reset demo" button; throws unless DEMO_MODE=true and someone is signed in
+[seed]      resetDemo({}) -> counts & { continuing }                        // "Reset demo" button; throws unless DEMO_MODE=true and someone is signed in
 
 [incidents] containIncident({ incidentId, note }) -> { ok: true } | { ok: false, reason }   // PE partner only
 

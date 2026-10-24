@@ -1,9 +1,11 @@
 // Read-side queries for the UI. Every query scopes to the signed-in viewer. getBlastRadius is the PE firm view: the only place the
 // reporting company is named.
 import { v } from "convex/values";
-import { query } from "./_generated/server";
+import { env, query } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { canSeeCompany, getViewer } from "./access";
+import { canSeeCompany, getViewer, viewerForUser } from "./access";
 import { MAX_FANOUT, memo } from "./shared";
 
 // Why a company appears on the map. Exported so the frontend can switch on it exhaustively.
@@ -196,28 +198,44 @@ export const getMyExposures = query({
   },
 });
 
-// Demo user switcher and pickers: public directory data, no secrets.
+// Directory for the sign-in quick-pick, user switcher and pickers. On a DEMO_MODE deployment it is
+// public (the quick-pick runs before anyone signs in). Elsewhere it needs a session, and a company
+// user sees email addresses only for their own colleagues.
+type DirectoryAccess = { full: true } | { full: false; companyId: Id<"companies"> } | null;
+
+async function directoryAccess(ctx: QueryCtx): Promise<DirectoryAccess> {
+  if (env.DEMO_MODE === "true") return { full: true };
+  const userId = await getAuthUserId(ctx);
+  const user = userId ? await ctx.db.get("users", userId) : null;
+  if (!user) return null;
+  const viewer = viewerForUser(user);
+  return viewer.firm ? { full: true } : { full: false, companyId: viewer.companyId };
+}
+
 export const listCompanies = query({
   args: {},
-  handler: async (ctx) => await ctx.db.query("companies").take(100),
+  handler: async (ctx) => ((await directoryAccess(ctx)) ? await ctx.db.query("companies").take(100) : []),
 });
 
 export const listUsers = query({
   args: { companyId: v.optional(v.id("companies")) },
   handler: async (ctx, args) => {
-    if (args.companyId) {
-      return await ctx.db
-        .query("users")
-        .withIndex("by_companyId", (q) => q.eq("companyId", args.companyId))
-        .take(50);
-    }
-    return await ctx.db.query("users").take(200);
+    const access = await directoryAccess(ctx);
+    if (!access) return [];
+    const users = args.companyId
+      ? await ctx.db
+          .query("users")
+          .withIndex("by_companyId", (q) => q.eq("companyId", args.companyId))
+          .take(50)
+      : await ctx.db.query("users").take(200);
+    if (access.full) return users;
+    return users.map((u) => (u.companyId === access.companyId ? u : { ...u, email: undefined, phone: undefined }));
   },
 });
 
 export const listAssets = query({
   args: {},
-  handler: async (ctx) => await ctx.db.query("assets").take(100),
+  handler: async (ctx) => ((await directoryAccess(ctx)) ? await ctx.db.query("assets").take(100) : []),
 });
 
 type TimelineEvent = {
@@ -282,6 +300,9 @@ export const getIncidentTimeline = query({
         ),
       ),
     ]);
+
+    // A company sees an incident only if it has an exposure or its own audit rows (a hold) on it.
+    if (!viewer.firm && audit.length === 0 && !exposures.some((e) => e.companyId === viewer.companyId)) return null;
 
     const companyNameById = memo(async (id: Id<"companies">) => (await ctx.db.get("companies", id))?.name ?? "");
     const companyName = async (id: Id<"companies"> | undefined) => (id ? await companyNameById(id) : null);

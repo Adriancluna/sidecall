@@ -10,7 +10,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { getViewer } from "./access";
 import { activeIncidentFor, holdNewPayment, recentBankChanges } from "./payments";
 import { openExposure } from "./incidents";
-import { DAY_MS, demoEmail } from "./shared";
+import { demoEmail } from "./shared";
 import { postLedgerEntry } from "./ledger";
 
 const MAX_VENDORS = 200;
@@ -206,7 +206,7 @@ async function matchVendors(ctx: QueryCtx, vendors: ParsedVendor[]) {
     let warning: string | null = null;
     if (asset && vendor.bankLast4 && verified && vendor.bankLast4 !== verified.accountLast4) {
       warning = fileChange
-        ? `Your AP system pays ${asset.vendorName} at ••${vendor.bankLast4}, set by ${fileChange.requestChannel.replace("_", " ")} ${Math.max(0, Math.round((Date.now() - fileChange.changedAt) / DAY_MS))} days ago. The last account confirmed by phone is ••${verified.accountLast4}.`
+        ? `Your AP system pays ${asset.vendorName} at ••${vendor.bankLast4}, set by ${fileChange.requestChannel.replace("_", " ")} on ${new Date(fileChange.changedAt).toISOString().slice(0, 10)}. The last account confirmed by phone is ••${verified.accountLast4}.`
         : `Your AP system pays ${asset.vendorName} at ••${vendor.bankLast4}; the last account confirmed by phone is ••${verified.accountLast4}.`;
     }
     return { vendor, asset, warning, latestChange: history[0] ?? null };

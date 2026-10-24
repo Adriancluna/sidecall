@@ -277,6 +277,7 @@ export default defineSchema({
     text: v.string(),
     error: v.optional(v.string()),
     createdAt: v.number(),
+    claimedAt: v.optional(v.number()), // set when a dispatch run takes the row ("sending")
     sentAt: v.optional(v.number()),
   })
     .index("by_channelId_and_refId", ["channelId", "refId"])

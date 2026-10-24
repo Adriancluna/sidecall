@@ -8,6 +8,7 @@ import { ConvexError, v } from "convex/values";
 import { env, internalMutation, mutation } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id, TableNames } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import { recordIncidentImpl } from "./incidents";
 import { getViewer } from "./access";
 // Role 4's DNS findings, bundled at deploy time. Each entry becomes a dns_inferred candidate link.
@@ -109,10 +110,10 @@ const USERS: Record<CompanyKey, { clerk: string; controller: string; it?: string
 const BANK_CHANGES: { ref: string; asset: AssetKey; daysAgo: number; last4: string; channel: Doc<"bankDetailChanges">["requestChannel"] }[] = [
   { ref: "bc_brightline_2208_honest", asset: "brightline", daysAgo: 150, last4: "2208", channel: "verified_call" },
   { ref: "bc_brightline_0193_old_email", asset: "brightline", daysAgo: 95, last4: "0193", channel: "email" },
-  { ref: "bc_brightline_4419_fraud", asset: "brightline", daysAgo: 9, last4: "4419", channel: "email" },
-  { ref: "bc_brightline_7731_fraud", asset: "brightline", daysAgo: 2, last4: "7731", channel: "email" },
+  { ref: "bc_brightline_4419_email_change", asset: "brightline", daysAgo: 9, last4: "4419", channel: "email" },
+  { ref: "bc_brightline_7731_email_change", asset: "brightline", daysAgo: 2, last4: "7731", channel: "email" },
   { ref: "bc_ironclad_5510_honest", asset: "ironcladMsp", daysAgo: 210, last4: "5510", channel: "verified_call" },
-  { ref: "bc_ironclad_9902_fraud", asset: "ironcladMsp", daysAgo: 4, last4: "9902", channel: "email" },
+  { ref: "bc_ironclad_9902_email_change", asset: "ironcladMsp", daysAgo: 4, last4: "9902", channel: "email" },
 ];
 
 const PAYMENTS: {
@@ -169,16 +170,52 @@ export const SCENARIOS = {
   },
 } as const;
 
-async function clearAll(ctx: MutationCtx) {
+// Deletes up to CLEAR_BUDGET rows per transaction (well under the 16,000-write limit), so a reset
+// after a big scale test finishes in scheduled follow-up runs instead of failing or leaving rows.
+const CLEAR_BUDGET = 4000;
+
+async function clearSome(ctx: MutationCtx): Promise<boolean> {
+  let left = CLEAR_BUDGET;
   for (const table of TABLES) {
-    for (const doc of await ctx.db.query(table).take(4000)) {
-      await ctx.db.delete(table, doc._id);
-    }
+    const docs = await ctx.db.query(table).take(left);
+    for (const doc of docs) await ctx.db.delete(table, doc._id);
+    left -= docs.length;
+    if (left === 0) return false;
   }
+  return true;
 }
 
+const EMPTY_COUNTS = {
+  companies: 0,
+  assets: 0,
+  links: 0,
+  payments: 0,
+  bankChanges: 0,
+  dnsImported: 0,
+  dnsDetailed: 0,
+  dnsSkipped: [] as string[],
+};
+
+// Clear, then seed. Small databases do both in one transaction. Big ones return
+// { continuing: true } and finish in finishReset.
+async function resetAll(ctx: MutationCtx) {
+  if (!(await clearSome(ctx))) {
+    await ctx.scheduler.runAfter(0, internal.seed.finishReset, {});
+    return { ...EMPTY_COUNTS, continuing: true };
+  }
+  return { ...(await seedAll(ctx)), continuing: false };
+}
+
+export const finishReset = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    if (await clearSome(ctx)) await seedAll(ctx);
+    else await ctx.scheduler.runAfter(0, internal.seed.finishReset, {});
+    return null;
+  },
+});
+
 async function seedAll(ctx: MutationCtx) {
-  await clearAll(ctx);
   const now = Date.now();
 
   const companyIds = {} as Record<CompanyKey, Id<"companies">>;
@@ -385,7 +422,7 @@ async function seedAll(ctx: MutationCtx) {
 
 export const run = internalMutation({
   args: {},
-  handler: async (ctx) => await seedAll(ctx),
+  handler: async (ctx) => await resetAll(ctx),
 });
 
 // "Reset demo" button. Wipes and reseeds, so it only works where DEMO_MODE=true is set
@@ -401,13 +438,14 @@ export const resetDemo = mutation({
     dnsImported: v.number(),
     dnsDetailed: v.number(),
     dnsSkipped: v.array(v.string()),
+    continuing: v.boolean(), // true: the wipe was too big for one transaction and finishes shortly
   }),
   handler: async (ctx) => {
     if (env.DEMO_MODE !== "true") {
       throw new ConvexError("Demo reset is disabled on this deployment (DEMO_MODE is not true).");
     }
     await getViewer(ctx); // signed-in presenters only
-    return await seedAll(ctx);
+    return await resetAll(ctx);
   },
 });
 
