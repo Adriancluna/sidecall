@@ -1,5 +1,5 @@
 # Pegasus: response resilience + payment investigation
-Last updated: 2026-10-24 14:37 America/Los_Angeles by Pegasus
+Last updated: 2026-10-24 14:40 America/Los_Angeles by Pegasus
 
 ## Status
 - Ashwa requested implementation while keeping Hyphenate and Armadin, including resistance to repeated reports causing business disruption.
@@ -44,3 +44,5 @@ Last updated: 2026-10-24 14:37 America/Los_Angeles by Pegasus
 - Live model extraction, remote deployment and signed-in browser rehearsal are not verified; see setup details before presenting.
 
 - Latest user output contains successful npm package downloads only; Vercel installation, sign-in and project linkage are still unconfirmed. Advised waiting for interactive login/link prompts and the resume script completion message. — Pegasus
+
+- Vercel install exited with EIDLETIMEOUT fetching TypeScript metadata; npm registry HEAD responds 200, so reachability alone does not establish reliable full downloads. Ashwa plans to retry on another connection. Updated the resume helper to 120-second fetch timeout and two retries, retaining cached downloads/visible progress; syntax passes. GitHub/Convex logins stay saved, Vercel remains unverified, and remote handoffs remain unchanged. — Pegasus
