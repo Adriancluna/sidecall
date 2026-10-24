@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 21:40 by Marco's Claude
+Last updated: Oct 23, 21:44 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -29,16 +29,20 @@ Last updated: Oct 23, 21:40 by Marco's Claude
 - ✓ **Round 5: Bills to pay** (`src/panels/BillsPanel.tsx`, company view): `getMyBills` with status chips; unpaid bills get **Request payment** → `requestPayment`; result inline (held → "Held until verified: <vendor> is under an active incident" + "…goes to an account changed by email" when flagged; refusals show `reason`). Verified on dev: Jamie requests the $38,000 November bill after the Brightline incident → held + flagged.
 - ✓ **Round 6: containment** (`src/panels/ContainPanel.tsx`, PE view, per incident): note + **Mark contained** → `containIncident`; refusal inline; "Contained" badge on the incident line and " · contained" in the Incident menu (from `listIncidents.containedAt`). Verified on dev: "fixed" → "Say what the vendor fixed and how it was confirmed."; full note → badge, card "Contained … New payments to this vendor are no longer held.", `contain` row in the controls log.
 - Presenter beats + `docs/demo-script.md`: 2b (new requests caught too) and optional 7b (contained).
+- ✓ **Proof panel:** "Vendor detection on real public domains" lists `data/dns_findings.json` grouped by domain (vendor + record types), labelled candidates (✓ done for Role 4). The "AI writing" line sits under **Real** only once `data/ai_cache.json` has entries; while it's empty it shows under Simulated as "Alert wording (placeholder text until the AI texts are generated)". Scorecard now shows the real run (6/0/0/4 · 0/0/0/3 · 4/0/0/1).
+- ✓ Vendor letter renders with `whitespace-pre-wrap` (✓ done for Role 4).
+- ✓ `docs/`: scorecard table (18 planted cases, 0 missed, 0 false holds; "our own planted cases, not a benchmark"), Role 1's scale line worded "in our test suite", `npm run rehearse` in the pre-flight.
+- ✓ Batching merges per Role 1's #59 (one PR per finished chunk).
 
 ## In progress
 1. Notifications UI (after Role 1's API lands), per `docs/specs/notifications.md`.
-2. Proof panel: list `data/dns_findings.json` under "Real" (✓ seen from Role 4/Role 1 #56); vendor letter `whitespace-pre-wrap`; scorecard numbers + Role 1's scale line ("in our test suite") + `npm run rehearse` into `docs/`.
 
 ## Needs from others
 - → **Role 1 + Role 4: notifications (Slack / Discord / webhook) are approved.** Spec: `docs/specs/notifications.md` (data, API shapes, flow, rules, tests, owners, order). Please accept your part here in your own file, or push back:
   - → **Role 1 (~1.5 h):** `notificationChannels` + `notifications` (outbox) tables, CONTRACT.md entries, `listChannels` / `listOutbox` / `addChannel` / `removeChannel` / `sendTest`, enqueue hooks in `saveAlert(s)`, the escalation writer, `recordIncident` and `containIncident` (dedupe on `(channelId, refId)`, one `runAfter` per mutation), `NOTIFY_LIVE` env declared, seeded simulated channels for Summit + the firm, tests listed in the spec.
   - → **Role 4 (~1 h):** new `convex/notify.ts`: `dispatch({})` internal action (Slack `{ text }` / Discord `{ content }` / generic JSON, 5 s timeout, one retry, `simulated` when `NOTIFY_LIVE` is off, never throws), one-line message headers, reuse `checkCopy`.
   - Role 2 builds the Notifications card + Outbox panel against the CONTRACT.md shapes as soon as Role 1 lands them.
+- → **Role 4:** `data/ai_cache.json` on `main` still has 0 entries (`generatedAt: null`), so the demo shows placeholder alert text. Please run `prompts/generate.mjs` and commit the cache; the Proof panel moves "AI writing" to Real automatically.
 - → Role 1: an MCP server is **not decided**. A separate research session is writing `docs/specs/mcp-research.md` (feasibility, auth, tool list, effort, recommendation); no action needed until it lands.
 
 ## Decisions & gotchas

@@ -1,13 +1,33 @@
 // Proof for judges (Hyphenate): what's real vs. simulated, and the scorecard against the
 // planted answer key. Copy follows CLAUDE.md "Real vs. simulated".
+import aiCacheRaw from "../../data/ai_cache.json?raw";
+import { dnsFindings } from "./dnsFindings";
 import { dateTime } from "./format";
 import { scorecard, type ScorecardScenario } from "./scorecard";
 import { Card, Chip, Empty } from "./ui";
 
+// Role 4's pre-generated texts (data/ai_cache.json). Until it has entries, alerts use canned
+// placeholder text, so we don't claim AI writing as real.
+const AI_TEXTS = (() => {
+  try {
+    const data: unknown = JSON.parse(aiCacheRaw);
+    const entries = (data as { entries?: unknown }).entries;
+    return entries && typeof entries === "object"
+      ? Object.keys(entries).length
+      : 0;
+  } catch {
+    return 0;
+  }
+})();
+
 const REAL = [
   "The Convex backend and its guarantees: one webhook write fans out atomically, every client sees the same snapshot, replays are idempotent, acknowledge is race-safe",
   "Exposure and hold logic",
-  "The AI writing (alerts, vendor letter, hold notices)",
+  ...(AI_TEXTS > 0
+    ? [
+        "The AI writing (alerts, vendor letter, hold notices), generated with Claude ahead of the demo",
+      ]
+    : []),
   "The scorecard against the planted answer key",
   "DNS-based vendor detection on real public domains",
 ];
@@ -16,6 +36,9 @@ const SIMULATED = [
   "The portfolio and its companies",
   "Users, bills, payments and amounts",
   "Incidents and bank-detail changes",
+  ...(AI_TEXTS > 0
+    ? []
+    : ["Alert wording (placeholder text until the AI texts are generated)"]),
 ];
 
 const RESULT_TONE: Record<string, "ok" | "danger"> = {
@@ -32,6 +55,7 @@ export function ProofPanel() {
         <ProofList title="Real" items={REAL} />
         <ProofList title="Simulated" items={SIMULATED} />
       </div>
+      {dnsFindings.length > 0 && <DnsFindings />}
       <div className="mt-6 border-t border-line pt-4">
         <h3 className="mb-2 text-sm font-semibold">
           Scorecard vs. the planted answer key
@@ -131,5 +155,41 @@ function ScenarioBlock({ scenario: s }: { scenario: ScorecardScenario }) {
         </table>
       </div>
     </section>
+  );
+}
+
+// Shared vendors visible from public DNS alone: the same method that produces the seed's
+// "candidate" links, run on real domains.
+function DnsFindings() {
+  return (
+    <div className="mt-6 border-t border-line pt-4">
+      <h3 className="mb-1 text-sm font-semibold">
+        Vendor detection on real public domains
+      </h3>
+      <p className="mb-3 text-xs text-ash">
+        From public DNS only (MX, SPF, TXT, CNAME). It shows a shared vendor,
+        never a shared login, so these stay candidates.
+      </p>
+      <dl className="space-y-2 text-sm">
+        {dnsFindings.map((d) => (
+          <div key={d.domain} className="flex flex-wrap gap-x-3 gap-y-1">
+            <dt className="w-36 shrink-0 font-mono text-xs text-ash">
+              {d.domain}
+            </dt>
+            <dd className="flex min-w-0 flex-1 flex-wrap gap-1">
+              {d.vendors.map((v) => (
+                <span
+                  key={v.vendor}
+                  className="rounded-full border border-line px-2 py-0.5 text-xs"
+                >
+                  {v.vendor}{" "}
+                  <span className="text-ash">{v.records.join("/")}</span>
+                </span>
+              ))}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   );
 }
