@@ -87,7 +87,7 @@ async function reset() {
 console.log(`Rehearsal against ${cloud}\n`);
 
 await reset();
-let jamie = await signIn(EMAIL.jamie);
+const jamie = await signIn(EMAIL.jamie);
 const rosa = await signIn(EMAIL.rosa);
 const kwame = await signIn(EMAIL.kwame);
 const jordan = await signIn(EMAIL.jordan);
@@ -213,6 +213,5 @@ held = await query("payments:getHeldPayments", { incidentId }, jordan);
 check("  earlier holds still held", held.filter((r) => r.payment.status === "held").length === 6);
 
 await reset();
-jamie = null;
 console.log(`\n${failures === 0 ? "PASS: every beat works. Deployment reset to a clean slate." : `FAIL: ${failures} beat(s) failed. Deployment reset.`}`);
 process.exit(failures === 0 ? 0 : 1);

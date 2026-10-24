@@ -12,11 +12,12 @@ import { recordIncidentImpl } from "./incidents";
 import { getViewer } from "./access";
 // Role 4's DNS findings, bundled at deploy time. Each entry becomes a dns_inferred candidate link.
 import dnsLinks from "../data/dns_links.json";
+import { DAY_MS, demoEmail } from "./shared";
+import { postLedgerEntry } from "./ledger";
 
 type DnsLink = { companyDomain: string; assetName: string; detail?: string };
 
-const DAY = 24 * 60 * 60 * 1000;
-const usd = (dollars: number) => Math.round(dollars * 100);
+const cents = (dollars: number) => Math.round(dollars * 100); // dollars → integer cents
 
 // Auth tables are cleared too: their rows point at users that a reseed replaces.
 const TABLES: TableNames[] = [
@@ -143,11 +144,9 @@ const UNPAID_BILLS: { company: CompanyKey; asset: AssetKey; dollars: number; due
   { company: "C", asset: "brightline", dollars: 38_000, dueInHours: 120, description: "November payroll processing" },
 ];
 
-const OPENING_CASH = usd(5_000_000);
+const OPENING_CASH = cents(5_000_000);
 
-// "Jamie Chen" at summithomehealth.example -> jamie.chen@summithomehealth.example
-const demoEmail = (name: string, domain: string) =>
-  `${name.toLowerCase().replace(/[^a-z ]/g, "").trim().replace(/\s+/g, ".")}@${domain}`;
+
 
 export const SCENARIOS = {
   brightline: {
@@ -185,14 +184,12 @@ async function seedAll(ctx: MutationCtx) {
   const companyIds = {} as Record<CompanyKey, Id<"companies">>;
   for (const [key, company] of Object.entries(COMPANIES) as [CompanyKey, (typeof COMPANIES)[CompanyKey]][]) {
     companyIds[key] = await ctx.db.insert("companies", company);
-    await ctx.db.insert("ledgerEntries", {
+    await postLedgerEntry(ctx, {
+      kind: "opening",
       companyId: companyIds[key],
-      date: now - 180 * DAY,
+      amountCents: OPENING_CASH,
+      date: now - 180 * DAY_MS,
       memo: "Opening balance",
-      lines: [
-        { account: "cash", debitCents: OPENING_CASH, creditCents: 0 },
-        { account: "equity", debitCents: 0, creditCents: OPENING_CASH },
-      ],
     });
   }
 
@@ -302,7 +299,7 @@ async function seedAll(ctx: MutationCtx) {
   for (const change of BANK_CHANGES) {
     await ctx.db.insert("bankDetailChanges", {
       assetId: assetIds[change.asset],
-      changedAt: now - change.daysAgo * DAY,
+      changedAt: now - change.daysAgo * DAY_MS,
       accountLast4: change.last4,
       requestChannel: change.channel,
       seedRef: change.ref,
@@ -310,7 +307,7 @@ async function seedAll(ctx: MutationCtx) {
   }
 
   for (const b of UNPAID_BILLS) {
-    const amountCents = usd(b.dollars);
+    const amountCents = cents(b.dollars);
     const billId = await ctx.db.insert("bills", {
       companyId: companyIds[b.company],
       assetId: assetIds[b.asset],
@@ -318,24 +315,22 @@ async function seedAll(ctx: MutationCtx) {
       dueDate: now + b.dueInHours * 60 * 60 * 1000,
       description: b.description,
     });
-    await ctx.db.insert("ledgerEntries", {
+    await postLedgerEntry(ctx, {
+      kind: "bill",
       companyId: companyIds[b.company],
-      date: now - DAY,
+      amountCents,
+      date: now - DAY_MS,
       memo: `Bill booked: ${ASSETS[b.asset].vendorName}, ${b.description}`,
       billId,
-      lines: [
-        { account: "expense", debitCents: amountCents, creditCents: 0 },
-        { account: "accounts_payable", debitCents: 0, creditCents: amountCents },
-      ],
     });
   }
 
   for (const p of PAYMENTS) {
-    const amountCents = usd(p.dollars);
+    const amountCents = cents(p.dollars);
     const companyId = companyIds[p.company];
-    const booked = now - (p.status === "paid" ? 35 : 6) * DAY;
+    const booked = now - (p.status === "paid" ? 35 : 6) * DAY_MS;
     const dueDate =
-      p.status === "paid" ? now - 30 * DAY : now + (p.dueInHours ?? 72) * 60 * 60 * 1000;
+      p.status === "paid" ? now - 30 * DAY_MS : now + (p.dueInHours ?? 72) * 60 * 60 * 1000;
     const billId = await ctx.db.insert("bills", {
       companyId,
       assetId: assetIds[p.asset],
@@ -343,15 +338,13 @@ async function seedAll(ctx: MutationCtx) {
       dueDate,
       description: p.description,
     });
-    await ctx.db.insert("ledgerEntries", {
+    await postLedgerEntry(ctx, {
+      kind: "bill",
       companyId,
+      amountCents,
       date: booked,
       memo: `Bill booked: ${ASSETS[p.asset].vendorName}, ${p.description}`,
       billId,
-      lines: [
-        { account: "expense", debitCents: amountCents, creditCents: 0 },
-        { account: "accounts_payable", debitCents: 0, creditCents: amountCents },
-      ],
     });
     const paymentId = await ctx.db.insert("payments", {
       billId,
@@ -363,19 +356,17 @@ async function seedAll(ctx: MutationCtx) {
       requestedBy: clerkIds[p.company],
       dueDate,
       seedRef: p.ref,
-      decidedAt: p.status === "paid" ? now - 30 * DAY : undefined,
+      decidedAt: p.status === "paid" ? now - 30 * DAY_MS : undefined,
     });
     if (p.status === "paid") {
-      await ctx.db.insert("ledgerEntries", {
+      await postLedgerEntry(ctx, {
+        kind: "payment",
         companyId,
-        date: now - 30 * DAY,
+        amountCents,
+        date: now - 30 * DAY_MS,
         memo: `Payment: ${ASSETS[p.asset].vendorName}, ${p.description}`,
         paymentId,
         billId,
-        lines: [
-          { account: "accounts_payable", debitCents: amountCents, creditCents: 0 },
-          { account: "cash", debitCents: 0, creditCents: amountCents },
-        ],
       });
     }
   }

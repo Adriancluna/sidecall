@@ -5,14 +5,14 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { HeldSummary } from "./scoring";
 import { canSeeCompany, getViewer, type Viewer } from "./access";
-import { enqueueAlert, scheduleDispatchIfQueued } from "./notifications";
+import { insertReadyAlert } from "./alerts";
+import { DAY_MS, formatUsd, MAX_FANOUT, memo } from "./shared";
+import { postLedgerEntry } from "./ledger";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-export const BANK_CHANGE_WINDOW_MS = 30 * DAY_MS;
+const BANK_CHANGE_WINDOW_MS = 30 * DAY_MS;
 const MIN_NOTE_LENGTH = 15;
 const ESCALATE_WITHIN_MS = DAY_MS; // a held payment due within 24h gets escalated once
 
-const dollars = (cents: number) => `$${(cents / 100).toLocaleString("en-US")}`;
 
 // "Knows when to ask": a held payment nobody has decided, close to its due date, is pushed to
 // the company's controllers once, with an alert and an audit row. Never decides for them.
@@ -34,19 +34,16 @@ async function escalateIfDue(ctx: MutationCtx, payment: Doc<"payments">, now: nu
   const hours = Math.round(msLeft / (60 * 60 * 1000));
   const when = msLeft <= 0 ? "is past due" : `is due in about ${hours} hour${hours === 1 ? "" : "s"}`;
   const vendor = asset?.vendorName ?? "the vendor";
-  const body = `Decision needed: the ${dollars(payment.amountCents)} payment to ${vendor} ${when} and is still held. ${controllers.join(" or ") || "A controller"}: call ${vendor} at the number on file${asset ? ` (${asset.phoneOnFile})` : ""}, then release or reject it.`;
+  const body = `Decision needed: the ${formatUsd(payment.amountCents)} payment to ${vendor} ${when} and is still held. ${controllers.join(" or ") || "A controller"}: call ${vendor} at the number on file${asset ? ` (${asset.phoneOnFile})` : ""}, then release or reject it.`;
 
   await ctx.db.patch("payments", payment._id, { escalatedAt: now });
-  const escalationId = await ctx.db.insert("alerts", {
+  await insertReadyAlert(ctx, {
     incidentId: payment.heldByIncidentId!,
     companyId: payment.companyId,
     paymentId: payment._id,
     kind: "escalation",
-    status: "ready",
     body,
-    readyAt: now,
   });
-  await enqueueAlert(ctx, { _id: escalationId, kind: "escalation", body, incidentId: payment.heldByIncidentId!, companyId: payment.companyId });
   await ctx.db.insert("auditLog", {
     at: now,
     actor: "system",
@@ -67,21 +64,18 @@ export const escalateDueHolds = internalMutation({
     const now = Date.now();
     const due = await ctx.db
       .query("payments")
-      .withIndex("by_status_and_dueDate", (q) =>
-        q.eq("status", "held").lte("dueDate", now + ESCALATE_WITHIN_MS),
+      .withIndex("by_status_and_escalatedAt_and_dueDate", (q) =>
+        q.eq("status", "held").eq("escalatedAt", undefined).lte("dueDate", now + ESCALATE_WITHIN_MS),
       )
       .take(200);
     let escalated = 0;
     for (const payment of due) {
       if (await escalateIfDue(ctx, payment, now)) escalated += 1;
     }
-    await scheduleDispatchIfQueued(ctx);
     return { escalated };
   },
 });
 
-// Runs inside recordIncident's transaction. Holds every pending payment to the
-// compromised asset at companies that opted in. Never cancels anything.
 // Bank-detail changes to this vendor within 30 days of the incident.
 export async function recentBankChanges(ctx: MutationCtx, assetId: Id<"assets">, incidentAt: number) {
   return await ctx.db
@@ -96,20 +90,23 @@ export async function recentBankChanges(ctx: MutationCtx, assetId: Id<"assets">,
 }
 
 // Holds one payment for an incident: reasons, flag, audit rows, escalation if due soon.
-// Shared by the incident fan-out and by payments requested while the incident is active.
-export async function holdPayment(
+// Shared by the incident fan-out, payment requests and AP imports.
+async function holdPayment(
   ctx: MutationCtx,
-  payment: Doc<"payments">,
-  incident: Doc<"incidents">,
-  asset: Doc<"assets">,
-  changes: Doc<"bankDetailChanges">[],
-  at: number,
-  rule: string,
-  firstReason: string,
+  hold: {
+    payment: Doc<"payments">;
+    incident: Doc<"incidents">;
+    asset: Doc<"assets">;
+    changes: Doc<"bankDetailChanges">[];
+    at: number;
+    rule: string;
+    reason: string;
+  },
 ): Promise<{ flagged: boolean }> {
+  const { payment, incident, asset, at } = hold;
   // Flag only if this payment is going to an account that changed recently.
-  const change = changes.find((c) => c.accountLast4 === payment.accountLast4);
-  const holdReasons = [firstReason];
+  const change = hold.changes.find((c) => c.accountLast4 === payment.accountLast4);
+  const holdReasons = [hold.reason];
   if (change) {
     const days = Math.round((incident.createdAt - change.changedAt) / DAY_MS);
     holdReasons.push(
@@ -125,7 +122,7 @@ export async function holdPayment(
     flaggedBankChangeId: change?._id,
   });
   const audit = { at, actor: "system" as const, companyId: payment.companyId, paymentId: payment._id, incidentId: incident._id };
-  await ctx.db.insert("auditLog", { ...audit, action: "hold", rule, reason: holdReasons[0] });
+  await ctx.db.insert("auditLog", { ...audit, action: "hold", rule: hold.rule, reason: holdReasons[0] });
   if (change) {
     await ctx.db.insert("auditLog", { ...audit, action: "flag", rule: "bank_change_within_30_days", reason: holdReasons[1] });
   }
@@ -135,19 +132,45 @@ export async function holdPayment(
   return { flagged: change !== undefined };
 }
 
+// The hold notice a company reads for one of its payments (ready at once, unlike the fan-out's
+// AI-written ones). Never "fraud": held until verified, call the number on file.
+function holdNoticeBody(asset: Doc<"assets">, payment: Doc<"payments">, flagged: boolean) {
+  return `Your ${formatUsd(payment.amountCents)} payment to ${asset.vendorName} is held until verified.${flagged ? ` The account ending ${payment.accountLast4} was added recently.` : ""} Call ${asset.vendorName} at the number on file, ${asset.phoneOnFile}, not a number from a recent email. A controller other than the requester can then release or reject it.`;
+}
+
+// Holds a payment created while its vendor's incident is active (a new request or an imported
+// bill) and writes its hold notice. Returns whether the payment was flagged.
+export async function holdNewPayment(
+  ctx: MutationCtx,
+  hold: Omit<Parameters<typeof holdPayment>[1], "changes"> & { changes?: Doc<"bankDetailChanges">[] },
+) {
+  const changes = hold.changes ?? (await recentBankChanges(ctx, hold.asset._id, hold.incident.createdAt));
+  const { flagged } = await holdPayment(ctx, { ...hold, changes });
+  const payment = (await ctx.db.get("payments", hold.payment._id))!;
+  await insertReadyAlert(ctx, {
+    incidentId: hold.incident._id,
+    companyId: payment.companyId,
+    paymentId: payment._id,
+    kind: "hold_notice",
+    body: holdNoticeBody(hold.asset, payment, flagged),
+  });
+  return flagged;
+}
+
 // Runs inside recordIncident's transaction. Holds every pending payment to the
 // compromised asset at companies that opted in. Never cancels anything.
 export async function holdPaymentsForIncident(
   ctx: MutationCtx,
   incident: Doc<"incidents">,
   asset: Doc<"assets">,
-): Promise<Map<Id<"companies">, HeldSummary>> {
+): Promise<{ byCompany: Map<Id<"companies">, HeldSummary>; held: Doc<"payments">[] }> {
   const byCompany = new Map<Id<"companies">, HeldSummary>();
+  const held: Doc<"payments">[] = [];
   const changes = await recentBankChanges(ctx, asset._id, incident.createdAt);
   const pending = await ctx.db
     .query("payments")
     .withIndex("by_assetId_and_status", (q) => q.eq("assetId", asset._id).eq("status", "pending"))
-    .take(500);
+    .take(MAX_FANOUT);
 
   const companyCache = new Map<Id<"companies">, Doc<"companies"> | null>();
   for (const payment of pending) {
@@ -156,23 +179,23 @@ export async function holdPaymentsForIncident(
     }
     if (!companyCache.get(payment.companyId)?.holdRuleEnabled) continue;
 
-    const { flagged } = await holdPayment(
-      ctx,
+    const { flagged } = await holdPayment(ctx, {
       payment,
       incident,
       asset,
       changes,
-      incident.createdAt,
-      "hold_payments_to_compromised_vendor",
-      `${asset.vendorName} is under an active security incident. Payment held until verified.`,
-    );
+      at: incident.createdAt,
+      rule: "hold_payments_to_compromised_vendor",
+      reason: `${asset.vendorName} is under an active security incident. Payment held until verified.`,
+    });
+    held.push(payment);
     const summary = byCompany.get(payment.companyId) ?? { count: 0, cents: 0, flagged: 0 };
     summary.count += 1;
     summary.cents += payment.amountCents;
     if (flagged) summary.flagged += 1;
     byCompany.set(payment.companyId, summary);
   }
-  return byCompany;
+  return { byCompany, held };
 }
 
 const ACTIVE_INCIDENT_MS = 30 * DAY_MS;
@@ -188,15 +211,11 @@ export async function activeIncidentFor(ctx: MutationCtx, assetId: Id<"assets">,
   return incident;
 }
 
-// AP clerk requests payment of a bill. Pays the vendor's current bank details on file
-// (the latest change). If the vendor had an incident in the last 30 days, the new payment
-// is held on creation, like the ones the incident caught.
-// Request payment of a bill as `viewer` (an AP clerk at the bill's company). Shared by the UI
-// mutation and the MCP agent, so an agent's request is held, flagged and notified exactly like a
-// clerk's.
+// An AP clerk requests payment of a bill, to the vendor's current bank details on file (the
+// latest change). If the vendor's incident is active, the payment is held on creation like the
+// ones the incident caught. Shared by the UI mutation and the MCP agent.
 export async function requestPaymentFor(ctx: MutationCtx, viewer: Viewer, billId: Id<"bills">) {
-  const args = { billId };
-  const bill = await ctx.db.get("bills", args.billId);
+  const bill = await ctx.db.get("bills", billId);
   if (!bill || viewer.firm || viewer.companyId !== bill.companyId) {
     return { ok: false as const, reason: "That bill isn't your company's." };
   }
@@ -238,29 +257,14 @@ export async function requestPaymentFor(ctx: MutationCtx, viewer: Viewer, billId
     return { ok: true as const, paymentId, held: false, flagged: false };
   }
 
-  const payment = (await ctx.db.get("payments", paymentId))!;
-  const { flagged } = await holdPayment(
-    ctx,
-    payment,
+  const flagged = await holdNewPayment(ctx, {
+    payment: (await ctx.db.get("payments", paymentId))!,
     incident,
     asset,
-    await recentBankChanges(ctx, asset._id, incident.createdAt),
-    now,
-    "hold_payments_requested_during_incident",
-    `Requested while ${asset.vendorName} is under an active security incident. Payment held until verified.`,
-  );
-  const noticeBody = `Your ${dollars(bill.amountCents)} payment to ${asset.vendorName} is held until verified. Call ${asset.vendorName} at the number on file, ${asset.phoneOnFile}, not a number from a recent email. A controller other than the requester can then release or reject it.`;
-  const noticeId = await ctx.db.insert("alerts", {
-    incidentId: incident._id,
-    companyId: bill.companyId,
-    paymentId,
-    kind: "hold_notice",
-    status: "ready",
-    readyAt: now,
-    body: noticeBody,
+    at: now,
+    rule: "hold_payments_requested_during_incident",
+    reason: `Requested while ${asset.vendorName} is under an active security incident. Payment held until verified.`,
   });
-  await enqueueAlert(ctx, { _id: noticeId, kind: "hold_notice", body: noticeBody, incidentId: incident._id, companyId: bill.companyId });
-  await scheduleDispatchIfQueued(ctx);
   return { ok: true as const, paymentId, held: true, flagged };
 }
 
@@ -273,27 +277,27 @@ export const requestPayment = mutation({
   handler: async (ctx, args) => await requestPaymentFor(ctx, await getViewer(ctx), args.billId),
 });
 
-// A company's bills and whether each has a payment yet (AP clerk's "Bills to pay").
-// A company's bills and whether each has a payment yet, for one viewer.
+// A company's bills and whether each has a payment yet (the AP clerk's "Bills to pay").
 export async function billsFor(ctx: QueryCtx, viewer: Viewer) {
   if (viewer.firm) return [];
   const bills = await ctx.db
     .query("bills")
     .withIndex("by_companyId", (q) => q.eq("companyId", viewer.companyId))
     .take(100);
+  // One read for the company's payments instead of one per bill; vendors repeat, so cache them.
+  const payments = await ctx.db
+    .query("payments")
+    .withIndex("by_companyId_and_status", (q) => q.eq("companyId", viewer.companyId))
+    .take(MAX_FANOUT);
+  const liveByBill = new Map(payments.filter((p) => p.status !== "rejected").map((p) => [p.billId, p] as const));
+  const asset = memo((id: Id<"assets">) => ctx.db.get("assets", id));
   return await Promise.all(
     bills.map(async (bill) => {
-      const [asset, payments] = await Promise.all([
-        ctx.db.get("assets", bill.assetId),
-        ctx.db
-          .query("payments")
-          .withIndex("by_billId", (q) => q.eq("billId", bill._id))
-          .take(10),
-      ]);
-      const payment = payments.find((p) => p.status !== "rejected") ?? null;
+      const vendor = await asset(bill.assetId);
+      const payment = liveByBill.get(bill._id) ?? null;
       return {
         bill,
-        vendorName: asset?.vendorName ?? "",
+        vendorName: vendor?.vendorName ?? "",
         payment: payment ? { _id: payment._id, status: payment.status } : null,
       };
     }),
@@ -390,16 +394,14 @@ export const releasePayment = mutation({
       verificationNote: note,
       decidedAt: now,
     });
-    await ctx.db.insert("ledgerEntries", {
+    await postLedgerEntry(ctx, {
+      kind: "payment",
       companyId: payment.companyId,
+      amountCents: payment.amountCents,
       date: now,
       memo: `Payment released after verification: ${note}`,
       paymentId: payment._id,
       billId: payment.billId,
-      lines: [
-        { account: "accounts_payable", debitCents: payment.amountCents, creditCents: 0 },
-        { account: "cash", debitCents: 0, creditCents: payment.amountCents },
-      ],
     });
     await ctx.db.insert("auditLog", {
       at: now,
@@ -451,31 +453,26 @@ export const rejectPayment = mutation({
   },
 });
 
-// Payments an incident touched (held, then paid or rejected), or a company's touched payments.
-// Company users only ever get their own company's rows. Never includes who reported the incident.
-// Payments an incident touched, for one viewer. Shared by the UI query and the MCP agent.
+// Payments an incident touched (held, then paid or rejected), for one viewer: company users only
+// ever get their own rows, never who reported. Shared by the UI query and the MCP agent.
 export async function heldPaymentsFor(
   ctx: QueryCtx,
   viewer: Viewer,
-  rawArgs: { incidentId?: Id<"incidents">; companyId?: Id<"companies"> },
+  args: { incidentId?: Id<"incidents">; companyId?: Id<"companies">; paymentId?: Id<"payments"> },
 ) {
-  const args = {
-    incidentId: rawArgs.incidentId,
-    companyId: viewer.firm ? rawArgs.companyId : viewer.companyId,
-  };
+  const companyId = viewer.firm ? args.companyId : viewer.companyId;
   let payments: Doc<"payments">[];
-  if (args.incidentId) {
+  if (args.paymentId) {
+    // One payment (the MCP agent's explain_hold): only if this viewer may see it and it was held.
+    const one = await ctx.db.get("payments", args.paymentId);
+    payments = one && one.heldByIncidentId !== undefined && canSeeCompany(viewer, one.companyId) ? [one] : [];
+  } else if (args.incidentId) {
     payments = await ctx.db
       .query("payments")
-      .withIndex("by_heldByIncidentId", (q) =>
-        q.eq("heldByIncidentId", args.incidentId),
-      )
-      .take(500);
-    if (args.companyId) {
-      payments = payments.filter((p) => p.companyId === args.companyId);
-    }
-  } else if (args.companyId) {
-    const companyId = args.companyId;
+      .withIndex("by_heldByIncidentId", (q) => q.eq("heldByIncidentId", args.incidentId))
+      .take(MAX_FANOUT);
+    if (companyId) payments = payments.filter((p) => p.companyId === companyId);
+  } else if (companyId) {
     payments = (
       await ctx.db
         .query("payments")
@@ -486,55 +483,73 @@ export async function heldPaymentsFor(
     return [];
   }
 
+  // Rows share companies, vendors, incidents and approvers: read each once.
+  const company = memo((id: Id<"companies">) => ctx.db.get("companies", id));
+  const asset = memo((id: Id<"assets">) => ctx.db.get("assets", id));
+  const incident = memo((id: Id<"incidents">) => ctx.db.get("incidents", id));
+  const user = memo((id: Id<"users">) => ctx.db.get("users", id));
+  // The flagged change plus the vendor's earlier bank details, newest first ("old vs new").
+  const bankChange = memo(async (id: Id<"bankDetailChanges">) => {
+    const change = await ctx.db.get("bankDetailChanges", id);
+    const earlier = change
+      ? await ctx.db
+          .query("bankDetailChanges")
+          .withIndex("by_assetId_and_changedAt", (q) => q.eq("assetId", change.assetId).lt("changedAt", change.changedAt))
+          .order("desc")
+          .take(20)
+      : [];
+    return { change, earlier };
+  });
+  // Hold notices: one query for the whole incident when scoped to one, else per payment.
+  const noticesByPayment = args.incidentId
+    ? new Map(
+        (
+          await ctx.db
+            .query("alerts")
+            .withIndex("by_incidentId_and_kind", (q) => q.eq("incidentId", args.incidentId!).eq("kind", "hold_notice"))
+            .take(MAX_FANOUT)
+        ).map((a) => [a.paymentId, a] as const),
+      )
+    : null;
+  const notice = async (paymentId: Id<"payments">) =>
+    noticesByPayment
+      ? (noticesByPayment.get(paymentId) ?? null)
+      : await ctx.db
+          .query("alerts")
+          .withIndex("by_paymentId_and_kind", (q) => q.eq("paymentId", paymentId).eq("kind", "hold_notice"))
+          .first();
+
   return await Promise.all(
     payments.map(async (payment) => {
-      const [company, asset, incident, notice] = await Promise.all([
-        ctx.db.get("companies", payment.companyId),
-        ctx.db.get("assets", payment.assetId),
-        payment.heldByIncidentId ? ctx.db.get("incidents", payment.heldByIncidentId) : null,
-        ctx.db
-          .query("alerts")
-          .withIndex("by_paymentId_and_kind", (q) =>
-            q.eq("paymentId", payment._id).eq("kind", "hold_notice"),
-          )
-          .first(),
+      const [co, vendor, inc, holdNotice, approver, bank] = await Promise.all([
+        company(payment.companyId),
+        asset(payment.assetId),
+        payment.heldByIncidentId ? incident(payment.heldByIncidentId) : null,
+        notice(payment._id),
+        payment.approvedBy ? user(payment.approvedBy) : null,
+        payment.flaggedBankChangeId ? bankChange(payment.flaggedBankChangeId) : null,
       ]);
-      const change = payment.flaggedBankChangeId
-        ? await ctx.db.get("bankDetailChanges", payment.flaggedBankChangeId)
-        : null;
-      const approver = payment.approvedBy ? await ctx.db.get("users", payment.approvedBy) : null;
-      // Earlier bank details for the same vendor, newest first, for the "old vs new" flag.
-      const earlier = change
-        ? await ctx.db
-            .query("bankDetailChanges")
-            .withIndex("by_assetId_and_changedAt", (q) =>
-              q.eq("assetId", change.assetId).lt("changedAt", change.changedAt),
-            )
-            .order("desc")
-            .take(20)
-        : [];
+      const change = bank?.change ?? null;
+      const earlier = bank?.earlier ?? [];
       return {
         payment,
-        companyName: company?.name ?? "",
-        vendorName: asset?.vendorName ?? "",
-        phoneOnFile: asset?.phoneOnFile ?? "",
+        companyName: co?.name ?? "",
+        vendorName: vendor?.vendorName ?? "",
+        phoneOnFile: vendor?.phoneOnFile ?? "",
         bankChange:
-          change && incident
+          change && inc
             ? {
                 changedAt: change.changedAt,
                 accountLast4: change.accountLast4,
                 previousAccountLast4: earlier[0]?.accountLast4 ?? null,
-                lastVerifiedAccountLast4:
-                  earlier.find((c) => c.requestChannel === "verified_call")?.accountLast4 ?? null,
+                lastVerifiedAccountLast4: earlier.find((c) => c.requestChannel === "verified_call")?.accountLast4 ?? null,
                 requestChannel: change.requestChannel,
-                daysBeforeIncident: Math.round(
-                  (incident.createdAt - change.changedAt) / DAY_MS,
-                ),
+                daysBeforeIncident: Math.round((inc.createdAt - change.changedAt) / DAY_MS),
               }
             : null,
         holdReasons: payment.holdReasons ?? [],
         // The hold notice only applies while the payment is still held.
-        notice: payment.status === "held" ? (notice?.body ?? null) : null,
+        notice: payment.status === "held" ? (holdNotice?.body ?? null) : null,
         decision:
           payment.status === "paid" || payment.status === "rejected"
             ? {
@@ -566,7 +581,8 @@ export async function paymentAuditFor(ctx: QueryCtx, viewer: Viewer, paymentId: 
     .query("auditLog")
     .withIndex("by_paymentId", (q) => q.eq("paymentId", paymentId))
     .take(100);
-  return await Promise.all(rows.map(async (row) => ({ ...row, actorName: await actorLabel(ctx, row.actor) })));
+  const actorName = memo((actor: Doc<"auditLog">["actor"]) => actorLabel(ctx, actor));
+  return await Promise.all(rows.map(async (row) => ({ ...row, actorName: await actorName(row.actor) })));
 }
 
 export const getPaymentAudit = query({
@@ -575,7 +591,7 @@ export const getPaymentAudit = query({
 });
 
 // Who did it, for audit displays: "System", a person's name, or "<agent> (agent)".
-export async function actorLabel(ctx: QueryCtx, actor: Doc<"auditLog">["actor"]): Promise<string> {
+async function actorLabel(ctx: QueryCtx, actor: Doc<"auditLog">["actor"]): Promise<string> {
   if (actor === "system") return "System";
   const agentId = ctx.db.normalizeId("agents", actor);
   if (agentId) {
@@ -625,20 +641,18 @@ export const getIncidentAudit = query({
           .query("auditLog")
           .withIndex("by_incidentId", (q) => q.eq("incidentId", args.incidentId))
           .order("desc")
-          .take(500)
+          .take(MAX_FANOUT)
       : await ctx.db
           .query("auditLog")
           .withIndex("by_companyId_and_incidentId", (q) =>
             q.eq("companyId", viewer.companyId).eq("incidentId", args.incidentId),
           )
           .order("desc")
-          .take(500);
+          .take(MAX_FANOUT);
 
-    const companyNames = new Map<Id<"companies">, string>();
-    const companyName = async (id: Id<"companies">) => {
-      if (!companyNames.has(id)) companyNames.set(id, (await ctx.db.get("companies", id))?.name ?? "");
-      return companyNames.get(id)!;
-    };
+    // Shared per call: rows repeat the same companies and actors.
+    const companyName = memo(async (id: Id<"companies">) => (await ctx.db.get("companies", id))?.name ?? "");
+    const actorName = memo((actor: Doc<"auditLog">["actor"]) => actorLabel(ctx, actor));
 
     return await Promise.all(
       rows.map(async (row) => ({
@@ -648,7 +662,7 @@ export const getIncidentAudit = query({
         rule: row.rule,
         reason: row.reason,
         paymentId: row.paymentId ?? null,
-        actorName: await actorLabel(ctx, row.actor),
+        actorName: await actorName(row.actor),
         companyName: row.companyId ? await companyName(row.companyId) : null,
       })),
     );

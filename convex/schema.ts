@@ -10,7 +10,7 @@ export const shareType = v.union(
   v.literal("same_vendor_only"),
 );
 
-export const linkSource = v.union(
+const linkSource = v.union(
   v.literal("self_reported"),
   v.literal("dns_inferred"),
 );
@@ -22,7 +22,7 @@ export const userRole = v.union(
   v.literal("pe_partner"), // PE firm staff: sees every company, never releases payments
 );
 
-export const assetKind = v.union(
+const assetKind = v.union(
   v.literal("msp"),
   v.literal("idp"),
   v.literal("payroll"),
@@ -30,7 +30,7 @@ export const assetKind = v.union(
   v.literal("other"),
 );
 
-export const exposureStatus = v.union(
+const exposureStatus = v.union(
   v.literal("open"),
   v.literal("acknowledged"),
   v.literal("closed"),
@@ -45,7 +45,7 @@ export const alertKind = v.union(
   v.literal("escalation"), // a held payment is near its due date and nobody has decided it
 );
 
-export const alertStatus = v.union(v.literal("pending"), v.literal("ready"));
+const alertStatus = v.union(v.literal("pending"), v.literal("ready"));
 
 export const requestChannel = v.union(
   v.literal("email"),
@@ -55,7 +55,7 @@ export const requestChannel = v.union(
 
 // "released" is kept for contract compatibility. releasePayment moves held -> paid
 // in one transaction, so nothing sits in "released" today.
-export const paymentStatus = v.union(
+const paymentStatus = v.union(
   v.literal("pending"),
   v.literal("held"),
   v.literal("released"),
@@ -63,14 +63,14 @@ export const paymentStatus = v.union(
   v.literal("paid"),
 );
 
-export const ledgerAccount = v.union(
+const ledgerAccount = v.union(
   v.literal("cash"),
   v.literal("accounts_payable"),
   v.literal("expense"),
   v.literal("equity"), // opening balances only
 );
 
-export const auditAction = v.union(
+const auditAction = v.union(
   v.literal("hold"),
   v.literal("flag"),
   v.literal("release"),
@@ -90,7 +90,7 @@ export const notifyEvent = v.union(
   v.literal("contained"),
 );
 export const notifyKind = v.union(v.literal("slack"), v.literal("discord"), v.literal("webhook"));
-export const notifyStatus = v.union(
+const notifyStatus = v.union(
   v.literal("queued"),
   v.literal("sending"), // claimed by a dispatch run, so two runs never send the same row
   v.literal("sent"),
@@ -98,9 +98,9 @@ export const notifyStatus = v.union(
   v.literal("failed"),
 );
 
-export const evidenceItem = v.object({ kind: v.string(), detail: v.string() });
+const evidenceItem = v.object({ kind: v.string(), detail: v.string() });
 
-export const ledgerLine = v.object({
+const ledgerLine = v.object({
   account: ledgerAccount,
   debitCents: v.number(),
   creditCents: v.number(),
@@ -148,9 +148,7 @@ export default defineSchema({
     shareType,
     source: linkSource,
     detail: v.optional(v.string()), // dns_inferred: the record that suggested it, e.g. "MX → mx.relaymail.example"
-  })
-    .index("by_assetId", ["assetId"])
-    .index("by_companyId", ["companyId"]),
+  }).index("by_assetId", ["assetId"]),
 
   incidents: defineTable({
     externalId: v.string(), // dedupe key for POST /incident
@@ -213,9 +211,7 @@ export default defineSchema({
     amountCents: v.number(),
     dueDate: v.number(),
     description: v.string(),
-  })
-    .index("by_companyId", ["companyId"])
-    .index("by_assetId", ["assetId"]),
+  }).index("by_companyId", ["companyId"]),
 
   payments: defineTable({
     billId: v.id("bills"),
@@ -239,7 +235,8 @@ export default defineSchema({
     .index("by_assetId_and_status", ["assetId", "status"])
     .index("by_companyId_and_status", ["companyId", "status"])
     .index("by_heldByIncidentId", ["heldByIncidentId"])
-    .index("by_status_and_dueDate", ["status", "dueDate"])
+    // The escalation cron reads only held payments not yet escalated (escalatedAt unset).
+    .index("by_status_and_escalatedAt_and_dueDate", ["status", "escalatedAt", "dueDate"])
     .index("by_billId", ["billId"]),
 
   // Double-entry. Bill booked: Dr expense / Cr accounts_payable.
@@ -252,8 +249,7 @@ export default defineSchema({
     billId: v.optional(v.id("bills")),
     lines: v.array(ledgerLine),
   })
-    .index("by_companyId_and_date", ["companyId", "date"])
-    .index("by_paymentId", ["paymentId"]),
+    .index("by_companyId_and_date", ["companyId", "date"]),
 
   // ---- Notifications (docs/specs/notifications.md) ----
 

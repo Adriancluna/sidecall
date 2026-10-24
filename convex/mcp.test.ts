@@ -65,6 +65,7 @@ describe("agent identity", () => {
     const who = (await t.query(internal.agents.authenticate, { tokenHash: await sha256Hex(TOKEN) }))!;
     await t.mutation(internal.agents.logCall, {
       agentId: who.agentId,
+      companyId: who.companyId,
       tool: "list_held_payments",
       ok: true,
       summary: "1 held payment.",

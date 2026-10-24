@@ -10,10 +10,11 @@ import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { viewerForUser } from "./access";
 import { billsFor, heldPaymentsFor, paymentAuditFor, requestPaymentFor, type HeldPaymentRow } from "./payments";
+import { formatUsd, toHex } from "./shared";
 
 export async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+  return toHex(digest);
 }
 
 // Randomness in an action: mutation randomness is seeded for determinism, so it isn't secret.
@@ -22,7 +23,7 @@ export const mint = internalAction({
   returns: v.object({ token: v.string() }),
   handler: async (ctx, args) => {
     const bytes = crypto.getRandomValues(new Uint8Array(32));
-    const token = `sc_agent_${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
+    const token = `sc_agent_${toHex(bytes)}`;
     await ctx.runMutation(internal.agents.insertAgent, { ...args, tokenHash: await sha256Hex(token) });
     return { token };
   },
@@ -71,7 +72,6 @@ const authenticated = v.object({
   agentId: v.id("agents"),
   name: v.string(),
   tools: v.array(v.string()),
-  userId: v.id("users"),
   companyId: v.id("companies"),
 });
 
@@ -91,7 +91,7 @@ export const authenticate = internalQuery({
       .withIndex("email", (q) => q.eq("email", agent.onBehalfOfEmail))
       .unique();
     if (!user?.companyId || user.role === "pe_partner") return null;
-    return { agentId: agent._id, name: agent.name, tools: agent.tools, userId: user._id, companyId: user.companyId };
+    return { agentId: agent._id, name: agent.name, tools: agent.tools, companyId: user.companyId };
   },
 });
 
@@ -99,6 +99,7 @@ export const authenticate = internalQuery({
 export const logCall = internalMutation({
   args: {
     agentId: v.id("agents"),
+    companyId: v.id("companies"), // from authenticate, so the user isn't looked up again
     tool: v.string(),
     ok: v.boolean(),
     summary: v.string(),
@@ -109,15 +110,11 @@ export const logCall = internalMutation({
   handler: async (ctx, args) => {
     const agent = await ctx.db.get("agents", args.agentId);
     if (!agent) return null;
-    const user = await ctx.db
-      .query("users")
-      .withIndex("email", (q) => q.eq("email", agent.onBehalfOfEmail))
-      .unique();
     await ctx.db.insert("auditLog", {
       at: Date.now(),
       actor: agent._id,
       action: "agent_call",
-      companyId: user?.companyId,
+      companyId: args.companyId,
       paymentId: args.paymentId,
       incidentId: args.incidentId,
       rule: `mcp_tool:${args.tool}`,
@@ -130,7 +127,6 @@ export const logCall = internalMutation({
 // ---- Tool internals (read-only). Each builds the Viewer of the person the agent acts for, so
 // the agent sees exactly what that person would: their own company, never the reporter. ----
 
-const usd = (cents: number) => `$${(cents / 100).toLocaleString("en-US")}`;
 
 async function agentViewer(ctx: QueryCtx, agentId: Id<"agents">) {
   const agent = await ctx.db.get("agents", agentId);
@@ -140,7 +136,7 @@ async function agentViewer(ctx: QueryCtx, agentId: Id<"agents">) {
     .withIndex("email", (q) => q.eq("email", agent.onBehalfOfEmail))
     .unique();
   if (!user) throw new ConvexError("The person this agent acts for no longer exists");
-  return viewerForUser(user);
+  return { agent, viewer: viewerForUser(user) };
 }
 
 const decisionOut = (row: HeldPaymentRow) =>
@@ -152,7 +148,7 @@ export const listHeldPayments = internalQuery({
     status: v.optional(v.union(v.literal("held"), v.literal("paid"), v.literal("rejected"))),
   },
   handler: async (ctx, args) => {
-    const viewer = await agentViewer(ctx, args.agentId);
+    const { viewer } = await agentViewer(ctx, args.agentId);
     const rows = await heldPaymentsFor(ctx, viewer, {});
     return rows
       .filter((r) => !args.status || r.payment.status === args.status)
@@ -160,7 +156,7 @@ export const listHeldPayments = internalQuery({
         paymentId: r.payment._id,
         vendorName: r.vendorName,
         amountCents: r.payment.amountCents,
-        amount: usd(r.payment.amountCents),
+        amount: formatUsd(r.payment.amountCents),
         status: r.payment.status,
         bankChangeFlag: r.payment.bankChangeFlag ?? false,
         holdReasons: r.holdReasons,
@@ -173,11 +169,10 @@ export const listHeldPayments = internalQuery({
 export const explainHold = internalQuery({
   args: { agentId: v.id("agents"), paymentId: v.string() },
   handler: async (ctx, args) => {
-    const viewer = await agentViewer(ctx, args.agentId);
+    const { viewer } = await agentViewer(ctx, args.agentId);
     const paymentId = ctx.db.normalizeId("payments", args.paymentId);
     if (!paymentId) return null;
-    const rows = await heldPaymentsFor(ctx, viewer, {});
-    const row = rows.find((r) => r.payment._id === paymentId);
+    const [row] = await heldPaymentsFor(ctx, viewer, { paymentId });
     if (!row) return null; // not this company's, or never held: same answer, no leak
     const audit = await paymentAuditFor(ctx, viewer, paymentId);
     const status = row.payment.status;
@@ -190,7 +185,7 @@ export const explainHold = internalQuery({
     return {
       paymentId,
       vendorName: row.vendorName,
-      amount: usd(row.payment.amountCents),
+      amount: formatUsd(row.payment.amountCents),
       status,
       holdReasons: row.holdReasons,
       bankChange: row.bankChange
@@ -213,12 +208,12 @@ export const explainHold = internalQuery({
 export const listBills = internalQuery({
   args: { agentId: v.id("agents") },
   handler: async (ctx, args) => {
-    const viewer = await agentViewer(ctx, args.agentId);
+    const { viewer } = await agentViewer(ctx, args.agentId);
     const bills = await billsFor(ctx, viewer);
     return bills.map((b) => ({
       billId: b.bill._id,
       vendorName: b.vendorName,
-      amount: usd(b.bill.amountCents),
+      amount: formatUsd(b.bill.amountCents),
       dueDate: b.bill.dueDate,
       description: b.bill.description,
       payment: b.payment ? { paymentId: b.payment._id, status: b.payment.status } : null,
@@ -231,8 +226,7 @@ export const listBills = internalQuery({
 export const requestPayment = internalMutation({
   args: { agentId: v.id("agents"), billId: v.string() },
   handler: async (ctx, args) => {
-    const viewer = await agentViewer(ctx, args.agentId);
-    const agent = (await ctx.db.get("agents", args.agentId))!;
+    const { agent, viewer } = await agentViewer(ctx, args.agentId);
     const billId = ctx.db.normalizeId("bills", args.billId);
     const result = billId
       ? await requestPaymentFor(ctx, viewer, billId)
@@ -248,7 +242,7 @@ export const requestPayment = internalMutation({
       rule: "mcp_tool:request_payment",
       reason: `${agent.name} called request_payment: ${result.ok ? "ok" : "refused"}. ${
         result.ok
-          ? `Requested ${usd(payment!.amountCents)}${result.held ? `, held until verified${result.flagged ? " and flagged" : ""}` : ""}.`
+          ? `Requested ${formatUsd(payment!.amountCents)}${result.held ? `, held until verified${result.flagged ? " and flagged" : ""}` : ""}.`
           : result.reason
       }`,
     });

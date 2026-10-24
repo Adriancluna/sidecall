@@ -57,7 +57,7 @@ const TOOLS = [
 ] as const;
 
 type RpcId = string | number | null;
-type Agent = { agentId: Id<"agents">; name: string; tools: string[] };
+type Agent = { agentId: Id<"agents">; name: string; tools: string[]; companyId: Id<"companies"> };
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -113,7 +113,7 @@ export const mcpHandler = httpAction(async (ctx, req) => {
   const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
   const who = token ? await ctx.runQuery(internal.agents.authenticate, { tokenHash: await sha256Hex(token) }) : null;
   if (!who) return json(401, { error: "invalid agent token" });
-  const agent: Agent = { agentId: who.agentId, name: who.name, tools: who.tools };
+  const agent: Agent = who;
 
   // 3–4. Parse one JSON-RPC message.
   const raw = await req.text();
@@ -158,6 +158,7 @@ export const mcpHandler = httpAction(async (ctx, req) => {
       if (!TOOLS.some((t) => t.name === name) || !agent.tools.includes(name)) {
         await ctx.runMutation(internal.agents.logCall, {
           agentId: agent.agentId,
+          companyId: agent.companyId,
           tool: name || "(none)",
           ok: false,
           summary: "Tool not available to this agent.",
@@ -168,6 +169,7 @@ export const mcpHandler = httpAction(async (ctx, req) => {
       if ("logged" in out) return rpcResult(id, out.result);
       await ctx.runMutation(internal.agents.logCall, {
         agentId: agent.agentId,
+        companyId: agent.companyId,
         tool: name,
         ok: out.ok,
         summary: out.summary,

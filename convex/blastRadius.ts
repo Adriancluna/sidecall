@@ -4,10 +4,7 @@ import { v } from "convex/values";
 import { query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { canSeeCompany, getViewer } from "./access";
-
-// Fan-out reads are bounded: one incident reaches at most this many linked companies and
-// payments (incidents.ts and payments.ts read the same bound). Far above a PE portfolio.
-const MAX_FANOUT = 500;
+import { MAX_FANOUT, memo } from "./shared";
 
 // Why a company appears on the map. Exported so the frontend can switch on it exhaustively.
 export type NodeRelation =
@@ -94,7 +91,7 @@ export const getBlastRadius = query({
             ctx.db
               .query("links")
               .withIndex("by_assetId", (q) => q.eq("assetId", a._id))
-              .take(500),
+              .take(MAX_FANOUT),
           ),
       )
     ).flat();
@@ -241,6 +238,12 @@ type TimelineEvent = {
   companyName: string | null;
 };
 
+// Audit actions that are timeline events. "contain" is added separately with a viewer-safe
+// label; "import" and "agent_call" are bookkeeping, not incident events.
+const TIMELINE_AUDIT_ACTIONS = ["hold", "flag", "escalate", "refused", "release", "reject"] as const;
+const isTimelineAction = (a: string): a is (typeof TIMELINE_AUDIT_ACTIONS)[number] =>
+  (TIMELINE_AUDIT_ACTIONS as readonly string[]).includes(a);
+
 // What happened, when, for one incident: the proof behind "held in the same transaction
 // as the report". The firm sees every company; a company sees only its own events, and the
 // "reported" event never says who reported.
@@ -257,17 +260,17 @@ export const getIncidentTimeline = query({
         ? ctx.db
             .query("auditLog")
             .withIndex("by_incidentId", (q) => q.eq("incidentId", incident._id))
-            .take(500)
+            .take(MAX_FANOUT)
         : ctx.db
             .query("auditLog")
             .withIndex("by_companyId_and_incidentId", (q) =>
               q.eq("companyId", viewer.companyId).eq("incidentId", incident._id),
             )
-            .take(500),
+            .take(MAX_FANOUT),
       ctx.db
         .query("exposures")
         .withIndex("by_incidentId_and_companyId", (q) => q.eq("incidentId", incident._id))
-        .take(500),
+        .take(MAX_FANOUT),
       Promise.all(
         (["company_alert", "hold_notice", "vendor_letter"] as const).map((kind) =>
           ctx.db
@@ -275,17 +278,13 @@ export const getIncidentTimeline = query({
             .withIndex("by_incidentId_and_kind", (q) =>
               q.eq("incidentId", incident._id).eq("kind", kind),
             )
-            .take(500),
+            .take(MAX_FANOUT),
         ),
       ),
     ]);
 
-    const companyNames = new Map<string, string>();
-    const companyName = async (id: Id<"companies"> | undefined) => {
-      if (!id) return null;
-      if (!companyNames.has(id)) companyNames.set(id, (await ctx.db.get("companies", id))?.name ?? "");
-      return companyNames.get(id)!;
-    };
+    const companyNameById = memo(async (id: Id<"companies">) => (await ctx.db.get("companies", id))?.name ?? "");
+    const companyName = async (id: Id<"companies"> | undefined) => (id ? await companyNameById(id) : null);
     const visible = (companyId: Id<"companies"> | undefined) =>
       companyId === undefined ? viewer.firm : canSeeCompany(viewer, companyId);
 
@@ -298,8 +297,7 @@ export const getIncidentTimeline = query({
       },
     ];
     for (const row of audit) {
-      // "contain" is added below with a viewer-safe label; "import" rows belong to no incident.
-      if (row.action === "contain" || row.action === "import" || row.action === "agent_call") continue;
+      if (!isTimelineAction(row.action)) continue;
       events.push({ at: row.at, kind: row.action, label: row.reason, companyName: await companyName(row.companyId) });
     }
     for (const alert of alertGroups.flat()) {
