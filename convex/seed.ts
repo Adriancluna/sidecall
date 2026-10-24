@@ -1,0 +1,267 @@
+// Demo portfolio. Everything here is simulated. Re-runnable: clears every table first.
+//   npx convex run seed:run
+//   npx convex run seed:fireDemoIncident '{"scenario":"brightline"}'
+//
+// The planted cases (seedRef) are listed in data/answer_key.json, which nothing in convex/ reads.
+import { v } from "convex/values";
+import { internalMutation } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
+import type { Doc, Id, TableNames } from "./_generated/dataModel";
+import { recordIncidentImpl } from "./incidents";
+
+const DAY = 24 * 60 * 60 * 1000;
+const usd = (dollars: number) => Math.round(dollars * 100);
+
+const TABLES: TableNames[] = [
+  "auditLog",
+  "ledgerEntries",
+  "alerts",
+  "exposures",
+  "payments",
+  "bills",
+  "bankDetailChanges",
+  "incidents",
+  "links",
+  "users",
+  "assets",
+  "companies",
+];
+
+type CompanyKey = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H";
+type AssetKey = "brightline" | "ironcladMsp" | "ironcladAdmin" | "keystone" | "relay" | "ledgerly";
+
+const COMPANIES: Record<CompanyKey, Omit<Doc<"companies">, "_id" | "_creationTime">> = {
+  A: { name: "Alder Freight Systems", domain: "alderfreight.example", sector: "Logistics", headcount: 1800, holdRuleEnabled: true },
+  B: { name: "Cedar Ridge Manufacturing", domain: "cedarridge.example", sector: "Manufacturing", headcount: 2100, holdRuleEnabled: true },
+  C: { name: "Summit Home Health", domain: "summithomehealth.example", sector: "Healthcare", headcount: 1600, holdRuleEnabled: true },
+  D: { name: "Bayview Veterinary Partners", domain: "bayviewvet.example", sector: "Veterinary", headcount: 500, holdRuleEnabled: true },
+  E: { name: "Granite Peak Software", domain: "granitepeak.example", sector: "Software", headcount: 650, holdRuleEnabled: false },
+  F: { name: "Harborline Foods", domain: "harborlinefoods.example", sector: "Food distribution", headcount: 1200, holdRuleEnabled: true },
+  G: { name: "Meridian Dental Group", domain: "meridiandental.example", sector: "Dental", headcount: 900, holdRuleEnabled: false },
+  // Newest, smallest acquisition: least reviewed, where the attacker gets in.
+  H: { name: "Pinecrest Staffing", domain: "pinecreststaffing.example", sector: "Staffing", headcount: 140, holdRuleEnabled: false },
+};
+
+const ASSETS: Record<AssetKey, Omit<Doc<"assets">, "_id" | "_creationTime">> = {
+  brightline: { name: "Brightline Payroll", vendorName: "Brightline Payroll Inc.", kind: "payroll", phoneOnFile: "+1 (415) 555-0142" },
+  ironcladMsp: { name: "Ironclad IT Services", vendorName: "Ironclad Managed IT", kind: "msp", phoneOnFile: "+1 (415) 555-0178" },
+  ironcladAdmin: { name: "Ironclad shared admin account", vendorName: "Ironclad Managed IT", kind: "msp", phoneOnFile: "+1 (415) 555-0178" },
+  keystone: { name: "Keystone SSO", vendorName: "Keystone Identity", kind: "idp", phoneOnFile: "+1 (628) 555-0110" },
+  relay: { name: "Relay Mail", vendorName: "Relay Mail Co.", kind: "email", phoneOnFile: "+1 (628) 555-0193" },
+  ledgerly: { name: "Ledgerly AP Portal", vendorName: "Ledgerly", kind: "other", phoneOnFile: "+1 (510) 555-0127" },
+};
+
+const LINKS: [CompanyKey, AssetKey, Doc<"links">["shareType"], Doc<"links">["source"]][] = [
+  // Brightline Payroll (the demo breach)
+  ["H", "brightline", "shared_admin_access", "self_reported"],
+  ["B", "brightline", "shared_credential", "self_reported"],
+  ["C", "brightline", "same_vendor_only", "self_reported"],
+  ["D", "brightline", "same_vendor_only", "dns_inferred"],
+  // Ironclad: C uses the MSP but has its own login, so a breach of the shared admin account must NOT alert C.
+  ["A", "ironcladMsp", "same_vendor_only", "self_reported"],
+  ["C", "ironcladMsp", "same_vendor_only", "self_reported"],
+  ["F", "ironcladMsp", "same_vendor_only", "self_reported"],
+  ["H", "ironcladMsp", "shared_admin_access", "self_reported"],
+  ["B", "ironcladAdmin", "shared_credential", "self_reported"],
+  ["E", "ironcladAdmin", "shared_credential", "self_reported"],
+  ["F", "ironcladAdmin", "shared_admin_access", "self_reported"],
+  ["H", "ironcladAdmin", "shared_credential", "self_reported"],
+  // Background links
+  ["A", "keystone", "shared_credential", "self_reported"],
+  ["G", "keystone", "shared_credential", "self_reported"],
+  ["E", "keystone", "same_vendor_only", "dns_inferred"],
+  ["A", "relay", "same_vendor_only", "dns_inferred"],
+  ["C", "relay", "same_vendor_only", "dns_inferred"],
+  ["F", "relay", "same_vendor_only", "dns_inferred"],
+  ["G", "relay", "same_vendor_only", "dns_inferred"],
+  ["B", "ledgerly", "same_vendor_only", "self_reported"],
+  ["D", "ledgerly", "same_vendor_only", "self_reported"],
+];
+
+const USERS: Record<CompanyKey, { clerk: string; controller: string; it?: string }> = {
+  A: { clerk: "Dana Whitfield", controller: "Marcus Oyelaran", it: "Priya Natarajan" },
+  B: { clerk: "Tom Becker", controller: "Elena Ruiz", it: "Sam Kowalski" },
+  C: { clerk: "Jamie Chen", controller: "Rosa Alvarez", it: "Kwame Mensah" },
+  D: { clerk: "Lily Okafor", controller: "Grant Holloway" },
+  E: { clerk: "Noah Fischer", controller: "Aisha Rahman", it: "Ben Carter" },
+  F: { clerk: "Carmen Diaz", controller: "Victor Lindqvist" },
+  G: { clerk: "Hannah Park", controller: "Omar Haddad" },
+  H: { clerk: "Riley Moore", controller: "Sofia Bianchi" },
+};
+
+// Bank detail history. Dates are relative to seeding; fire the demo incident soon after.
+const BANK_CHANGES: { ref: string; asset: AssetKey; daysAgo: number; last4: string; channel: Doc<"bankDetailChanges">["requestChannel"] }[] = [
+  { ref: "bc_brightline_2208_honest", asset: "brightline", daysAgo: 150, last4: "2208", channel: "verified_call" },
+  { ref: "bc_brightline_0193_old_email", asset: "brightline", daysAgo: 95, last4: "0193", channel: "email" },
+  { ref: "bc_brightline_4419_fraud", asset: "brightline", daysAgo: 9, last4: "4419", channel: "email" },
+  { ref: "bc_brightline_7731_fraud", asset: "brightline", daysAgo: 2, last4: "7731", channel: "email" },
+  { ref: "bc_ironclad_5510_honest", asset: "ironcladMsp", daysAgo: 210, last4: "5510", channel: "verified_call" },
+  { ref: "bc_ironclad_9902_fraud", asset: "ironcladMsp", daysAgo: 4, last4: "9902", channel: "email" },
+];
+
+const PAYMENTS: {
+  ref: string;
+  company: CompanyKey;
+  asset: AssetKey;
+  dollars: number;
+  last4: string;
+  status: "pending" | "paid";
+  description: string;
+}[] = [
+  { ref: "pay_C_brightline_480k", company: "C", asset: "brightline", dollars: 480_000, last4: "7731", status: "pending", description: "Q4 payroll funding and service fees" },
+  { ref: "pay_B_brightline_92k", company: "B", asset: "brightline", dollars: 92_000, last4: "2208", status: "pending", description: "Payroll processing, October" },
+  { ref: "pay_D_brightline_28k", company: "D", asset: "brightline", dollars: 28_000, last4: "2208", status: "pending", description: "Payroll processing, October" },
+  { ref: "pay_D_brightline_12k", company: "D", asset: "brightline", dollars: 12_000, last4: "4419", status: "pending", description: "Year-end tax filing add-on" },
+  { ref: "pay_H_brightline_35k", company: "H", asset: "brightline", dollars: 35_000, last4: "2208", status: "pending", description: "Payroll processing, October" },
+  { ref: "pay_B_brightline_paid", company: "B", asset: "brightline", dollars: 41_000, last4: "2208", status: "paid", description: "Payroll processing, September" },
+  { ref: "pay_F_ironclad_55k", company: "F", asset: "ironcladMsp", dollars: 55_000, last4: "5510", status: "pending", description: "Managed IT retainer, Q4" },
+  { ref: "pay_F_ironclad_37k", company: "F", asset: "ironcladMsp", dollars: 37_000, last4: "9902", status: "pending", description: "Emergency network refresh" },
+  { ref: "pay_A_ironclad_24k", company: "A", asset: "ironcladMsp", dollars: 24_000, last4: "5510", status: "pending", description: "Managed IT retainer, Q4" },
+  { ref: "pay_A_keystone_22k", company: "A", asset: "keystone", dollars: 22_000, last4: "3380", status: "pending", description: "SSO licences, annual" },
+  { ref: "pay_G_relay_9k", company: "G", asset: "relay", dollars: 9_000, last4: "6612", status: "pending", description: "Email hosting, annual" },
+];
+
+const OPENING_CASH = usd(5_000_000);
+
+export const SCENARIOS = {
+  brightline: {
+    externalId: "demo-brightline-001",
+    assetName: "Brightline Payroll",
+    reportedByDomain: "pinecreststaffing.example",
+    summary: "Attacker used Brightline's admin access at the newest acquisition to reach the payroll vendor's tenant.",
+  },
+  ironcladCredential: {
+    externalId: "demo-ironclad-cred-002",
+    assetName: "Ironclad shared admin account",
+    reportedByDomain: "pinecreststaffing.example",
+    summary: "Ironclad's shared admin credential seen in use from an unknown host.",
+  },
+  ironcladMsp: {
+    externalId: "demo-ironclad-msp-003",
+    assetName: "Ironclad IT Services",
+    reportedByDomain: "pinecreststaffing.example",
+    summary: "Ironclad Managed IT reports a compromise of its own systems.",
+  },
+} as const;
+
+async function clearAll(ctx: MutationCtx) {
+  for (const table of TABLES) {
+    for (const doc of await ctx.db.query(table).take(4000)) {
+      await ctx.db.delete(table, doc._id);
+    }
+  }
+}
+
+export const run = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    await clearAll(ctx);
+    const now = Date.now();
+
+    const companyIds = {} as Record<CompanyKey, Id<"companies">>;
+    for (const [key, company] of Object.entries(COMPANIES) as [CompanyKey, (typeof COMPANIES)[CompanyKey]][]) {
+      companyIds[key] = await ctx.db.insert("companies", company);
+      await ctx.db.insert("ledgerEntries", {
+        companyId: companyIds[key],
+        date: now - 180 * DAY,
+        memo: "Opening balance",
+        lines: [
+          { account: "cash", debitCents: OPENING_CASH, creditCents: 0 },
+          { account: "equity", debitCents: 0, creditCents: OPENING_CASH },
+        ],
+      });
+    }
+
+    const assetIds = {} as Record<AssetKey, Id<"assets">>;
+    for (const [key, asset] of Object.entries(ASSETS) as [AssetKey, (typeof ASSETS)[AssetKey]][]) {
+      assetIds[key] = await ctx.db.insert("assets", asset);
+    }
+
+    for (const [company, asset, shareType, source] of LINKS) {
+      await ctx.db.insert("links", { companyId: companyIds[company], assetId: assetIds[asset], shareType, source });
+    }
+
+    const clerkIds = {} as Record<CompanyKey, Id<"users">>;
+    for (const [key, people] of Object.entries(USERS) as [CompanyKey, (typeof USERS)[CompanyKey]][]) {
+      clerkIds[key] = await ctx.db.insert("users", { companyId: companyIds[key], name: people.clerk, role: "ap_clerk" });
+      await ctx.db.insert("users", { companyId: companyIds[key], name: people.controller, role: "controller" });
+      if (people.it) await ctx.db.insert("users", { companyId: companyIds[key], name: people.it, role: "it" });
+    }
+    await ctx.db.insert("users", { name: "Jordan Ames (Northpass Capital)", role: "pe_partner" });
+
+    for (const change of BANK_CHANGES) {
+      await ctx.db.insert("bankDetailChanges", {
+        assetId: assetIds[change.asset],
+        changedAt: now - change.daysAgo * DAY,
+        accountLast4: change.last4,
+        requestChannel: change.channel,
+        seedRef: change.ref,
+      });
+    }
+
+    for (const p of PAYMENTS) {
+      const amountCents = usd(p.dollars);
+      const companyId = companyIds[p.company];
+      const booked = now - (p.status === "paid" ? 35 : 6) * DAY;
+      const billId = await ctx.db.insert("bills", {
+        companyId,
+        assetId: assetIds[p.asset],
+        amountCents,
+        dueDate: p.status === "paid" ? now - 30 * DAY : now + 3 * DAY,
+        description: p.description,
+      });
+      await ctx.db.insert("ledgerEntries", {
+        companyId,
+        date: booked,
+        memo: `Bill booked: ${ASSETS[p.asset].vendorName}, ${p.description}`,
+        billId,
+        lines: [
+          { account: "expense", debitCents: amountCents, creditCents: 0 },
+          { account: "accounts_payable", debitCents: 0, creditCents: amountCents },
+        ],
+      });
+      const paymentId = await ctx.db.insert("payments", {
+        billId,
+        companyId,
+        assetId: assetIds[p.asset],
+        amountCents,
+        accountLast4: p.last4,
+        status: p.status,
+        requestedBy: clerkIds[p.company],
+        seedRef: p.ref,
+        decidedAt: p.status === "paid" ? now - 30 * DAY : undefined,
+      });
+      if (p.status === "paid") {
+        await ctx.db.insert("ledgerEntries", {
+          companyId,
+          date: now - 30 * DAY,
+          memo: `Payment: ${ASSETS[p.asset].vendorName}, ${p.description}`,
+          paymentId,
+          billId,
+          lines: [
+            { account: "accounts_payable", debitCents: amountCents, creditCents: 0 },
+            { account: "cash", debitCents: 0, creditCents: amountCents },
+          ],
+        });
+      }
+    }
+
+    return {
+      companies: Object.keys(COMPANIES).length,
+      assets: Object.keys(ASSETS).length,
+      links: LINKS.length,
+      payments: PAYMENTS.length,
+      bankChanges: BANK_CHANGES.length,
+    };
+  },
+});
+
+// Same code path as POST /incident, for testing without curl.
+export const fireDemoIncident = internalMutation({
+  args: {
+    scenario: v.union(v.literal("brightline"), v.literal("ironcladCredential"), v.literal("ironcladMsp")),
+  },
+  handler: async (ctx, args) => {
+    return await recordIncidentImpl(ctx, SCENARIOS[args.scenario]);
+  },
+});

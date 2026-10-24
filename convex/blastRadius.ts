@@ -1,0 +1,162 @@
+// Read-side queries for the UI. getBlastRadius is the PE firm view: it is the only
+// place the reporting company is named.
+import { v } from "convex/values";
+import { query } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
+
+export const listIncidents = query({
+  args: {},
+  handler: async (ctx) => {
+    const incidents = await ctx.db.query("incidents").order("desc").take(50);
+    return await Promise.all(
+      incidents.map(async (incident) => {
+        const asset = await ctx.db.get("assets", incident.assetId);
+        return { ...incident, assetName: asset?.name ?? "", vendorName: asset?.vendorName ?? "" };
+      }),
+    );
+  },
+});
+
+export const getBlastRadius = query({
+  args: { incidentId: v.id("incidents") },
+  handler: async (ctx, args) => {
+    const incident = await ctx.db.get("incidents", args.incidentId);
+    if (!incident) return null;
+    const asset = await ctx.db.get("assets", incident.assetId);
+    if (!asset) return null;
+
+    const [companies, exposures, links, siblingAssets, payments] = await Promise.all([
+      ctx.db.query("companies").take(100),
+      ctx.db
+        .query("exposures")
+        .withIndex("by_incidentId_and_companyId", (q) => q.eq("incidentId", incident._id))
+        .take(200),
+      ctx.db
+        .query("links")
+        .withIndex("by_assetId", (q) => q.eq("assetId", asset._id))
+        .take(500),
+      ctx.db
+        .query("assets")
+        .withIndex("by_vendorName", (q) => q.eq("vendorName", asset.vendorName))
+        .take(20),
+      ctx.db
+        .query("payments")
+        .withIndex("by_heldByIncidentId", (q) => q.eq("heldByIncidentId", incident._id))
+        .take(500),
+    ]);
+
+    // Same vendor, different asset (e.g. a separate login): shown, but deliberately not exposed.
+    const siblingLinks = (
+      await Promise.all(
+        siblingAssets
+          .filter((a) => a._id !== asset._id)
+          .map((a) =>
+            ctx.db
+              .query("links")
+              .withIndex("by_assetId", (q) => q.eq("assetId", a._id))
+              .take(500),
+          ),
+      )
+    ).flat();
+
+    const exposureByCompany = new Map(exposures.map((e) => [e.companyId, e]));
+    const linkedCompanies = new Set<Id<"companies">>(links.map((l) => l.companyId));
+    const siblingCompanies = new Set<Id<"companies">>(siblingLinks.map((l) => l.companyId));
+    const heldCentsByCompany = new Map<Id<"companies">, number>();
+    for (const p of payments) {
+      if (p.status !== "held") continue;
+      heldCentsByCompany.set(p.companyId, (heldCentsByCompany.get(p.companyId) ?? 0) + p.amountCents);
+    }
+
+    const nodes = companies.map((c) => {
+      const exposure = exposureByCompany.get(c._id);
+      const relation =
+        c._id === incident.reportedByCompanyId
+          ? "reporter"
+          : exposure
+            ? "exposed"
+            : linkedCompanies.has(c._id)
+              ? "linked_not_exposed"
+              : siblingCompanies.has(c._id)
+                ? "same_vendor_separate_access"
+                : "unrelated";
+      return {
+        companyId: c._id,
+        name: c.name,
+        headcount: c.headcount,
+        exposed: exposure !== undefined,
+        relation,
+        exposureId: exposure?._id ?? null,
+        urgency: exposure?.urgency ?? null,
+        score: exposure?.score ?? 0,
+        confidence: exposure?.confidence ?? null,
+        status: exposure?.status ?? null,
+        heldCents: heldCentsByCompany.get(c._id) ?? 0,
+      };
+    });
+
+    const exposedNodes = nodes.filter((n) => n.exposed);
+    const reporter = incident.reportedByCompanyId
+      ? await ctx.db.get("companies", incident.reportedByCompanyId)
+      : null;
+
+    return {
+      incident: { ...incident, reportedByName: reporter?.name ?? null },
+      asset,
+      nodes,
+      edges: [...links, ...siblingLinks].map((l) => ({
+        companyId: l.companyId,
+        assetId: l.assetId,
+        shareType: l.shareType,
+        source: l.source,
+        compromised: l.assetId === asset._id,
+      })),
+      totals: {
+        companiesExposed: exposedNodes.length,
+        peopleExposed: exposedNodes.reduce((sum, n) => sum + n.headcount, 0),
+        heldCents: nodes.reduce((sum, n) => sum + n.heldCents, 0),
+        paymentsHeld: payments.filter((p) => p.status === "held").length,
+      },
+    };
+  },
+});
+
+export const getExposureEvidence = query({
+  args: { exposureId: v.id("exposures") },
+  handler: async (ctx, args) => {
+    const exposure = await ctx.db.get("exposures", args.exposureId);
+    if (!exposure) return null;
+    return {
+      reasons: exposure.reasons,
+      confidence: exposure.confidence,
+      evidence: exposure.evidence,
+      urgency: exposure.urgency,
+      score: exposure.score,
+      status: exposure.status,
+    };
+  },
+});
+
+// For the demo user switcher and company picker.
+export const listCompanies = query({
+  args: {},
+  handler: async (ctx) => await ctx.db.query("companies").take(100),
+});
+
+export const listUsers = query({
+  args: { companyId: v.optional(v.id("companies")) },
+  handler: async (ctx, args) => {
+    if (args.companyId) {
+      return await ctx.db
+        .query("users")
+        .withIndex("by_companyId", (q) => q.eq("companyId", args.companyId))
+        .take(50);
+    }
+    return await ctx.db.query("users").take(200);
+  },
+});
+
+export const listAssets = query({
+  args: {},
+  handler: async (ctx) => await ctx.db.query("assets").take(100),
+});

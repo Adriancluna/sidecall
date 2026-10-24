@@ -83,38 +83,53 @@ All money is integer cents. All times are ms since epoch.
 
 ## Queries (UI subscribes with `useQuery`)
 
-```ts
-listIncidents() -> Incident[]
+Module prefix in brackets: `api.blastRadius.listIncidents`, etc. `null` means "none" (Convex has no `undefined`).
 
-getBlastRadius({ incidentId }) -> {
-  incident, asset,
-  nodes: { companyId, name, headcount, exposed, urgency?, score, status, heldCents }[],
-  edges: { companyId, assetId, shareType, source }[],
+```ts
+[blastRadius] listIncidents() -> (Incident & { assetName, vendorName })[]   // newest first
+
+[blastRadius] getBlastRadius({ incidentId }) -> null | {      // PE firm view only
+  incident: Incident & { reportedByName: string | null },
+  asset,
+  nodes: { companyId, name, headcount, exposed,
+           relation: "exposed" | "reporter" | "same_vendor_separate_access" | "linked_not_exposed" | "unrelated",
+           exposureId | null, urgency | null, score, confidence | null, status | null,
+           heldCents }[],                                    // heldCents counts status "held" only
+  edges: { companyId, assetId, shareType, source, compromised: boolean }[],
   totals: { companiesExposed, peopleExposed, heldCents, paymentsHeld }
 }
 
-getExposureEvidence({ exposureId }) -> { reasons, confidence, evidence }
+[blastRadius] getExposureEvidence({ exposureId }) -> null | { reasons, confidence, evidence, urgency, score, status }
+[blastRadius] listCompanies() · listUsers({ companyId? }) · listAssets()   // pickers / demo user switcher
 
-getHeldPayments({ incidentId?, companyId? }) -> {
+[payments] getHeldPayments({ incidentId?, companyId? }) -> {   // every payment the incident held, incl. later paid/rejected
   payment, companyName, vendorName, phoneOnFile,
-  bankChange?: { changedAt, accountLast4, requestChannel, daysBeforeIncident },
-  holdReasons, notice?: string
+  bankChange: null | { changedAt, accountLast4, requestChannel, daysBeforeIncident },
+  holdReasons, notice: string | null
 }[]
 
-getPaymentAudit({ paymentId }) -> AuditLog[]
+[payments] getPaymentAudit({ paymentId }) -> AuditLog[]
 
-getLedger({ companyId }) -> LedgerEntry[]
+[payments] getLedger({ companyId }) -> {
+  entries: LedgerEntry[],                                    // newest first
+  balances: { cash, accounts_payable, expense, equity }      // cents, natural sign
+}
+
+[alerts] getMyAlerts({ actingUserId }) -> Alert[]            // only that user's company
+[alerts] getIncidentAlerts({ incidentId }) -> Alert[]        // PE view, includes vendor_letter
 ```
 
 ## Mutations (UI)
 
 ```ts
-acknowledgeExposure({ exposureId }) -> { ok: true } | { ok: false, reason: "already_acknowledged" | "closed" }
-closeExposure({ exposureId })       -> same shape
+[incidents] acknowledgeExposure({ exposureId }) -> { ok: true } | { ok: false, reason: "not_found" | "already_acknowledged" | "closed" }
+[incidents] closeExposure({ exposureId })       -> same shape
 
-releasePayment({ paymentId, actingUserId, verificationNote }) -> { ok: true } | { ok: false, reason: string }
-rejectPayment({ paymentId, actingUserId })                    -> same shape
+[payments] releasePayment({ paymentId, actingUserId, verificationNote }) -> { ok: true } | { ok: false, reason: string }
+[payments] rejectPayment({ paymentId, actingUserId, note? })             -> same shape
 ```
+
+`reason` is human-readable; show it as-is (e.g. "The person who requested a payment cannot also approve it.").
 
 `actingUserId` is temporary. Once login lands it is removed and identity comes from `ctx.auth`.
 
@@ -123,11 +138,37 @@ rejectPayment({ paymentId, actingUserId })                    -> same shape
 ```ts
 internal.alerts.saveAlert({ incidentId, exposureId?, companyId?, paymentId?, kind, body })
 
-// Role 4 implements; scheduled ONCE per incident from recordIncident, loop inside.
+// Everything a writer needs for one incident. Never contains the reporting company.
+internal.alerts.getWritingContext({ incidentId }) -> null | {
+  incidentId, summary, asset: { name, vendorName, kind, phoneOnFile },
+  companyAlerts: { exposureId, companyId, companyName, urgency, reasons, confidence }[],
+  heldPayments: { paymentId, companyId, companyName, amountCents, accountLast4, bankChangeFlag, holdReasons }[]
+}
+
+// Role 4 implements (stub in place); scheduled ONCE per incident from recordIncident, loop inside.
 internal.ai.generateAlert({ incidentId })
 internal.ai.generateVendorLetter({ incidentId })
 internal.ai.generateHoldNotice({ incidentId })
+
+// Scorecard input, keyed by seedRef:
+internal.scoring.exportOutcomes({ externalId }) -> { incidentId, payments: { seedRef, status, held, bankChangeFlag }[],
+                                                     bankChanges: { seedRef, flagged }[] }
 ```
+
+## Demo data commands
+
+```
+npx convex run seed:run                                            # wipe + reseed
+npx convex run seed:fireDemoIncident '{"scenario":"brightline"}'   # the main demo (also: ironcladCredential, ironcladMsp)
+curl -X POST https://<deployment>.convex.site/incident -H 'Content-Type: application/json' \
+  -d '{"externalId":"demo-brightline-001","assetName":"Brightline Payroll","reportedByDomain":"pinecreststaffing.example"}'
+```
+
+| Scenario | What it shows |
+|---|---|
+| `brightline` | 3 exposed (Cedar Ridge urgent, Summit urgent, Bayview advisory), 4,200 people, $612K held, Summit's $480K flagged |
+| `ironcladCredential` | Shared admin login leaked: Cedar Ridge, Granite Peak, Harborline exposed. Summit uses Ironclad with its own login → not exposed. No holds. |
+| `ironcladMsp` | The vendor itself fell: every customer exposed, Harborline's $37K to a new account flagged |
 
 ## HTTP
 
