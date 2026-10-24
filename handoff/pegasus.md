@@ -1,5 +1,5 @@
 # Pegasus: response resilience + payment investigation
-Last updated: 2026-10-24 13:13 America/Los_Angeles by Pegasus
+Last updated: 2026-10-24 13:32 America/Los_Angeles by Pegasus
 
 ## Status
 - Ashwa requested implementation while keeping Hyphenate and Armadin, including resistance to repeated reports causing business disruption.
@@ -10,6 +10,7 @@ Last updated: 2026-10-24 13:13 America/Los_Angeles by Pegasus
 - Read access works; fetched main `7c2f5f8` and checked the updated Role 3 handoff, with no new request addressed to Pegasus. Main now includes #98's plain-English evidence/red-team labels; reconcile the overlapping `EvidencePanel.tsx` edit before integrating this branch (still based on `24d029b`).
 - Latest check: main `02b5a33` adds Role 2's proposed UI polish handoff (#100); coordinate `PortfolioView.tsx`/`CompanyView.tsx` tab integration with Marco and Adrian before merging. No request specifically addressed to Pegasus.
 - Access recommendation verified against official docs: GitHub personal-repository Collaborator (write); Vercel Pro team Member (or Enterprise Contributor + Sidecall Project Administrator); Convex team Developer + Sidecall Project Admin for production writes. No ownership transfer is needed. These are requested human-account roles, not verified access; authenticated local CLI/connection access must still work.
+- Latest access check requested by Ashwa: public Git fetch works and main remains `02b5a33`; direct push dry-run cannot obtain a GitHub username/credential. The GitHub connector briefly appeared and then became unavailable before a write check, so its current permission is unverified (not a new 403). Vercel CLI/auth/linkage and Convex local auth/deployment configuration are absent from this checkout; no relevant environment credentials are exported. Remote account invitations/roles may have changed, but access is not yet usable here. No push or deployment occurred.
 - Validation: 95 tests passed (54 backend, 12 MCP, 29 Pegasus), application/backend typechecks, ESLint, production build, and rehearsal-script syntax passed.
 
 ## Completed locally
