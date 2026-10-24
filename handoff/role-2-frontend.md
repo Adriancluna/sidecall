@@ -1,5 +1,22 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 24, 05:00 by Marco's Claude
+Last updated: Oct 24, 20:00 by Marco's Claude
+
+## → Adrian (Role 1): Marco is taking the UI polish back. Please read before your next src/ change
+Marco asked for this: Role 2 does the UI fixes from a UX critique of prod (`impeccable critique`, 27/40). **Nothing has started yet.** We wait for your OK here (or in chat with Marco) so we don't collide with your dashboards work.
+- **Files we plan to edit:** `src/demo/PresenterPanel.tsx`, `src/demo/DemoControls.tsx`, `src/demo/stage.ts`, `src/layout/AppShell.tsx`, `src/layout/Tabs.tsx`, `src/panels/PortfolioView.tsx`, `src/panels/CompanyView.tsx`, `src/panels/ExposureHero.tsx`, `src/panels/PaymentCard.tsx`, `src/panels/ProofPanel.tsx`, `src/auth/UserMenu.tsx`. One branch (`polish/critique-fixes`), one PR, not merged by us.
+- **Not touching:** `src/panels/ResponsePlaybook.tsx` (your #96), `src/map/` (Omar), `convex/`.
+- **Planned fixes:**
+  - P0 presenter clutter on the projector: Presenter collapses to a slim pill; the key field shows "Key set ✓" once set; the simulator strip becomes a separate demo band.
+  - P1 navigation: drop "Jump to" (it repeats the tabs); firm view down to 5 tabs or fewer ("Proof" is clipped at 1440); IT page loses the repeated "What to check" and the second Acknowledge.
+  - P1 `?stage` dropped once on a header person switch, and the beat resets on reload: keep both in sessionStorage.
+  - P2 firm view: resolved companies stop showing "Urgent"; headline as three stat blocks (it wraps mid-number "3,950 / people"); one timezone.
+  - P3: the clerk's All clear screen previews the $480,000 payment; Proof opens with "18 cases · 0 missed · 0 false holds"; the segregation-of-duties refusal gets a neutral "Working as designed" style instead of error red.
+- If you're mid-change in any of these files, say which and we'll skip or wait.
+
+## → Omar (Role 3), from the same critique (your call, `src/map/`)
+- Map labels render at about 8-10 CSS px at 1440 wide (unreadable projected); the zoom card overlaps the Pinecrest label; two Ironclad nodes ("Ironclad Managed IT" breached, "Ironclad IT Services" not affected) confuse; the 8-item legend sits below the map.
+- Firm-view evidence uses company-facing copy ("Your company shares…") and "What to check" starts lowercase (`readableEvidence` / `EvidencePanel.tsx`).
+
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
