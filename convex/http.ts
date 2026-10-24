@@ -1,7 +1,8 @@
 import { httpRouter } from "convex/server";
-import { httpAction } from "./_generated/server";
+import { env, httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { auth } from "./auth";
+import { SCENARIOS } from "./seed";
 
 const http = httpRouter();
 
@@ -12,8 +13,47 @@ auth.addHttpRoutes(http);
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, X-Sidecall-Signature",
 };
+
+// Real senders sign the raw body: X-Sidecall-Signature: sha256=<hex HMAC-SHA256 with
+// INCIDENT_WEBHOOK_SECRET>. Unsigned requests are accepted only for the built-in demo
+// scenarios, and only on deployments with DEMO_MODE=true (the stage button).
+const SIGNATURE_HEADER = "X-Sidecall-Signature";
+
+async function hmacSha256Hex(secret: string, body: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(body));
+  return Array.from(new Uint8Array(signature), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+async function hasValidSignature(req: Request, rawBody: string): Promise<boolean> {
+  const header = req.headers.get(SIGNATURE_HEADER);
+  const secret = env.INCIDENT_WEBHOOK_SECRET;
+  if (!header || !secret) return false;
+  const expected = `sha256=${await hmacSha256Hex(secret, rawBody)}`;
+  return constantTimeEqual(header, expected);
+}
+
+function isDemoScenario(externalId: string, assetName: string): boolean {
+  return Object.values(SCENARIOS).some(
+    (s) => s.externalId === externalId && s.assetName === assetName,
+  );
+}
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -31,9 +71,10 @@ http.route({
   path: "/incident",
   method: "POST",
   handler: httpAction(async (ctx, req) => {
+    const rawBody = await req.text();
     let body: unknown;
     try {
-      body = await req.json();
+      body = JSON.parse(rawBody);
     } catch {
       return json(400, { error: "body must be JSON" });
     }
@@ -55,6 +96,12 @@ http.route({
       return json(400, {
         error: "expected { externalId: string, assetName: string, reportedByDomain?: string, summary?: string }",
       });
+    }
+
+    const signed = await hasValidSignature(req, rawBody);
+    const demo = env.DEMO_MODE === "true" && isDemoScenario(externalId, assetName);
+    if (!signed && !demo) {
+      return json(401, { error: `missing or invalid ${SIGNATURE_HEADER}` });
     }
 
     const result = await ctx.runMutation(internal.incidents.recordIncident, {
