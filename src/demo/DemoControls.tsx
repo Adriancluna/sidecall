@@ -5,7 +5,7 @@ import { api } from "../../convex/_generated/api";
 import { friendlyError } from "../layout/errors";
 import { IS_STAGE } from "./stage";
 
-// Mirrors SCENARIOS in convex/seed.ts (not imported: that file is server code). These three are
+// Mirrors SCENARIOS in convex/seed.ts (not imported: that file is server code). These four are
 // the only incidents /incident accepts unsigned, and only on DEMO_MODE deployments.
 const SCENARIOS = [
   {
@@ -35,6 +35,14 @@ const SCENARIOS = [
       assetName: "Ironclad IT Services",
       reportedByDomain: "pinecreststaffing.example",
       summary: "Ironclad Managed IT reports a compromise of its own systems.",
+    },
+  },
+  {
+    // The server fills in the red-team finding itself; unsigned demo requests send only the id.
+    label: "Red-team finding (Ironclad login)",
+    body: {
+      externalId: "demo-armadin-004",
+      assetName: "Ironclad shared admin account",
     },
   },
 ] as const;
