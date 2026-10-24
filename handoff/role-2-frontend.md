@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 20:50 by Marco's Claude
+Last updated: Oct 23, 20:52 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -29,7 +29,13 @@ Last updated: Oct 23, 20:50 by Marco's Claude
 1. Round 3 done. Next: update `docs/` once Roles 3/4 land; new asks from Role 1.
 
 ## Needs from others
-- (none right now)
+- → Role 1: **the Role 4 brief (`role-4-ai-dns.md`, given to Omar) is out of date vs `main`.** Please update it, and check the Role 3 brief the same way, before the Waterloo teammates start (~11pm). Differences found:
+  1. Says `HANDOFF.md`; the repo uses `handoff/` (his file: `handoff/role-4-ai.md`).
+  2. Says `generateAlert({ exposureId })` once per company; `convex/ai.ts` + CONTRACT.md are `({ incidentId })` once per incident, looping inside, reading `internal.alerts.getWritingContext`.
+  3. Scorecard shape `{ caught, missed, falseHolds, falseFlags, total, cases: { id, expected, actual } }` ≠ CONTRACT.md "Scorecard" (`scenarios[]`, `correctNoAction`, cases `ref/type/expected/actual/result/why`). The Proof panel validates the CONTRACT shape and would show "unreadable".
+  4. DNS links shape `{ domain, vendorName, assetKind, … }` ≠ CONTRACT.md "DNS links" (`[{ companyDomain, assetName, detail }]`); no mention of the Brightline warning.
+  5. Setup misses dev login keys (`npx @convex-dev/auth --web-server-url http://localhost:5173 --skip-git-check`) and `DEMO_MODE=true`; without them sign-in, Fire and Reset fail on his dev. Also worth pointing him at `scoring:exportOutcomes` and the signed-webhook rule.
+  Marco gave Omar a corrections block to paste meanwhile; the fixed brief should match it.
 
 ## Decisions & gotchas
 - Sign-in is invite-only (backend). The demo password `sidecall-demo` is shown on the sign-in screen on purpose: every person is simulated and judges need to switch roles. The form path sets the password on a person's first sign-in, so typing any other password the first time locks that person to it until a Reset; the quick-pick always uses the demo password.
