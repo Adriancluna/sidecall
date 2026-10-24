@@ -7,6 +7,7 @@ The data shapes and function signatures every role builds against. Owned by Role
 
 ## Changelog
 
+- **Oct 24, ~2:45am.** "What to check" for sister companies' IT leads: `exposures.path.whatToCheck?`, `getExposureEvidence().path.whatToCheck`, evidence kind `what_to_check`, `getWritingContext().companyAlerts[].whatToCheck`. Built from the technique, our own asset row and the time the path was proven, e.g. "What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong." The action differs by link type.
 - **Oct 24, ~3am.** Red-team findings, one step ahead (spec `docs/specs/armadin-one-step-ahead.md` Part A; **our own finding schema**, not Armadin's). `POST /incident` takes an optional `finding` (see HTTP); `404 unknown_reporter` when its scope isn't a portfolio company. Incidents gained `finding?` (firm-only); exposures gained `path?` and evidence kinds `technique` and `path`. `listIncidents` rows gained `findingSource` (firm only); `getBlastRadius` edges gained `path`; `getExposureEvidence` gained `path`; `getWritingContext` gained `technique` and `companyAlerts[].pathSummary`. New scenario `armadinFinding` (`demo-armadin-004`). A finding never changes score, urgency or confidence; a credential finding skips `same_vendor_only` links. Unsigned demo requests now run the stored scenario as-is (body text and findings ignored).
 - **Oct 24, ~2am.** Access and robustness: `listCompanies` / `listUsers` / `listAssets` are public only where `DEMO_MODE=true` (the sign-in quick-pick); elsewhere they return `[]` when signed out, and a company user gets `email`/`phone` only for their own colleagues. `getIncidentTimeline` returns `null` to a company the incident never touched. `resetDemo` / `seed:run` return `continuing: boolean` (true: the wipe was too big for one transaction and finishes in a moment). Notifications gained `claimedAt?`; a 5-min cron requeues rows stuck in `sending`. Bank-change seed refs renamed `*_fraud` → `*_email_change` (answer key updated; `data/scorecard.json` needs a regenerate).
 - **Oct 23, ~10:25pm.** MCP agent access (plan `docs/specs/mcp-implementation-plan.md`, Tasks 1–5): `POST /mcp` (bearer token). New table `agents` (survives resets); audit `actor` may be an agent id; audit action `agent_call`; `getPaymentAudit` rows gained `actorName` (and `getIncidentAudit` labels agents "<name> (agent)"). Tools: `list_held_payments`, `explain_hold`, `list_bills`, `request_payment`. No release/reject tool.
@@ -220,7 +221,8 @@ claude mcp add --transport http sidecall https://<deployment>.convex.site/mcp --
 [blastRadius] getExposureEvidence({ exposureId }) -> null | { exposureId, incidentId, companyId,
                                        reasons, confidence, evidence, urgency, score, status, acknowledgedBy | null,
                                        path: null | { techniqueId, techniqueName: string | null, sharedHop,
-                                                      linkType, source: "validated_at_source", here: "reachable_not_tested" } }
+                                                      linkType, source: "validated_at_source", here: "reachable_not_tested",
+                                                      whatToCheck?: string } }
 // evidence may include { kind: "technique", detail: "T1078 Valid Accounts" } and { kind: "path", detail: <sister-safe sentence> }
 [blastRadius] getMyExposures() -> Exposure[]       // company user's home screen; [] for the firm
 [blastRadius] listCompanies() · listUsers({ companyId? }) · listAssets()   // sign-in quick-pick directory (public on DEMO_MODE; company users see only colleagues' emails)
@@ -292,7 +294,7 @@ internal.alerts.getWritingContext({ incidentId }) -> null | {
   incidentId, externalId, summary, asset: { name, vendorName, kind, phoneOnFile },
   technique: null | { id, name: string | null },          // from a finding; names only from our ATT&CK table
   companyAlerts: { exposureId, companyId, companyName, urgency, reasons, confidence,
-                   pathSummary: string | null }[],        // sister-safe; never write "validated" for a sister without "not tested"
+                   pathSummary: string | null, whatToCheck: string | null }[],        // sister-safe; never write "validated" for a sister without "not tested"
   heldPayments: { paymentId, companyId, companyName, amountCents, accountLast4, bankChangeFlag, holdReasons }[]
 }
 

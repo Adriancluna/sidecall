@@ -173,7 +173,7 @@ export async function openExposure(
     evidence: [...scored.evidence, ...(sister?.evidence ?? [])],
     path: sister?.path,
   });
-  const pathSentence = sister ? ` ${sister.evidence.find((e) => e.kind === "path")!.detail}` : "";
+  const pathSentence = sister ? ` ${sister.evidence.find((e) => e.kind === "path")!.detail} ${sister.path.whatToCheck}` : "";
   const alert = {
     incidentId,
     exposureId,

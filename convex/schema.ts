@@ -129,6 +129,7 @@ export const exposurePath = v.object({
   sharedHop: v.string(),
   linkType: shareType,
   here: v.literal("reachable_not_tested"),
+  whatToCheck: v.optional(v.string()), // the concrete check for this company's IT lead
 });
 
 const ledgerLine = v.object({

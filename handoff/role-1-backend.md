@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 24, ~03:00 (Part A live) by Adrian's Claude
+Last updated: Oct 24, ~02:45 (what-to-check; feature freeze for Role 1) by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -73,6 +73,9 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 - Rules held by tests: score/urgency/confidence identical to the plain credential report; credential findings skip `same_vendor_only` links; sisters never see Pinecrest, hop labels, finding/engagement ids, or "validated" without "not tested"; unsigned demo bodies can't inject their own finding or summary.
 - 55 tests (6 new), typecheck, lint, build, rehearsal 25/25. Verified on dev via the real webhook.
 
+## Status update (~2:45am): "What to check" (last backend feature before hardening)
+Team decision (Adrian): **no more new features**; focus on precision, the $480K moment, and the red-team finding. One gap closed: an exposed company's IT lead now gets a concrete check, not just "rotate and review". `getExposureEvidence().path.whatToCheck` / evidence kind `what_to_check` / `getWritingContext().companyAlerts[].whatToCheck`, e.g. "What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong." (Harborline, which gives admin access, gets "Ask Ironclad Managed IT to rotate the admin account it uses for you…"). 55 tests, rehearsal 25/25. From here Role 1 = demo hardening + support for the video.
+
 ## Prod test by Adrian (Oct 24, ~2:30am): all green
 Brightline (3 · 4,200 · $612K), replay, segregation of duties refusal, Rosa's release + ledger, Cedar/Alder scoping, race-safe acknowledge, Ironclad credential case, and the red-team finding (`demo-armadin-004`) on prod: Cedar's evidence shows `technique` + the `path` sentence, no reporter leak.
 
@@ -95,6 +98,7 @@ Brightline (3 · 4,200 · $612K), replay, segregation of duties refusal, Rosa's 
   3. **✓ B3 is done (renamed to `*_email_change`): now** rerun `node scripts/scorecard/run.mjs` and commit `data/scorecard.json`.
   Ask here if any shape doesn't fit the map; I'll adjust the backend, not you.
   4. **AI canned text drops the path today:** on dev, `ai.generateAlert` replaced my alert template (which includes the path sentence) with canned text from `reasons` only. Append `item.pathSummary` to the canned alert when it's non-null, and use `context.technique` in the vendor letter ("An authorized test validated use of T1078 Valid Accounts against <asset> held by a portfolio company…", spec §A4).
+  6. **One line in `ai.ts` canned alert:** append `item.whatToCheck` after `item.pathSummary` when non-null (today the AI text drops both). In `EvidencePanel`, label `what_to_check` "What to check" and show it first for exposed companies: it's the IT lead's next step.
   5. **From Adrian's prod test (judge-readability):** `EvidencePanel` prints raw keys and values ("link: shared_credential via …", "technique", "path" in mono). Use plain labels: "How you're connected", "Attack technique: Valid Accounts (T1078)", "What this means for you". And the map's edges don't show `edges[].path` yet: label Pinecrest's line "validated at Pinecrest" and exposed lines "reachable here · not tested".
 - → **Role 2 (Marco): after a release, Summit's alert still says "That payment is held until verified"** (alert text is written once at incident time). Consider showing the payment's current state under the alert, e.g. "Payment since released by Rosa Alvarez".
 - → **Role 2 (Marco): one stage button, when you get to it.** Add a 4th scenario to `src/demo/DemoControls.tsx` SCENARIOS: `{ externalId: "demo-armadin-004", assetName: "Ironclad shared admin account" }`, label e.g. "Red-team finding (Ironclad login)". The server ignores any other body fields for unsigned demo requests, so nothing else is needed. Pitch wording stays "accepts a validated finding from an autonomous red team *like* Armadin" (our schema, no integration).
