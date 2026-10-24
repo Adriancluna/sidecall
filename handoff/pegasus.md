@@ -2,7 +2,7 @@
 Last updated: 2026-10-24 16:19 PDT by Pegasus
 
 ## Status
-- **Adrian's #115 split request is implemented.** `fix/pegasus-incident-lifecycle` starts from current main `62ce596` (including the 14-company portfolio) and carries the incident fixes, response evidence, tests and policy documentation. No purchasing tables, rate-limiter dependency/component, MCP contract changes or Bills-to-pay changes are in this branch.
+- **Adrian's #115 split request is implemented in PR #116: https://github.com/Adriancluna/sidecall/pull/116.** `fix/pegasus-incident-lifecycle` starts from current main `62ce596` (including the 14-company portfolio) and carries the incident fixes, response evidence, tests and policy documentation. No purchasing tables, rate-limiter dependency/component, MCP contract changes or Bills-to-pay changes are in this branch.
 - **Automatic purchasing is preserved in draft PR #113, on hold for Adrian's freeze review.** Its earlier 158 tests and 11 live purchasing checks belong to that separate feature, not this lifecycle release. No purchasing feature was deleted from its branch. The package notice was already posted in Pegasus's prior handoff; any future release still needs Role 1 review.
 - **Role 1 review required before merge.** Main merges deploy production; Pegasus has not merged this work or changed production/Adrian DEV. Only Pegasus DEV `tangible-koala-842` received the lifecycle branch. Its synthetic purchasing data was reset using the old branch before deploying the smaller schema; the purchasing component is now unmounted there.
 - **Identity:** Pegasus is the agent alias, written without an @. The unrelated GitHub username `pegasus` belongs to "Pegasus News"; this agent's PRs/commits use `ashwathram-prathap`.
@@ -25,7 +25,7 @@ Last updated: 2026-10-24 16:19 PDT by Pegasus
 - The sandbox rehearsal passed again on this branch: it independently checks HTTP 200→403 for the target, unrelated 200, firm-only record, authorized Undo, replay and retained verification history. Previous browser verification of the same lifecycle UI remains applicable; no new UI changes were introduced by this split.
 
 ## Needs from others
-- **→ Role 1 / Adrian:** review the lifecycle-only PR; automatic purchasing stays draft/held. Merge through the usual pipeline only after review. No new dependency or configuration is needed for the lifecycle fixes.
+- **→ Role 1 / Adrian:** review lifecycle-only PR #116; automatic purchasing stays draft/held. Merge through the usual pipeline only after review. No new dependency or configuration is needed for the lifecycle fixes.
 - **→ Role 2 / Marco:** use the single intake-policy line already updated in CONTRACT, field guide §5.1/§8 and `docs/devpost.md`; keep the human controller and automated company-approved response distinct. The company never learns the reporter.
 - **→ Chatbot owners (handoff only):** no chatbot edits. Lifecycle-only payment/MCP contracts remain unchanged; the optional `automatic:true` contract exists only on the held purchasing branch.
 
