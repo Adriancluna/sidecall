@@ -353,24 +353,36 @@ export const getMyPlaybook = query({
     const company = await ctx.db.get("companies", viewer.companyId);
     const name = nameOf(ctx);
     const canEdit = canDecideSteps(viewer);
-    const rows = [
+    type Row = {
+      action: PlaybookAction;
+      mode: ResponseMode;
+      allowedModes: ResponseMode[];
+      version: number | null;
+      setByName: string | null;
+      confirmedByName: string | null;
+      setAt: number | null;
+      proposedMode: ResponseMode | null;
+      proposedByName: string | null;
+      canEdit: boolean;
+    };
+    const rows: Row[] = [
       {
-        action: "hold_payments" as const,
-        mode: (company?.holdRuleEnabled ? "act" : "notify") as ResponseMode,
-        allowedModes: ["notify", "act"] as ResponseMode[],
-        version: null as number | null,
-        setByName: null as string | null,
-        confirmedByName: null as string | null,
-        setAt: null as number | null,
-        proposedMode: null as ResponseMode | null,
-        proposedByName: null as string | null,
+        action: "hold_payments",
+        mode: company?.holdRuleEnabled ? "act" : "notify",
+        allowedModes: ["notify", "act"],
+        version: null,
+        setByName: null,
+        confirmedByName: null,
+        setAt: null,
+        proposedMode: null,
+        proposedByName: null,
         canEdit: viewer.user.role === "controller",
       },
     ];
     for (const action of RESPONSE_ACTIONS) {
       const p = await policyFor(ctx, viewer.companyId, action);
       rows.push({
-        action: action as never,
+        action,
         mode: p?.mode ?? "notify",
         allowedModes: ["notify", "prepare", "act"],
         version: p?.version ?? null,
@@ -436,7 +448,7 @@ export const getMyResponsePlan = query({
         effect: info.effect(asset.name, asset.vendorName),
         undo: info.undo,
         wouldCall: info.wouldCall,
-        mode: (step?.mode ?? "notify") as ResponseMode,
+        mode: (step?.mode ?? "notify"),
         status: step?.status ?? ("recommended" as const),
         capNote: step?.capNote ?? (rule.cap === "notify" ? (rule.capNote ?? null) : null),
         policyRule: step?.policyRule ?? null,

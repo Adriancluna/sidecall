@@ -101,6 +101,7 @@ When the compromised thing is a vendor, it also holds every pending payment to t
 - "Stolen credentials are the #1 attack vector" (exploitation leads at 31%).
 - Anything about raising exit valuations, or any accuracy % we haven't measured.
 - "We integrate with Armadin" unless we do.
+- "Auto-mitigate", "we contain the breach", "we stop the attack", "autonomous response", "Sidecall covers everything". Say "the company's own pre-approved step, run on its behalf, one click to undo".
 - The "MSP Credential Risk Report" / "73% of MSPs share admin credentials".
 - "We stop fraud" / "we block payments". We hold payments for a person to verify.
 - Any public case of one shared vendor hitting several companies of one PE firm. None exists.
@@ -108,7 +109,8 @@ When the compromised thing is a vendor, it also holds every pending payment to t
 ## Real vs. simulated
 
 - **Simulated:** the portfolio, companies, users, bills, payments, amounts, incidents, bank changes.
-- **Real:** the Convex backend and its guarantees (atomic fan-out, same snapshot, idempotency, race safety), exposure and hold logic, AI writing, the scorecard against the planted answer key, DNS-based vendor detection on real public domains.
+- **Real:** the Convex backend and its guarantees (atomic fan-out, same snapshot, idempotency, race safety), exposure and hold logic, AI writing, the scorecard against the planted answer key, DNS-based vendor detection on real public domains, and the response playbook's rules, timing and audit trail.
+- **Simulated (response playbook):** the identity-provider call behind each pre-approved step (pausing a login, revoking app tokens). Say "Sidecall would pause … (simulated)", never "Sidecall paused your Okta account". Spec: `docs/specs/response-playbook.md`.
 
 ## Background facts (for pitch / copy)
 

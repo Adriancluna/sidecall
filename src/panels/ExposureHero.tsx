@@ -8,6 +8,7 @@ import { exposureHeadline, isCandidate, nextSteps, SHARE_LABEL, shareTypeOf } fr
 import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "./styles";
 import { Chip, LookChip } from "./ui";
 import { useExposureAction } from "./useExposureAction";
+import { PlanSteps } from "./ResponsePlaybook";
 
 type Incident = { assetName: string; vendorName: string; createdAt: number; containedAt: number | null };
 
@@ -68,6 +69,8 @@ export function ExposureHero({
           </span>
         </p>
       )}
+
+      <PlanSteps incidentId={exposure.incidentId} />
 
       <h2 className="mt-8 text-xs font-semibold tracking-wider text-ash uppercase">Do this now</h2>
       <ol className="mt-3 space-y-3">

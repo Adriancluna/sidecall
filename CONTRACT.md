@@ -7,6 +7,7 @@ The data shapes and function signatures every role builds against. Owned by Role
 
 ## Changelog
 
+- **Oct 24, ~10am.** Response playbook (`docs/specs/response-playbook.md`). Tables `responsePolicies`, `responseSteps`; audit actions `respond`, `approve`, `undo`, `expire`, `policy` (also timeline event kinds). New `convex/responses.ts`: queries `getMyPlaybook()`, `getMyResponsePlan({ incidentId })`, `getResponseTracker({ incidentId })` (firm); mutations `setPlaybookMode({ action, mode })`, `approveStep({ stepId })`, `undoStep({ stepId })`. `containIncident` expires waiting steps. Seed: Cedar Ridge pause = act, tokens = prepare; Granite Peak pause = prepare; Harborline notify. Brightline numbers unchanged.
 - **Oct 24, ~9am.** Presenter lock (council A1): env `PRESENTER_KEY`. Where set (prod), `seed.resetDemo({ presenterKey? })` and unsigned demo `POST /incident` (header `X-Sidecall-Presenter`) need it; signed senders are unaffected. Unset = unchanged (dev, tests). Readiness gained "Presenter lock" (advisory) and stricter freshness (bank change < 2.5 days, $480K due in 18–20h). Lakeside sample due dates moved past Oct 30.
 - **Oct 24, ~2:45am.** "What to check" for sister companies' IT leads: `exposures.path.whatToCheck?`, `getExposureEvidence().path.whatToCheck`, evidence kind `what_to_check`, `getWritingContext().companyAlerts[].whatToCheck`. Built from the technique, our own asset row and the time the path was proven, e.g. "What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong." The action differs by link type.
 - **Oct 24, ~3am.** Red-team findings, one step ahead (spec `docs/specs/armadin-one-step-ahead.md` Part A; **our own finding schema**, not Armadin's). `POST /incident` takes an optional `finding` (see HTTP); `404 unknown_reporter` when its scope isn't a portfolio company. Incidents gained `finding?` (firm-only); exposures gained `path?` and evidence kinds `technique` and `path`. `listIncidents` rows gained `findingSource` (firm only); `getBlastRadius` edges gained `path`; `getExposureEvidence` gained `path`; `getWritingContext` gained `technique` and `companyAlerts[].pathSummary`. New scenario `armadinFinding` (`demo-armadin-004`). A finding never changes score, urgency or confidence; a credential finding skips `same_vendor_only` links. Unsigned demo requests now run the stored scenario as-is (body text and findings ignored).
@@ -391,3 +392,28 @@ Optional `finding` (our own schema, modelled on autonomous red-team output; pars
 
 - Unsigned requests are accepted **only** for the built-in demo scenarios (`seed.ts` `SCENARIOS`: same `externalId` and `assetName`) and only where `DEMO_MODE=true`; the stored scenario runs as-is (body summary/finding ignored). That keeps the stage Fire / Replay buttons working without putting a secret in the browser.
 - Real senders (e.g. a red-team tool posting a finding in our schema) set `INCIDENT_WEBHOOK_SECRET` on the deployment and sign every request.
+
+## Response playbook (pre-approved steps)
+
+Steps (`responseAction`): `pause_shared_login`, `revoke_vendor_tokens`; plus `hold_payments` (mirrors `companies.holdRuleEnabled`). Modes: `notify` ("Notify only") · `prepare` ("One click") · `act` ("Pre-approved"). External effects are simulated; each step names the real call it stands for.
+
+```
+[responses] getMyPlaybook() -> { action, label, mode, allowedModes, version | null, setByName | null, confirmedByName | null,
+                                 setAt | null, proposedMode | null, proposedByName | null, canEdit, undo, wouldCall, finding,
+                                 recommendedMode }[]                // company users; [] for the firm
+[responses] getMyResponsePlan({ incidentId }) -> { stepId | null, action, label, effect, undo, wouldCall, mode,
+                                 status: "awaiting_approval" | "queued" | "done" | "undone" | "expired" | "failed" | "recommended",
+                                 capNote | null, policyRule | null, approvedByName | null, undoneByName | null,
+                                 executedAt | null, msAfterReport | null, canApprove, canUndo }[]   // never names the reporter
+[responses] getResponseTracker({ incidentId }) -> null | { companies: { companyId, done, ready, firstStepMs | null,
+                                 notifyOnly, lowered: string[] }[], totals: { exposed, firstStepDone, ready, notifyOnly },
+                                 simulated: true }               // PE firm only (throws for companies)
+[responses] setPlaybookMode({ action, mode }) -> { ok: true, applied, awaitingSecondPerson } | { ok: false, reason }
+[responses] approveStep({ stepId }) / undoStep({ stepId }) -> { ok: true } | { ok: false, reason }
+```
+
+Rules (enforced in Convex):
+- Effective mode = min(company mode, cap). `same_vendor_only` links get no steps; `dns_inferred` caps at notify; pause caps at one click on vendor-admin (`shared_admin_access`) links and payroll vendors.
+- At most 3 companies get `act` steps from one incident; the rest are lowered to one click (`capNote`).
+- Steps are planned in the incident's transaction after the `externalId` dedupe (replays plan nothing); one row per (incident, company, action); the executor is scheduled once per incident.
+- Only the company's `it` lead or `controller` approves, undoes or changes the playbook (holds: controller only); the firm and AP clerks are refused and logged. Raising a step to `act` takes two different people (propose, then confirm).

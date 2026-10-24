@@ -17,6 +17,7 @@ import { EXPOSURE_STATUS, paymentLook, URGENCY } from "./labels";
 import { LedgerPanel } from "./LedgerPanel";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { PaymentCard } from "./PaymentCard";
+import { PlaybookPanel } from "./ResponsePlaybook";
 import { TimelinePanel } from "./TimelinePanel";
 import type { HeldPaymentRow } from "./types";
 import { Card, Chip, Empty, LookChip } from "./ui";
@@ -65,7 +66,7 @@ export function CompanyView({ companyId, meId, role }: Props) {
   const viewer = { id: meId, isController };
   const heroPayment = handlesPayments ? pickHeroPayment(stillHeld, escalations) : undefined;
 
-  const tabIds = ["alerts", "payments", "bills", "timeline", "controls", "ledger", "notifications"] as const;
+  const tabIds = ["alerts", "payments", "bills", "playbook", "timeline", "controls", "ledger", "notifications"] as const;
   const fallback = isController ? "payments" : role === "ap_clerk" ? "bills" : "alerts";
   const { active, select } = useTabs(tabIds, fallback);
 
@@ -98,6 +99,7 @@ export function CompanyView({ companyId, meId, role }: Props) {
       ),
     },
     { id: "bills", label: "Bills to pay", count: unpaidBills, content: () => <BillsPanel /> },
+    { id: "playbook", label: "Response playbook", content: () => <PlaybookPanel /> },
     {
       id: "timeline",
       label: "Timeline",
@@ -135,6 +137,7 @@ export function CompanyView({ companyId, meId, role }: Props) {
       ? [{ tab: "payments", label: "Held payments", detail: `${stillHeld.length} held · ${money(heldCents)}`, tone: "amber" as const }]
       : []),
     ...(handlesPayments ? [{ tab: "bills", label: "Bills to pay", detail: unpaidBills ? `${unpaidBills} unpaid` : "All paid or in progress" }] : []),
+    { tab: "playbook", label: "Response playbook", detail: "What Sidecall may do for you" },
     { tab: "timeline", label: "What happened, second by second" },
     { tab: "controls", label: "Controls log", detail: "Every hold, refusal and release" },
     { tab: "notifications", label: "Slack messages sent" },
