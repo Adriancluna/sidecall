@@ -1,0 +1,500 @@
+[
+  {
+    "domain": "calhacks.io",
+    "vendor": "Google Workspace",
+    "record": "MX",
+    "evidence": "alt1.aspmx.l.google.com"
+  },
+  {
+    "domain": "berkeley.edu",
+    "vendor": "Google Workspace",
+    "record": "MX",
+    "evidence": "alt4.aspmx.l.google.com"
+  },
+  {
+    "domain": "berkeley.edu",
+    "vendor": "Google Workspace",
+    "record": "SPF",
+    "evidence": "include:_spf.google.com"
+  },
+  {
+    "domain": "berkeley.edu",
+    "vendor": "Microsoft 365",
+    "record": "TXT",
+    "evidence": "MS"
+  },
+  {
+    "domain": "berkeley.edu",
+    "vendor": "Mailchimp",
+    "record": "SPF",
+    "evidence": "include:servers.mcsv.net"
+  },
+  {
+    "domain": "berkeley.edu",
+    "vendor": "Atlassian",
+    "record": "TXT",
+    "evidence": "atlassian-domain-verification"
+  },
+  {
+    "domain": "berkeley.edu",
+    "vendor": "DocuSign",
+    "record": "TXT",
+    "evidence": "docusign"
+  },
+  {
+    "domain": "berkeley.edu",
+    "vendor": "Adobe",
+    "record": "TXT",
+    "evidence": "adobe-idp-site-verification"
+  },
+  {
+    "domain": "berkeley.edu",
+    "vendor": "Apple",
+    "record": "TXT",
+    "evidence": "apple-domain-verification"
+  },
+  {
+    "domain": "berkeley.edu",
+    "vendor": "Zoom",
+    "record": "TXT",
+    "evidence": "ZOOM_verify_RirbP7N1QWC3Zzm02oL4Cw"
+  },
+  {
+    "domain": "uwaterloo.ca",
+    "vendor": "Microsoft 365",
+    "record": "SPF",
+    "evidence": "include:spf.protection.outlook.com"
+  },
+  {
+    "domain": "uwaterloo.ca",
+    "vendor": "Cisco Secure Email",
+    "record": "MX",
+    "evidence": "mx1.hc503-62.ca.iphmx.com"
+  },
+  {
+    "domain": "uwaterloo.ca",
+    "vendor": "Atlassian",
+    "record": "TXT",
+    "evidence": "atlassian-domain-verification"
+  },
+  {
+    "domain": "uwaterloo.ca",
+    "vendor": "Adobe",
+    "record": "TXT",
+    "evidence": "adobe-idp-site-verification"
+  },
+  {
+    "domain": "uwaterloo.ca",
+    "vendor": "Apple",
+    "record": "TXT",
+    "evidence": "apple-domain-verification"
+  },
+  {
+    "domain": "uwaterloo.ca",
+    "vendor": "Zoom",
+    "record": "TXT",
+    "evidence": "ZOOM_verify_7z1v7rXUSOOS-ShYcymx0A"
+  },
+  {
+    "domain": "convex.dev",
+    "vendor": "Google Workspace",
+    "record": "MX",
+    "evidence": "alt3.aspmx.l.google.com"
+  },
+  {
+    "domain": "convex.dev",
+    "vendor": "Google Workspace",
+    "record": "SPF",
+    "evidence": "include:_spf.google.com"
+  },
+  {
+    "domain": "convex.dev",
+    "vendor": "Microsoft 365",
+    "record": "TXT",
+    "evidence": "MS"
+  },
+  {
+    "domain": "convex.dev",
+    "vendor": "Atlassian",
+    "record": "TXT",
+    "evidence": "atlassian-domain-verification"
+  },
+  {
+    "domain": "convex.dev",
+    "vendor": "Apple",
+    "record": "TXT",
+    "evidence": "apple-domain-verification"
+  },
+  {
+    "domain": "convex.dev",
+    "vendor": "Stripe",
+    "record": "TXT",
+    "evidence": "stripe-verification"
+  },
+  {
+    "domain": "vercel.com",
+    "vendor": "Google Workspace",
+    "record": "MX",
+    "evidence": "aspmx.l.google.com"
+  },
+  {
+    "domain": "vercel.com",
+    "vendor": "Microsoft 365",
+    "record": "TXT",
+    "evidence": "MS"
+  },
+  {
+    "domain": "vercel.com",
+    "vendor": "Amazon SES",
+    "record": "SPF",
+    "evidence": "include:amazonses.com"
+  },
+  {
+    "domain": "vercel.com",
+    "vendor": "SendGrid",
+    "record": "SPF",
+    "evidence": "include:sendgrid.net"
+  },
+  {
+    "domain": "vercel.com",
+    "vendor": "Salesforce",
+    "record": "SPF",
+    "evidence": "include:_spf.salesforce.com"
+  },
+  {
+    "domain": "vercel.com",
+    "vendor": "DocuSign",
+    "record": "TXT",
+    "evidence": "docusign"
+  },
+  {
+    "domain": "vercel.com",
+    "vendor": "Apple",
+    "record": "TXT",
+    "evidence": "apple-domain-verification"
+  },
+  {
+    "domain": "vercel.com",
+    "vendor": "Zoom",
+    "record": "TXT",
+    "evidence": "ZOOM_verify_iAqiiWW1TdK-GwbJI7qn1g"
+  },
+  {
+    "domain": "vercel.com",
+    "vendor": "Stripe",
+    "record": "TXT",
+    "evidence": "stripe-verification"
+  },
+  {
+    "domain": "stripe.com",
+    "vendor": "Google Workspace",
+    "record": "MX",
+    "evidence": "aspmx2.googlemail.com"
+  },
+  {
+    "domain": "stripe.com",
+    "vendor": "Microsoft 365",
+    "record": "TXT",
+    "evidence": "MS"
+  },
+  {
+    "domain": "stripe.com",
+    "vendor": "Atlassian",
+    "record": "TXT",
+    "evidence": "atlassian-domain-verification"
+  },
+  {
+    "domain": "stripe.com",
+    "vendor": "DocuSign",
+    "record": "TXT",
+    "evidence": "docusign"
+  },
+  {
+    "domain": "stripe.com",
+    "vendor": "Apple",
+    "record": "TXT",
+    "evidence": "apple-domain-verification"
+  },
+  {
+    "domain": "stripe.com",
+    "vendor": "Stripe",
+    "record": "TXT",
+    "evidence": "stripe-verification"
+  },
+  {
+    "domain": "shopify.com",
+    "vendor": "Google Workspace",
+    "record": "MX",
+    "evidence": "alt2.aspmx.l.google.com"
+  },
+  {
+    "domain": "shopify.com",
+    "vendor": "Google Workspace",
+    "record": "SPF",
+    "evidence": "include:_spf.google.com"
+  },
+  {
+    "domain": "shopify.com",
+    "vendor": "Microsoft 365",
+    "record": "TXT",
+    "evidence": "MS"
+  },
+  {
+    "domain": "shopify.com",
+    "vendor": "SendGrid",
+    "record": "SPF",
+    "evidence": "include:sendgrid.net"
+  },
+  {
+    "domain": "shopify.com",
+    "vendor": "Zendesk",
+    "record": "SPF",
+    "evidence": "include:mail.zendesk.com"
+  },
+  {
+    "domain": "shopify.com",
+    "vendor": "Atlassian",
+    "record": "TXT",
+    "evidence": "atlassian-domain-verification"
+  },
+  {
+    "domain": "shopify.com",
+    "vendor": "DocuSign",
+    "record": "TXT",
+    "evidence": "docusign"
+  },
+  {
+    "domain": "shopify.com",
+    "vendor": "Adobe",
+    "record": "TXT",
+    "evidence": "adobe-idp-site-verification"
+  },
+  {
+    "domain": "shopify.com",
+    "vendor": "Apple",
+    "record": "TXT",
+    "evidence": "apple-domain-verification"
+  },
+  {
+    "domain": "shopify.com",
+    "vendor": "Stripe",
+    "record": "TXT",
+    "evidence": "stripe-verification"
+  },
+  {
+    "domain": "airbnb.com",
+    "vendor": "Google Workspace",
+    "record": "MX",
+    "evidence": "alt1.aspmx.l.google.com"
+  },
+  {
+    "domain": "airbnb.com",
+    "vendor": "Microsoft 365",
+    "record": "TXT",
+    "evidence": "MS"
+  },
+  {
+    "domain": "airbnb.com",
+    "vendor": "Zendesk",
+    "record": "CNAME",
+    "evidence": "support.airbnb.com → airbnb.zendesk.com"
+  },
+  {
+    "domain": "airbnb.com",
+    "vendor": "Atlassian",
+    "record": "TXT",
+    "evidence": "atlassian-domain-verification"
+  },
+  {
+    "domain": "airbnb.com",
+    "vendor": "DocuSign",
+    "record": "TXT",
+    "evidence": "docusign"
+  },
+  {
+    "domain": "airbnb.com",
+    "vendor": "Adobe",
+    "record": "TXT",
+    "evidence": "adobe-idp-site-verification"
+  },
+  {
+    "domain": "airbnb.com",
+    "vendor": "Apple",
+    "record": "TXT",
+    "evidence": "apple-domain-verification"
+  },
+  {
+    "domain": "airbnb.com",
+    "vendor": "Cisco Webex",
+    "record": "TXT",
+    "evidence": "webexdomainverification."
+  },
+  {
+    "domain": "airbnb.com",
+    "vendor": "Stripe",
+    "record": "TXT",
+    "evidence": "stripe-verification"
+  },
+  {
+    "domain": "airbnb.com",
+    "vendor": "Miro",
+    "record": "TXT",
+    "evidence": "miro-verification"
+  },
+  {
+    "domain": "dropbox.com",
+    "vendor": "Google Workspace",
+    "record": "SPF",
+    "evidence": "include:_spf.google.com"
+  },
+  {
+    "domain": "dropbox.com",
+    "vendor": "Microsoft 365",
+    "record": "TXT",
+    "evidence": "MS"
+  },
+  {
+    "domain": "dropbox.com",
+    "vendor": "Proofpoint",
+    "record": "MX",
+    "evidence": "mxa-001ed902.gslb.pphosted.com"
+  },
+  {
+    "domain": "dropbox.com",
+    "vendor": "Amazon SES",
+    "record": "SPF",
+    "evidence": "include:amazonses.com"
+  },
+  {
+    "domain": "dropbox.com",
+    "vendor": "Zendesk",
+    "record": "SPF",
+    "evidence": "include:mail.zendesk.com"
+  },
+  {
+    "domain": "dropbox.com",
+    "vendor": "Atlassian",
+    "record": "TXT",
+    "evidence": "atlassian-domain-verification"
+  },
+  {
+    "domain": "dropbox.com",
+    "vendor": "DocuSign",
+    "record": "TXT",
+    "evidence": "docusign"
+  },
+  {
+    "domain": "dropbox.com",
+    "vendor": "Adobe",
+    "record": "TXT",
+    "evidence": "adobe-idp-site-verification"
+  },
+  {
+    "domain": "dropbox.com",
+    "vendor": "Apple",
+    "record": "TXT",
+    "evidence": "apple-domain-verification"
+  },
+  {
+    "domain": "dropbox.com",
+    "vendor": "Slack",
+    "record": "TXT",
+    "evidence": "slack-domain-verification"
+  },
+  {
+    "domain": "dropbox.com",
+    "vendor": "Stripe",
+    "record": "TXT",
+    "evidence": "stripe-verification"
+  },
+  {
+    "domain": "dropbox.com",
+    "vendor": "Miro",
+    "record": "TXT",
+    "evidence": "miro-verification"
+  },
+  {
+    "domain": "zoom.us",
+    "vendor": "Google Workspace",
+    "record": "SPF",
+    "evidence": "include:_spf.google.com"
+  },
+  {
+    "domain": "zoom.us",
+    "vendor": "Proofpoint",
+    "record": "MX",
+    "evidence": "mxb-00569201.gslb.pphosted.com"
+  },
+  {
+    "domain": "zoom.us",
+    "vendor": "Proofpoint",
+    "record": "SPF",
+    "evidence": "include:%{ir}.%{v}.%{d}.spf.has.pphosted.com"
+  },
+  {
+    "domain": "zoom.us",
+    "vendor": "Amazon SES",
+    "record": "SPF",
+    "evidence": "include:amazonses.com"
+  },
+  {
+    "domain": "zoom.us",
+    "vendor": "Mailchimp",
+    "record": "SPF",
+    "evidence": "include:servers.mcsv.net"
+  },
+  {
+    "domain": "zoom.us",
+    "vendor": "Salesforce",
+    "record": "SPF",
+    "evidence": "include:_spf.salesforce.com"
+  },
+  {
+    "domain": "zoom.us",
+    "vendor": "Atlassian",
+    "record": "TXT",
+    "evidence": "atlassian-domain-verification"
+  },
+  {
+    "domain": "zoom.us",
+    "vendor": "DocuSign",
+    "record": "TXT",
+    "evidence": "docusign"
+  },
+  {
+    "domain": "zoom.us",
+    "vendor": "Adobe",
+    "record": "TXT",
+    "evidence": "adobe-idp-site-verification"
+  },
+  {
+    "domain": "zoom.us",
+    "vendor": "Apple",
+    "record": "TXT",
+    "evidence": "apple-domain-verification"
+  },
+  {
+    "domain": "zoom.us",
+    "vendor": "Dropbox",
+    "record": "TXT",
+    "evidence": "dropbox-domain-verification"
+  },
+  {
+    "domain": "zoom.us",
+    "vendor": "Slack",
+    "record": "TXT",
+    "evidence": "slack-domain-verification"
+  },
+  {
+    "domain": "zoom.us",
+    "vendor": "KnowBe4",
+    "record": "TXT",
+    "evidence": "knowbe4-site-verification"
+  },
+  {
+    "domain": "zoom.us",
+    "vendor": "Stripe",
+    "record": "TXT",
+    "evidence": "stripe-verification"
+  }
+]

@@ -199,8 +199,11 @@ async function seedAll(ctx: MutationCtx) {
     assetIds[key] = await ctx.db.insert("assets", asset);
   }
 
+  // Remember each seeded dns_inferred link so the DNS import below can attach its record.
+  const dnsInferredLinks = new Map<string, Id<"links">>();
   for (const [company, asset, shareType, source] of LINKS) {
-    await ctx.db.insert("links", { companyId: companyIds[company], assetId: assetIds[asset], shareType, source });
+    const linkId = await ctx.db.insert("links", { companyId: companyIds[company], assetId: assetIds[asset], shareType, source });
+    if (source === "dns_inferred") dnsInferredLinks.set(`${companyIds[company]}:${assetIds[asset]}`, linkId);
   }
 
   // DNS can only say "this company uses this vendor": always same_vendor_only, never a
@@ -213,11 +216,19 @@ async function seedAll(ctx: MutationCtx) {
   );
   const seenPairs = new Set(LINKS.map(([c, a]) => `${companyIds[c]}:${assetIds[a]}`));
   let dnsImported = 0;
+  let dnsDetailed = 0;
   const dnsSkipped: string[] = [];
   for (const entry of dnsLinks as DnsLink[]) {
     const companyId = companyByDomain.get(entry.companyDomain);
     const assetId = assetByName.get(entry.assetName);
     const pair = `${companyId}:${assetId}`;
+    // Already seeded as a DNS candidate: attach the record that explains it.
+    const existingDnsLink = dnsInferredLinks.get(pair);
+    if (existingDnsLink && entry.detail) {
+      await ctx.db.patch("links", existingDnsLink, { detail: entry.detail });
+      dnsDetailed += 1;
+      continue;
+    }
     if (!companyId || !assetId || seenPairs.has(pair)) {
       dnsSkipped.push(`${entry.companyDomain} → ${entry.assetName}`);
       continue;
@@ -351,6 +362,7 @@ async function seedAll(ctx: MutationCtx) {
     payments: PAYMENTS.length,
     bankChanges: BANK_CHANGES.length,
     dnsImported,
+    dnsDetailed,
     dnsSkipped,
   };
 }
@@ -371,6 +383,7 @@ export const resetDemo = mutation({
     payments: v.number(),
     bankChanges: v.number(),
     dnsImported: v.number(),
+    dnsDetailed: v.number(),
     dnsSkipped: v.array(v.string()),
   }),
   handler: async (ctx) => {
