@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 23, 22:05 by Adrian's Claude
+Last updated: Oct 23, 22:15 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -26,6 +26,7 @@ Last updated: Oct 23, 22:05 by Adrian's Claude
 - ✓ **Reviewed and merged Role 4's #55** (AI cache/live/canned writer, scorecard + DNS scripts): tsc, lint, build, 25 tests green; live fire on dev writes all 8 alerts, headline unchanged; DNS import adds 4 candidate links.
 - ✓ **Ran Role 4's scripts for Omar** (his container can't reach Convex or the internet): `data/scorecard.json` (Brightline caught 6 / missed 0 / false holds 0 / left alone 4; Ironclad credential 0/0/0/3; Ironclad MSP 4/0/0/1) and `data/dns_findings.json` (83 real findings across 10 public domains). `data/ai_cache.json` still empty: needs `ANTHROPIC_API_KEY=… node prompts/generate.mjs` on a machine with Convex access (Adrian).
 - ✓ done for Role 4: seeded `dns_inferred` links now get their DNS record as `detail` from `dns_links.json` (5 links; `seed:run` reports `dnsDetailed`).
+- **Dress rehearsal: `npm run rehearse`** plays every demo beat against a live deployment with real sign-ins and the real webhook, checks every number, resets before and after (~11 s). 21/21 beats pass on dev. Against prod: `npm run rehearse -- --url https://judicious-tiger-712.convex.cloud` (Adrian runs; leaves prod clean). New `rehearse` script in package.json.
 - `npm test`: 25 tests green (they sign in as each person; added: client can't pass a user id, controls log scoping).
 - ✓ done for Role 2: reviewed and merged #26. Earlier: #20, #22, #24.
 
@@ -48,6 +49,7 @@ Last updated: Oct 23, 22:05 by Adrian's Claude
 - → **Role 2, do first (bug from Adrian's prod test):** on a decided payment card (`row.decision` set), show "Released by Rosa Alvarez · <note> · <time>" (or "Rejected by …") instead of hold wording; label `holdReasons` as "Why it was held"; hide the note box. Short notes like "480000" now come back refused with guidance (shown inline already). Also: the PE headline's "$ held" drops after a release (counts still-held only, by design); add a second line "released after verification: $X" from `getHeldPayments` rows with `decision.status === "paid"`.
 - → **Role 2, round 6 — containment (demo ending):** PE view, per incident: "Mark contained" button + note box → `api.incidents.containIncident({ incidentId, note })` (refusal `reason` inline; note must say what was fixed and how it was confirmed). Show a "Contained" badge from `listIncidents` → `containedAt`. Timeline already returns the `contain` event. Optional beat: after containing, Jamie's next request goes through un-held.
 - → **Role 4:** use **`internal.alerts.saveAlerts({ alerts: [...] })`** (one call per action) instead of one `saveAlert` per company: at 300 companies the per-alert loop took ~7 s for all alerts to land; a batch is one transaction. Same object shape as `saveAlert`.
+- → **Role 2:** add "Step 0: `npm run rehearse` (and the `--url` prod form before judging) must say PASS" to `docs/demo-script.md`. Also Omar's asks: Proof panel "Real" can list `data/dns_findings.json` (83 real findings now on main), and render the vendor letter with `whitespace-pre-wrap`.
 - → **Role 2 (pitch / Devpost / demo script):** scale line you can use: "One report fanned out to 303 companies and held 304 payments in a single atomic transaction, about 1.4 s on Convex. The demo shows 8." Test: `convex/backend.test.ts` → "scale".
 - → **Role 4:** `scoring:exportOutcomes` can now include payments with `seedRef: null` (made in-app by `requestPayment`). Skip them in the scorecard.
 - → **Role 2, round 5 — "Bills to pay" (company view, AP clerk):** list `api.payments.getMyBills()`; for bills with `payment: null`, a **Request payment** button → `api.payments.requestPayment({ billId })`. Show the result inline: held → "Held until verified: Brightline is under an active incident" (+ "goes to an account changed by email" when `flagged`); refusals show `reason`. Demo beat after the money moment: Jamie requests the $38K November bill → held and flagged instantly ("we don't just catch what was in flight"). Ledger: AP stays at $38K after releasing the $480K, by design.
