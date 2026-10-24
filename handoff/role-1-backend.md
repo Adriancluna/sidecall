@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 23, 20:40 by Adrian's Claude
+Last updated: Oct 23, 20:50 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -11,6 +11,9 @@ Last updated: Oct 23, 20:40 by Adrian's Claude
 - **Convex review done; fixes shipped:** `POST /incident` now refuses unsigned requests except the built-in demo scenarios on `DEMO_MODE` deployments (anyone could post fake incidents to prod before); `resetDemo` needs a signed-in user; company controls-log reads use an index; ledger balances cover all entries. Open (low risk): no `returns` validators yet; `listUsers` returns whole user docs.
 - **Escalation ("knows when to ask") live on dev:** a held payment due within 24h gets one `escalation` alert to the company's controllers (named) + an `escalate` audit row, at hold time or via a 15-min cron. Seed: the $480K is due in 20h, so it escalates to Rosa the moment it's held. Prod picks this up after the next Reset (old rows have no due date).
 - **`blastRadius.getIncidentTimeline({ incidentId })`:** every event with real timestamps + stats. Measured on dev: holds and flags in the report's own transaction (0 ms), alerts and vendor letter written 97 ms later.
+- **Copy fixes:** alert reasons no longer repeat "under an active incident"; proper plurals ("1 held payment goes…", "2 days"). E.g. "Your company shares a login credential with Brightline Payroll Inc."
+- **Return validators** on every public mutation + `access.me` (Convex review follow-up). Types unchanged.
+- ✓ done for Role 2: `vercel.json` `ignoreCommand` skips non-production builds (your #43). Saw your escalation banner + timeline panel (#42): thanks.
 - `npm test`: 20 tests green (they sign in as each person; added: client can't pass a user id, controls log scoping).
 - ✓ done for Role 2: reviewed and merged #26. Earlier: #20, #22, #24.
 
@@ -31,7 +34,8 @@ Last updated: Oct 23, 20:40 by Adrian's Claude
   7. **Errors and polish:** friendly message for `ConvexError` texts ("Not signed in" after Reset → back to sign-in); every screen at phone width (16px gutter, no horizontal scroll); copy audit against CLAUDE.md "Never say" (no "fraud", no "validated", no "we block payments").
   8. **Pitch material** (new folder `docs/`, Role 2 owns it): `docs/demo-script.md` (opens on the $480K money moment, ≤ 3 min, who clicks what), `docs/devpost.md` draft (what it does, how we built it on Convex, real vs simulated, the one-line seat: "AP payment controls across a PE portfolio"), and a shot list for the backup video.
 - → **Role 2, do first (bug from Adrian's prod test):** on a decided payment card (`row.decision` set), show "Released by Rosa Alvarez · <note> · <time>" (or "Rejected by …") instead of hold wording; label `holdReasons` as "Why it was held"; hide the note box. Short notes like "480000" now come back refused with guidance (shown inline already). Also: the PE headline's "$ held" drops after a release (counts still-held only, by design); add a second line "released after verification: $X" from `getHeldPayments` rows with `decision.status === "paid"`.
-- → **Role 2 (new, round 3):**
+- → **Role 2, small bug (Adrian's screenshot):** ledger table columns run together: "…service fees**Expense**", "8:41 PM**Opening** balance". Add column padding / fixed widths in `LedgerPanel`.
+- → Role 2 (done, keep for reference) round 3:
   1. **Escalation in the company view:** `getMyAlerts` now includes `kind: "escalation"` alerts ("Decision needed: … due in about 20 hours … Rosa Alvarez: call … then release or reject"). Show them at the top of the held-payments card or as a banner; the controls log already lists the `escalate` rows.
   2. **Timeline panel (PE view, and scoped in the company view):** `api.blastRadius.getIncidentTimeline({ incidentId })`. Headline line from `stats`: "Payments held in the same transaction as the report · alerts written in 97 ms · first acknowledgement after 41 s". This is our Convex-track proof on screen.
 - → Role 2: if any task needs a backend change (new field, query), ask here first; Role 1 turns those around fast.
