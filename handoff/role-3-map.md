@@ -1,23 +1,27 @@
 # Role 3: Map + evidence (now Omar)
-Last updated: Oct 24, 02:10 by Adrian's Claude (reassigned; Omar's Claude owns this file from now on)
+Last updated: Oct 24, 09:10 by Omar's Claude
 
-> **Reassigned:** Ashwa is away, so `src/map/` belongs to **Omar** (who also keeps Role 4). The full build plan is `docs/specs/blast-radius-map-plan.md` (written by Omar's Claude; it is addressed to "Role 2's agent", read that as **you**: the ownership check in its section 0 is satisfied by this reassignment, and Marco keeps the rest of `src/`).
-
-## Order of work
-1. **Optimize your existing code first** (Adrian did the same for Role 1 in #75): run `/simplify` on `convex/ai.ts`, `prompts/`, `scripts/dns/`, `scripts/scorecard/`. Behavior must not change (`npm test`, and `prompts/generate.mjs` cache keys stay identical so all 19 cached texts still hit). One PR.
-2. **Build the node-graph map** per the plan: `src/map/BlastRadiusMap.tsx` + `layout.ts`, `copy.ts`, `useReveal.ts`, `MapList.tsx`; keep the props `{ blast, selected, onSelect }`. Plain SVG, **no new packages**, **no backend changes** (if you find you need one, ask Role 1 in this file).
-3. Check it against the plan's per-scenario tables (Brightline, Ironclad credential, Ironclad MSP) and the 300-company dense mode (`npx convex run ops:addScalePortfolio '{"count":300}'` on **your dev**, then Reset).
-4. One PR when it's done (merges deploy to production; batch, don't drip).
+> **Reassigned:** Ashwa is away, so `src/map/` belongs to **Omar** (who also keeps Role 4). Plan: `docs/specs/blast-radius-map-plan.md`. Marco keeps the rest of `src/`; nothing outside `src/map/` changed.
 
 ## Status
-- Placeholder card grid on `main` (Marco's). Real map not started.
+- **Blast radius map as a tree on branch `claude/project-thread-eb7miy`** (PR #81, not merged; a merge deploys to prod). Omar asked for a tree: parent firm in the middle, companies on branches (red = urgent, amber = advisory), the breached vendor wired to the companies that share it, click any node to zoom in (Esc / "Back to portfolio" to zoom out). Props unchanged (`{ blast, selected, onSelect }`), no backend change, no new packages.
+  - `BlastRadiusMap.tsx`: card, SVG map, legend, caption. Reads `getHeldPayments` (same args as `PortfolioView`, so the subscription is shared) and `listAssets`.
+  - `layout.ts` (pure geometry), `copy.ts` (every word on the map), `MapList.tsx` (phones, and everywhere with `?map=grid`), `useReveal.ts` (~1.2 s reveal, skipped under reduced motion).
+  - `EvidencePanel.tsx`: urgency chip, "90% · self-reported link" / "50% · candidate link from public DNS", "Acknowledged by …".
+- Checked against real `getBlastRadius` output for all three seeded scenarios (convex-test dump), the plan's §1 tables match; 300-company dense mode with fixtures; 375 px has no horizontal scroll. Screenshots: project files `screenshots/map/`.
+- `npm run lint`, `npm run build`, `npm test` (45) green.
 
 ## In progress
-- (Omar's Claude: fill in)
+- Waiting on Omar's review of the PR. Not yet seen live on a Convex deployment with a signed-in Jordan (container can't drive the login); check `/?stage` after merge or on a dev run.
 
 ## Needs from others
-- (Omar's Claude: fill in)
+- → Role 2 (Marco): when the map merges, `docs/demo-script.md` / `docs/video-shot-list.md` beat 5 can say what the map shows (vendor centre, 3 lit tiles, $480,000 badge on Summit; discipline beat: green "Separate access · not exposed" tiles). `?map=grid` is the stage fallback if the SVG misbehaves.
 
 ## Decisions & gotchas
-- `convex/notify.ts` (real Slack/Discord sending) **moved to Role 1** so you can focus on the map.
-- Never call a `dns_inferred` link "validated"; status never by colour alone; no shield/radar/siren imagery (`brand/README.md`).
+- Branch colour = how exposed; vendor-line weight = how linked (dotted = candidate DNS link); the reason line under each company = why. Summit in Brightline has a thin "customer of the vendor" line but a red branch and "Payment to a changed account".
+- Ring order: the exposed block faces the vendor on the right; separate-access companies sit opposite, next to the grey sibling asset (e.g. Ironclad IT Services · not affected). The reporter's own vendor link isn't drawn.
+- The centre says "Parent firm": there's no firm name in the schema. → Role 1: a firm name (e.g. on `getBlastRadius`) would let it say "Northpass Capital"; optional.
+- Zoom animates the SVG viewBox (rAF, ~450 ms, instant under reduced motion).
+- Above 14 companies the unrelated ones collapse into "+ N other companies, not linked".
+- Never a `dns_inferred` link "validated"; status never by colour alone; no shield/radar/siren imagery (`brand/README.md`).
+- `convex/notify.ts` (real Slack/Discord sending) moved to Role 1.

@@ -1,10 +1,11 @@
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { Card, Empty } from "../panels/ui";
+import { AcknowledgedBy } from "../panels/AcknowledgedBy";
+import { Card, Chip, Empty } from "../panels/ui";
 
-// Placeholder from Role 2 so the layout works today. Role 3 owns this file and replaces its insides;
-// keep the props. Confidence copy never says "validated": inferred links are "candidate" / "reachability".
+// Why one company was flagged: urgency, confidence and where the link came from, the reasons, the evidence.
+// Confidence copy never says "validated": inferred links are "candidate" / "reachability".
 export function EvidencePanel({
   exposureId,
   companyName,
@@ -23,12 +24,30 @@ export function EvidencePanel({
       </Card>
     );
   }
+  const inferred = evidence.evidence.some(
+    (e) => e.kind === "source" && e.detail.includes("DNS"),
+  );
   return (
-    <Card title={`Evidence · ${companyName ?? ""}`}>
+    <Card
+      title={`Evidence · ${companyName ?? ""}`}
+      aside={
+        <Chip tone={evidence.urgency === "urgent" ? "danger" : "amber"}>
+          {evidence.urgency === "urgent" ? "Urgent" : "Advisory"}
+        </Chip>
+      }
+    >
+      {evidence.acknowledgedBy && (
+        <p className="mb-3">
+          <AcknowledgedBy userId={evidence.acknowledgedBy} />
+        </p>
+      )}
       <div className="mb-4">
-        <div className="mb-1 flex justify-between text-xs text-ash">
+        <div className="mb-1 flex justify-between gap-3 text-xs text-ash">
           <span>Confidence</span>
-          <span>{Math.round(evidence.confidence * 100)}%</span>
+          <span className="tabular-nums">
+            {Math.round(evidence.confidence * 100)}% ·{" "}
+            {inferred ? "candidate link from public DNS" : "self-reported link"}
+          </span>
         </div>
         <div
           className="h-1.5 rounded-full bg-graphite"
