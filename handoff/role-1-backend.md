@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 23, 23:15 by Adrian's Claude
+Last updated: Oct 23, 22:25 (MCP) by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -34,7 +34,8 @@ Last updated: Oct 23, 23:15 by Adrian's Claude
 - Rehearsal now checks the outboxes too: 23/23 pass on dev.
 - **CEO review (Adrian asked "are we under-ambitious?"):** verdict: scope is fine; the gap is *realism*: judges see only simulated data. Adrian picked **real AP data import** as the expansion. Scores now: Hyphenate 7.5, Convex 8.5, Armadin 5.5, Microsoft 6. Biggest remaining levers: this import (done, backend), Role 4's AI cache, Role 3's visual map, and the video.
 - **New: AP import (backend done, live on dev).** The PE partner onboards a company from two CSVs any AP system exports (vendor master + open bills). Sidecall matches its vendors to tracked ones, books the bills, creates an AP clerk + controller login, and **if a vendor is under an active incident, holds and flags the new company's payments on import** and exposes it. Sample "Lakeside Orthopedics" (`data/samples/`): its AP system already pays Brightline at the attacker's ••7731 → preview warns before any incident; after the Brightline incident, import holds $66,400 (2 payments, both flagged) and the headline becomes **4 companies · 4,650 people**.
-- `npm test`: 31 tests green; rehearsal 25/25 (new beat 7b: import mid-incident). (they sign in as each person; added: client can't pass a user id, controls log scoping).
+- `npm test`: 31 tests green; rehearsal 25/25 (new beat 7b: import mid-incident).
+- **MCP agent access: Tasks 1–5 done** (started 22:15, all stop points cleared early). `POST /mcp` with `list_held_payments`, `explain_hold`, `list_bills`, `request_payment`; hashed tokens, revoke, per-call audit, agents survive resets. Verified: 12 MCP tests (43 total), live handshake on dev, **official MCP Inspector client lists the tools**, and an agent request for Summit's November bill came back held + flagged. Shapes + commands in CONTRACT.md → "MCP agent access". (they sign in as each person; added: client can't pass a user id, controls log scoping).
 - ✓ done for Role 2: reviewed and merged #26. Earlier: #20, #22, #24.
 
 ## In progress
@@ -42,6 +43,7 @@ Last updated: Oct 23, 23:15 by Adrian's Claude
 2. Watch the handoff for Role 2 asks; keep `convex/` stable while the Waterloo pair onboards.
 
 ## Needs from others
+- → **Role 2 (Marco): MCP Tasks 6–8 are unblocked.** Task 6: `getPaymentAudit` rows now carry `actorName` ("Summit AP assistant (agent)"); show it in the payment audit. For the clip, mint a token on **your own dev deployment** (command in CONTRACT.md → "MCP agent access"; never commit or paste it), connect Claude Code with `claude mcp add …`, and record: ask the assistant "what's held and why?" → `explain_hold` → "request the November payroll bill" → held + flagged → Jamie can't release it in the UI, Rosa can. Reset afterwards.
 - → **Role 2 (Marco), new and high-value: "Onboard a company from its AP export" card in the PE view.** Shapes in CONTRACT.md → "AP import".
   1. Two file pickers (vendor master, open bills) read as text, plus **"Use sample files"** buttons that load `data/samples/lakeside-*.csv` via `?raw` (so the stage demo needs no files on disk).
   2. Company fields (name, domain, sector, headcount, AP clerk name, controller name), prefilled with Lakeside Orthopedics / lakesideortho.example / Healthcare / 450 / Morgan Ellis / Daniel Okoro.

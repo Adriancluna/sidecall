@@ -9,6 +9,7 @@
  */
 
 import type * as access from "../access.js";
+import type * as agents from "../agents.js";
 import type * as ai from "../ai.js";
 import type * as alerts from "../alerts.js";
 import type * as auth from "../auth.js";
@@ -17,6 +18,7 @@ import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as imports from "../imports.js";
 import type * as incidents from "../incidents.js";
+import type * as mcp from "../mcp.js";
 import type * as notifications from "../notifications.js";
 import type * as notify from "../notify.js";
 import type * as ops from "../ops.js";
@@ -32,6 +34,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   access: typeof access;
+  agents: typeof agents;
   ai: typeof ai;
   alerts: typeof alerts;
   auth: typeof auth;
@@ -40,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   imports: typeof imports;
   incidents: typeof incidents;
+  mcp: typeof mcp;
   notifications: typeof notifications;
   notify: typeof notify;
   ops: typeof ops;

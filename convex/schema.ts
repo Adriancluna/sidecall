@@ -79,6 +79,7 @@ export const auditAction = v.union(
   v.literal("escalate"),
   v.literal("contain"),
   v.literal("import"),
+  v.literal("agent_call"), // an AI assistant used a tool over MCP (convex/mcp.ts)
 );
 
 export const notifyEvent = v.union(
@@ -287,9 +288,22 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_companyId", ["companyId"]),
 
+  // AI assistants that use Sidecall over MCP, each acting on behalf of one seeded person (by
+  // email, so it survives reseeds). Only the token's sha256 is stored. Not cleared by resets.
+  agents: defineTable({
+    name: v.string(),
+    tokenHash: v.string(),
+    onBehalfOfEmail: v.string(),
+    tools: v.array(v.string()),
+    createdAt: v.number(),
+    revokedAt: v.optional(v.number()),
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_name", ["name"]),
+
   auditLog: defineTable({
     at: v.number(),
-    actor: v.union(v.literal("system"), v.id("users")),
+    actor: v.union(v.literal("system"), v.id("users"), v.id("agents")),
     action: auditAction,
     companyId: v.optional(v.id("companies")),
     paymentId: v.optional(v.id("payments")),

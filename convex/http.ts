@@ -3,6 +3,7 @@ import { env, httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { auth } from "./auth";
 import { SCENARIOS } from "./seed";
+import { mcpHandler, mcpMethodNotAllowed } from "./mcp";
 
 const http = httpRouter();
 
@@ -120,5 +121,10 @@ http.route({
   method: "OPTIONS",
   handler: httpAction(async () => new Response(null, { status: 204, headers: CORS })),
 });
+
+// MCP agent access (convex/mcp.ts). No CORS: MCP clients aren't browsers.
+http.route({ path: "/mcp", method: "POST", handler: mcpHandler });
+http.route({ path: "/mcp", method: "GET", handler: mcpMethodNotAllowed });
+http.route({ path: "/mcp", method: "DELETE", handler: mcpMethodNotAllowed });
 
 export default http;

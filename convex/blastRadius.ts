@@ -299,7 +299,7 @@ export const getIncidentTimeline = query({
     ];
     for (const row of audit) {
       // "contain" is added below with a viewer-safe label; "import" rows belong to no incident.
-      if (row.action === "contain" || row.action === "import") continue;
+      if (row.action === "contain" || row.action === "import" || row.action === "agent_call") continue;
       events.push({ at: row.at, kind: row.action, label: row.reason, companyName: await companyName(row.companyId) });
     }
     for (const alert of alertGroups.flat()) {

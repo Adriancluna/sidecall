@@ -18,6 +18,11 @@ export async function getViewer(
   if (!userId) throw new ConvexError("Not signed in");
   const user = await ctx.db.get("users", userId);
   if (!user) throw new ConvexError("Unknown user");
+  return viewerForUser(user);
+}
+
+// The same scoping for a known person, e.g. the clerk an MCP agent acts for (convex/agents.ts).
+export function viewerForUser(user: Doc<"users">): Viewer {
   if (user.role === "pe_partner") return { user, firm: true };
   if (!user.companyId) throw new ConvexError("User has no company");
   return { user, firm: false, companyId: user.companyId };

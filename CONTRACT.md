@@ -7,6 +7,7 @@ The data shapes and function signatures every role builds against. Owned by Role
 
 ## Changelog
 
+- **Oct 23, ~10:25pm.** MCP agent access (plan `docs/specs/mcp-implementation-plan.md`, Tasks 1–5): `POST /mcp` (bearer token). New table `agents` (survives resets); audit `actor` may be an agent id; audit action `agent_call`; `getPaymentAudit` rows gained `actorName` (and `getIncidentAudit` labels agents "<name> (agent)"). Tools: `list_held_payments`, `explain_hold`, `list_bills`, `request_payment`. No release/reject tool.
 - **Oct 23, ~11:15pm.** AP import: `imports.previewApImport({ vendorsCsv, billsCsv })` and `imports.importPortfolioCompany({ vendorsCsv, billsCsv, company })` (PE partner only). Audit action `import`. Sample files in `data/samples/`.
 - **Oct 23, ~10:50pm.** Notifications (spec `docs/specs/notifications.md`), backend part: tables `notificationChannels`, `notifications` (outbox); `notifications.listChannels / listOutbox / addChannel / removeChannel / sendTest`; enqueue hooks on ready alerts, holds, escalations, incidents (firm) and containment (firm); `internal.notifications.claimQueued / markResults` for Role 4's `convex/notify.ts` (stub in place); env `NOTIFY_LIVE`. Seed adds `#summit-finance` (Summit) and `#northpass-portfolio-risk` (firm) simulated Slack channels.
 - **Oct 23, ~9:45pm.** Scale: `getBlastRadius` totals now come from the incident's exposures and payments (were capped by reading only 100 companies); fan-out reads bounded at 500 everywhere. New `internal.alerts.saveAlerts({ alerts: [...] })` (batch upsert, same fields as `saveAlert`). Dev/test-only `internal.ops.addScalePortfolio({ count })` (DEMO_MODE only).
@@ -69,7 +70,7 @@ ledgerEntries: { companyId, date, memo, paymentId?, billId?,
                           debitCents, creditCents }[] }
 
 auditLog:  { at, actor: "system" | userId,
-             action: "hold" | "flag" | "release" | "reject" | "refused" | "escalate" | "contain" | "import",
+             action: "hold" | "flag" | "release" | "reject" | "refused" | "escalate" | "contain" | "import" | "agent_call",
              companyId?, paymentId?, incidentId?, rule, reason }
 ```
 
@@ -157,6 +158,30 @@ internal.notifications.markResults({ results: { notificationId, status: "sent" |
 - `warning` appears when the file pays a different account than the last one confirmed by phone, even before any incident.
 - During an active incident on a vendor: the new company's payments to it are held on import (flagged when the account changed recently), it gets an exposure and alert, and the PE headline includes it.
 - Limits: 200 vendors, 500 bills. Samples: `data/samples/lakeside-vendor-master.csv`, `data/samples/lakeside-open-bills.csv`.
+
+## MCP agent access (`POST /mcp`)
+
+An AI assistant (e.g. Claude Code) uses Sidecall as **one person's AP clerk**, with exactly that person's limits. Streamable HTTP, JSON responses only; protocol versions 2025-11-25 / 2025-06-18 / 2025-03-26.
+
+```
+npx convex run agents:mint '{"name":"Summit AP assistant","onBehalfOfEmail":"jamie.chen@summithomehealth.example","tools":["list_held_payments","explain_hold","list_bills","request_payment"]}'
+   -> { token: "sc_agent_…" }      // shown once; only its sha256 is stored. Never commit or paste it.
+npx convex run agents:revoke '{"name":"Summit AP assistant"}'
+claude mcp add --transport http sidecall https://<deployment>.convex.site/mcp --header "Authorization: Bearer <token>"
+```
+
+| Tool | Does |
+|---|---|
+| `list_held_payments({ status? })` | The company's held / paid / rejected payments with reasons and flags |
+| `explain_hold({ paymentId })` | Reasons, bank change (new vs last verified), audit trail, `nextStep` ("…must call the number on file… This assistant cannot release or reject payments.") |
+| `list_bills()` | Bills and whether each has a payment |
+| `request_payment({ billId })` | Same as an AP clerk's request: held and flagged on creation if the vendor is under an incident |
+
+- Scoped to the person's company via the same `Viewer` logic; another company's or a garbage id → "Payment not found."; never the reporter.
+- Every `tools/call` writes one `auditLog` row (`action: "agent_call"`, `rule: "mcp_tool:<tool>"`); the controls log shows the actor as "Summit AP assistant (agent)".
+- Segregation of duties holds: the agent requests as Jamie, so Jamie can't release it; Rosa can, in the UI.
+- Errors: `Origin` header → 403; bad/missing token → 401; bad JSON → -32700; batch → -32600; unknown method → -32601; unknown tool → -32602; `GET`/`DELETE` → 405.
+- Stage rule: shown only as a recorded clip, never live.
 
 ## Sign-in (Convex Auth, Password provider)
 
