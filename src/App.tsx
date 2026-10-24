@@ -33,7 +33,11 @@ function SignedIn() {
         <PortfolioView />
       ) : (
         // key: switching people starts with clean local state (no stale refusal or note)
-        <CompanyView key={me._id} companyId={me.companyId} />
+        <CompanyView
+          key={me._id}
+          companyId={me.companyId}
+          isController={me.role === "controller"}
+        />
       )}
     </AppShell>
   );

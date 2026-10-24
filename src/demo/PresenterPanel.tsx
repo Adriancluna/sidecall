@@ -50,6 +50,12 @@ const BEATS: Beat[] = [
     tip: "Bills to pay → Request payment on the $38,000 bill.",
   },
   {
+    title: "It reached their Slack (optional)",
+    say: "Nobody had to have the dashboard open: the same warning already went to Summit's #summit-finance channel. Here it's simulated so the demo doesn't depend on Wi-Fi.",
+    as: JAMIE,
+    tip: "Scroll to Notifications → Outbox.",
+  },
+  {
     title: "Requester refused, controller verifies",
     say: "Jamie requested it, so Jamie can't release it. Rosa calls the number on file, notes what the vendor said, then releases or rejects. Cash moves only on release.",
     as: ROSA,
@@ -57,9 +63,9 @@ const BEATS: Beat[] = [
   },
   {
     title: "Zoom out",
-    say: "3 companies exposed, 4,200 people behind them, $612K in payments held.",
+    say: "3 companies exposed, 4,200 people behind them, $650K in payments held: the $612K in flight plus the new $38K request.",
     as: JORDAN,
-    tip: "Shows $612K while Rosa's payment is still held; after her decision it drops to $132K.",
+    tip: '$650K while Rosa\'s payment is still held ($612K if you skipped the $38K request); after her release it drops to $170K with "$480,000 released after verification".',
   },
   {
     title: "Evidence",
