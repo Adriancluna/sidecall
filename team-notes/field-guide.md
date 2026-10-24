@@ -247,6 +247,8 @@ About 3 minutes. Open on the money. Use `sidecall.vercel.app/?stage` (or `sideca
 | 6. Convex | any | Replay webhook; two tabs Acknowledge | "Replay: nothing duplicates. Two clicks: exactly one wins." |
 | 7. Proof | Jordan | Proof tab (firm view) | "18 planted cases, 0 missed, 0 false holds, on our own answer key." |
 
+**Getting in:** the site opens on a password screen. The password is `sidecall-password`. Each browser remembers it after the first entry, so give it to judges along with the link. It keeps casual visitors out; it isn't a security boundary (sign-in, company scoping and the presenter key still are).
+
 **Recovery tips:**
 - "Fire incident: duplicate" on stage means someone fired it already. Press Reset (with the presenter key) and fire again.
 - Sign-in looks stuck after Reset: everyone is signed out by design. Pick the person again from the list.
