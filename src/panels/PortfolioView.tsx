@@ -505,7 +505,7 @@ function PortfolioHero({
       <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] lg:gap-10">
         <div className="min-w-0">
           {/* The zoom-out line as three metric blocks in one card, label over figure. */}
-          <div aria-hidden className="grid grid-cols-[minmax(0,0.85fr)_minmax(0,1.1fr)_minmax(0,1.45fr)] divide-x divide-line rounded-tile border border-line bg-panel">
+          <div aria-hidden className="grid grid-cols-[minmax(6.5rem,0.9fr)_minmax(7rem,1fr)_minmax(0,1.4fr)] divide-x divide-line rounded-tile border border-line bg-panel">
             <Stat
               value={String(totals.companiesExposed)}
               label={
