@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
+import { AcknowledgedBy } from "./AcknowledgedBy";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
 import { LedgerPanel } from "./LedgerPanel";
@@ -115,6 +116,7 @@ function AlertItem({ exposure, alert }: AlertItemProps) {
           {exposure.urgency}
         </Chip>
         <Chip tone="muted">{exposure.status}</Chip>
+        <AcknowledgedBy userId={exposure.acknowledgedBy} />
       </div>
       <p className="text-sm leading-relaxed">
         {alert?.status === "ready" ? alert.body : "Writing your alert…"}

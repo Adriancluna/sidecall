@@ -6,6 +6,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { BlastRadiusMap } from "../map/BlastRadiusMap";
 import { EvidencePanel } from "../map/EvidencePanel";
 import { dateTime, money } from "./format";
+import { ExposureAcknowledgedBy } from "./AcknowledgedBy";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
 import { Card, Chip, Empty } from "./ui";
@@ -140,6 +141,9 @@ export function PortfolioView() {
                     </Chip>
                   )}
                   {node?.status && <Chip tone="muted">{node.status}</Chip>}
+                  {alert.exposureId && (
+                    <ExposureAcknowledgedBy exposureId={alert.exposureId} />
+                  )}
                 </div>
                 <p className="text-sm leading-relaxed">
                   {alert.status === "ready" ? alert.body : "Writing alert…"}
