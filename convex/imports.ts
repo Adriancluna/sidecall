@@ -11,6 +11,7 @@ import { getViewer } from "./access";
 import { activeIncidentFor, holdNewPayment, recentBankChanges } from "./payments";
 import { openExposure } from "./incidents";
 import { DAY_MS, demoEmail } from "./shared";
+import { postLedgerEntry } from "./ledger";
 
 const MAX_VENDORS = 200;
 const MAX_BILLS = 500;
@@ -287,15 +288,12 @@ export const importPortfolioCompany = mutation({
     const controllerEmail = demoEmail(c.controllerName, domain);
     const clerkId = await ctx.db.insert("users", { companyId, name: c.apClerkName.trim(), role: "ap_clerk", email: clerkEmail });
     await ctx.db.insert("users", { companyId, name: c.controllerName.trim(), role: "controller", email: controllerEmail });
-    const openingCash = 200_000_000;
-    await ctx.db.insert("ledgerEntries", {
+    await postLedgerEntry(ctx, {
+      kind: "opening",
       companyId,
+      amountCents: 200_000_000,
       date: now,
       memo: "Opening balance (onboarded from AP export)",
-      lines: [
-        { account: "cash", debitCents: openingCash, creditCents: 0 },
-        { account: "equity", debitCents: 0, creditCents: openingCash },
-      ],
     });
 
     // Vendors → assets + links. Unknown vendors become new tracked assets.
@@ -355,15 +353,13 @@ export const importPortfolioCompany = mutation({
         dueDate: b.dueDate,
         description: b.description,
       });
-      await ctx.db.insert("ledgerEntries", {
+      await postLedgerEntry(ctx, {
+        kind: "bill",
         companyId,
+        amountCents: b.amountCents,
         date: now,
         memo: `Bill booked: ${asset.vendorName}, ${b.description}`,
         billId,
-        lines: [
-          { account: "expense", debitCents: b.amountCents, creditCents: 0 },
-          { account: "accounts_payable", debitCents: 0, creditCents: b.amountCents },
-        ],
       });
       const paymentId = await ctx.db.insert("payments", {
         billId,

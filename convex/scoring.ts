@@ -46,7 +46,7 @@ const FLAGGED_HOLD_BUMP = 30;
 
 export type HeldSummary = { count: number; cents: number; flagged: number };
 
-export type ExposureScore = {
+type ExposureScore = {
   score: number;
   confidence: number;
   urgency: "urgent" | "advisory";

@@ -13,6 +13,7 @@ import { getViewer } from "./access";
 // Role 4's DNS findings, bundled at deploy time. Each entry becomes a dns_inferred candidate link.
 import dnsLinks from "../data/dns_links.json";
 import { DAY_MS, demoEmail } from "./shared";
+import { postLedgerEntry } from "./ledger";
 
 type DnsLink = { companyDomain: string; assetName: string; detail?: string };
 
@@ -183,14 +184,12 @@ async function seedAll(ctx: MutationCtx) {
   const companyIds = {} as Record<CompanyKey, Id<"companies">>;
   for (const [key, company] of Object.entries(COMPANIES) as [CompanyKey, (typeof COMPANIES)[CompanyKey]][]) {
     companyIds[key] = await ctx.db.insert("companies", company);
-    await ctx.db.insert("ledgerEntries", {
+    await postLedgerEntry(ctx, {
+      kind: "opening",
       companyId: companyIds[key],
+      amountCents: OPENING_CASH,
       date: now - 180 * DAY_MS,
       memo: "Opening balance",
-      lines: [
-        { account: "cash", debitCents: OPENING_CASH, creditCents: 0 },
-        { account: "equity", debitCents: 0, creditCents: OPENING_CASH },
-      ],
     });
   }
 
@@ -316,15 +315,13 @@ async function seedAll(ctx: MutationCtx) {
       dueDate: now + b.dueInHours * 60 * 60 * 1000,
       description: b.description,
     });
-    await ctx.db.insert("ledgerEntries", {
+    await postLedgerEntry(ctx, {
+      kind: "bill",
       companyId: companyIds[b.company],
+      amountCents,
       date: now - DAY_MS,
       memo: `Bill booked: ${ASSETS[b.asset].vendorName}, ${b.description}`,
       billId,
-      lines: [
-        { account: "expense", debitCents: amountCents, creditCents: 0 },
-        { account: "accounts_payable", debitCents: 0, creditCents: amountCents },
-      ],
     });
   }
 
@@ -341,15 +338,13 @@ async function seedAll(ctx: MutationCtx) {
       dueDate,
       description: p.description,
     });
-    await ctx.db.insert("ledgerEntries", {
+    await postLedgerEntry(ctx, {
+      kind: "bill",
       companyId,
+      amountCents,
       date: booked,
       memo: `Bill booked: ${ASSETS[p.asset].vendorName}, ${p.description}`,
       billId,
-      lines: [
-        { account: "expense", debitCents: amountCents, creditCents: 0 },
-        { account: "accounts_payable", debitCents: 0, creditCents: amountCents },
-      ],
     });
     const paymentId = await ctx.db.insert("payments", {
       billId,
@@ -364,16 +359,14 @@ async function seedAll(ctx: MutationCtx) {
       decidedAt: p.status === "paid" ? now - 30 * DAY_MS : undefined,
     });
     if (p.status === "paid") {
-      await ctx.db.insert("ledgerEntries", {
+      await postLedgerEntry(ctx, {
+        kind: "payment",
         companyId,
+        amountCents,
         date: now - 30 * DAY_MS,
         memo: `Payment: ${ASSETS[p.asset].vendorName}, ${p.description}`,
         paymentId,
         billId,
-        lines: [
-          { account: "accounts_payable", debitCents: amountCents, creditCents: 0 },
-          { account: "cash", debitCents: 0, creditCents: amountCents },
-        ],
       });
     }
   }

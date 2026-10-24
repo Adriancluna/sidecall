@@ -8,6 +8,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { getViewer, type Viewer } from "./access";
 import { notifyEvent, notifyKind } from "./schema";
+import { memo } from "./shared";
 
 type NotifyEvent = Infer<typeof notifyEvent>;
 type NotifyKind = Infer<typeof notifyKind>;
@@ -286,11 +287,10 @@ export const listOutbox = query({
           .take(100)
       ).filter((r) => !args.incidentId || r.incidentId === args.incidentId);
     }
-    const channels = new Map<Id<"notificationChannels">, Doc<"notificationChannels"> | null>();
+    const channelById = memo((id: Id<"notificationChannels">) => ctx.db.get("notificationChannels", id));
     return await Promise.all(
       rows.map(async (r) => {
-        if (!channels.has(r.channelId)) channels.set(r.channelId, await ctx.db.get("notificationChannels", r.channelId));
-        const channel = channels.get(r.channelId);
+        const channel = await channelById(r.channelId);
         return {
           _id: r._id,
           createdAt: r.createdAt,

@@ -4,9 +4,10 @@ import { v, type Infer } from "convex/values";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { alertKind } from "./schema";
+import type { Id } from "./_generated/dataModel";
 import { getViewer } from "./access";
 import { enqueueAlert } from "./notifications";
-import { MAX_FANOUT } from "./shared";
+import { MAX_FANOUT, memo } from "./shared";
 
 const alertInput = v.object({
   incidentId: v.id("incidents"),
@@ -82,13 +83,14 @@ export const getWritingContext = internalQuery({
     const asset = await ctx.db.get("assets", incident.assetId);
     if (!asset) return null;
 
+    const companyById = memo((id: Id<"companies">) => ctx.db.get("companies", id));
     const exposures = await ctx.db
       .query("exposures")
       .withIndex("by_incidentId_and_companyId", (q) => q.eq("incidentId", args.incidentId))
       .take(MAX_FANOUT);
     const companyAlerts = await Promise.all(
       exposures.map(async (e) => {
-        const company = await ctx.db.get("companies", e.companyId);
+        const company = await companyById(e.companyId);
         return {
           exposureId: e._id,
           companyId: e.companyId,
@@ -106,7 +108,7 @@ export const getWritingContext = internalQuery({
       .take(MAX_FANOUT);
     const heldPayments = await Promise.all(
       payments.map(async (p) => {
-        const company = await ctx.db.get("companies", p.companyId);
+        const company = await companyById(p.companyId);
         return {
           paymentId: p._id,
           companyId: p.companyId,

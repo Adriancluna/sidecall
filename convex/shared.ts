@@ -16,3 +16,14 @@ export const toHex = (bytes: ArrayBuffer | Uint8Array) =>
 // "Jamie Chen" at summithomehealth.example → jamie.chen@summithomehealth.example
 export const demoEmail = (name: string, domain: string) =>
   `${name.toLowerCase().replace(/[^a-z ]/g, "").trim().replace(/\s+/g, ".")}@${domain}`;
+
+// Per-call cache for reads that repeat across rows (the same company, vendor or user on many
+// rows). Caches the promise, so lookups started in parallel share one read.
+export function memo<K, V>(load: (key: K) => Promise<V>): (key: K) => Promise<V> {
+  const cache = new Map<K, Promise<V>>();
+  return (key) => {
+    let hit = cache.get(key);
+    if (!hit) cache.set(key, (hit = load(key)));
+    return hit;
+  };
+}

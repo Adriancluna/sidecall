@@ -12,11 +12,11 @@ import { enqueue } from "./notifications";
 import { insertReadyAlert } from "./alerts";
 import { formatUsd, MAX_FANOUT } from "./shared";
 
-export type RecordIncidentResult =
+type RecordIncidentResult =
   | { ok: true; incidentId: Id<"incidents">; duplicate: boolean }
   | { ok: false; error: "unknown_asset" };
 
-export const incidentArgs = {
+const incidentArgs = {
   externalId: v.string(),
   assetName: v.string(),
   reportedByDomain: v.optional(v.string()),
@@ -189,12 +189,12 @@ type StatusChange =
 async function loadOwnExposure(
   ctx: MutationCtx,
   exposureId: Id<"exposures">,
-): Promise<Doc<"exposures"> | "not_found" | "not_your_company"> {
+): Promise<{ exposure: Doc<"exposures">; userId: Id<"users"> } | "not_found" | "not_your_company"> {
   const viewer = await getViewer(ctx);
   const exposure = await ctx.db.get("exposures", exposureId);
   if (!exposure) return "not_found";
   if (viewer.firm || viewer.companyId !== exposure.companyId) return "not_your_company";
-  return exposure;
+  return { exposure, userId: viewer.user._id };
 }
 
 // Two browsers clicking at once: Convex serializes the transactions, the second
@@ -203,14 +203,14 @@ export const acknowledgeExposure = mutation({
   args: { exposureId: v.id("exposures") },
   returns: statusChangeValidator,
   handler: async (ctx, args): Promise<StatusChange> => {
-    const exposure = await loadOwnExposure(ctx, args.exposureId);
-    if (typeof exposure === "string") return { ok: false, reason: exposure };
+    const own = await loadOwnExposure(ctx, args.exposureId);
+    if (typeof own === "string") return { ok: false, reason: own };
+    const { exposure } = own;
     if (exposure.status === "acknowledged") return { ok: false, reason: "already_acknowledged" };
     if (exposure.status === "closed") return { ok: false, reason: "closed" };
-    const viewer = await getViewer(ctx);
     await ctx.db.patch("exposures", exposure._id, {
       status: "acknowledged",
-      acknowledgedBy: viewer.user._id,
+      acknowledgedBy: own.userId,
       acknowledgedAt: Date.now(),
     });
     return { ok: true };
@@ -221,8 +221,9 @@ export const closeExposure = mutation({
   args: { exposureId: v.id("exposures") },
   returns: statusChangeValidator,
   handler: async (ctx, args): Promise<StatusChange> => {
-    const exposure = await loadOwnExposure(ctx, args.exposureId);
-    if (typeof exposure === "string") return { ok: false, reason: exposure };
+    const own = await loadOwnExposure(ctx, args.exposureId);
+    if (typeof own === "string") return { ok: false, reason: own };
+    const { exposure } = own;
     if (exposure.status === "closed") return { ok: false, reason: "closed" };
     await ctx.db.patch("exposures", exposure._id, { status: "closed" });
     return { ok: true };

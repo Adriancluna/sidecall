@@ -72,7 +72,6 @@ const authenticated = v.object({
   agentId: v.id("agents"),
   name: v.string(),
   tools: v.array(v.string()),
-  userId: v.id("users"),
   companyId: v.id("companies"),
 });
 
@@ -92,7 +91,7 @@ export const authenticate = internalQuery({
       .withIndex("email", (q) => q.eq("email", agent.onBehalfOfEmail))
       .unique();
     if (!user?.companyId || user.role === "pe_partner") return null;
-    return { agentId: agent._id, name: agent.name, tools: agent.tools, userId: user._id, companyId: user.companyId };
+    return { agentId: agent._id, name: agent.name, tools: agent.tools, companyId: user.companyId };
   },
 });
 
@@ -100,6 +99,7 @@ export const authenticate = internalQuery({
 export const logCall = internalMutation({
   args: {
     agentId: v.id("agents"),
+    companyId: v.id("companies"), // from authenticate, so the user isn't looked up again
     tool: v.string(),
     ok: v.boolean(),
     summary: v.string(),
@@ -110,15 +110,11 @@ export const logCall = internalMutation({
   handler: async (ctx, args) => {
     const agent = await ctx.db.get("agents", args.agentId);
     if (!agent) return null;
-    const user = await ctx.db
-      .query("users")
-      .withIndex("email", (q) => q.eq("email", agent.onBehalfOfEmail))
-      .unique();
     await ctx.db.insert("auditLog", {
       at: Date.now(),
       actor: agent._id,
       action: "agent_call",
-      companyId: user?.companyId,
+      companyId: args.companyId,
       paymentId: args.paymentId,
       incidentId: args.incidentId,
       rule: `mcp_tool:${args.tool}`,
@@ -140,7 +136,7 @@ async function agentViewer(ctx: QueryCtx, agentId: Id<"agents">) {
     .withIndex("email", (q) => q.eq("email", agent.onBehalfOfEmail))
     .unique();
   if (!user) throw new ConvexError("The person this agent acts for no longer exists");
-  return viewerForUser(user);
+  return { agent, viewer: viewerForUser(user) };
 }
 
 const decisionOut = (row: HeldPaymentRow) =>
@@ -152,7 +148,7 @@ export const listHeldPayments = internalQuery({
     status: v.optional(v.union(v.literal("held"), v.literal("paid"), v.literal("rejected"))),
   },
   handler: async (ctx, args) => {
-    const viewer = await agentViewer(ctx, args.agentId);
+    const { viewer } = await agentViewer(ctx, args.agentId);
     const rows = await heldPaymentsFor(ctx, viewer, {});
     return rows
       .filter((r) => !args.status || r.payment.status === args.status)
@@ -173,11 +169,10 @@ export const listHeldPayments = internalQuery({
 export const explainHold = internalQuery({
   args: { agentId: v.id("agents"), paymentId: v.string() },
   handler: async (ctx, args) => {
-    const viewer = await agentViewer(ctx, args.agentId);
+    const { viewer } = await agentViewer(ctx, args.agentId);
     const paymentId = ctx.db.normalizeId("payments", args.paymentId);
     if (!paymentId) return null;
-    const rows = await heldPaymentsFor(ctx, viewer, {});
-    const row = rows.find((r) => r.payment._id === paymentId);
+    const [row] = await heldPaymentsFor(ctx, viewer, { paymentId });
     if (!row) return null; // not this company's, or never held: same answer, no leak
     const audit = await paymentAuditFor(ctx, viewer, paymentId);
     const status = row.payment.status;
@@ -213,7 +208,7 @@ export const explainHold = internalQuery({
 export const listBills = internalQuery({
   args: { agentId: v.id("agents") },
   handler: async (ctx, args) => {
-    const viewer = await agentViewer(ctx, args.agentId);
+    const { viewer } = await agentViewer(ctx, args.agentId);
     const bills = await billsFor(ctx, viewer);
     return bills.map((b) => ({
       billId: b.bill._id,
@@ -231,8 +226,7 @@ export const listBills = internalQuery({
 export const requestPayment = internalMutation({
   args: { agentId: v.id("agents"), billId: v.string() },
   handler: async (ctx, args) => {
-    const viewer = await agentViewer(ctx, args.agentId);
-    const agent = (await ctx.db.get("agents", args.agentId))!;
+    const { agent, viewer } = await agentViewer(ctx, args.agentId);
     const billId = ctx.db.normalizeId("bills", args.billId);
     const result = billId
       ? await requestPaymentFor(ctx, viewer, billId)
