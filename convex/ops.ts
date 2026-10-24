@@ -50,8 +50,8 @@ export const readinessChecks = internalQuery({
 
     // "Bank details changed 2 days before the breach" only reads right shortly after seeding.
     const changes = await ctx.db.query("bankDetailChanges").take(100);
-    const fraud = changes.find((c) => c.seedRef === "bc_brightline_7731_fraud");
-    const ageDays = fraud ? (now - fraud.changedAt) / DAY_MS : null;
+    const emailChange = changes.find((c) => c.seedRef === "bc_brightline_7731_email_change");
+    const ageDays = emailChange ? (now - emailChange.changedAt) / DAY_MS : null;
     add(
       "Bank-change story fresh",
       ageDays !== null && ageDays < 3,
