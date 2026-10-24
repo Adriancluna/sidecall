@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as access from "../access.js";
 import type * as ai from "../ai.js";
 import type * as alerts from "../alerts.js";
 import type * as blastRadius from "../blastRadius.js";
@@ -24,6 +25,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  access: typeof access;
   ai: typeof ai;
   alerts: typeof alerts;
   blastRadius: typeof blastRadius;

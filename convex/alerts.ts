@@ -3,6 +3,7 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import { alertKind } from "./schema";
+import { getViewer } from "./access";
 
 // Upsert: replaces the pending alert for the same exposure / payment / vendor letter,
 // or inserts a new one. Role 4's actions call this.
@@ -104,16 +105,15 @@ export const getWritingContext = internalQuery({
   },
 });
 
-// A company's own alerts. TODO(auth): replace actingUserId with ctx.auth.
+// A company's own alerts.
 export const getMyAlerts = query({
   args: { actingUserId: v.id("users") },
   handler: async (ctx, args) => {
-    const user = await ctx.db.get("users", args.actingUserId);
-    if (!user?.companyId) return [];
-    const companyId = user.companyId;
+    const viewer = await getViewer(ctx, args.actingUserId);
+    if (viewer.firm) return [];
     return await ctx.db
       .query("alerts")
-      .withIndex("by_companyId", (q) => q.eq("companyId", companyId))
+      .withIndex("by_companyId", (q) => q.eq("companyId", viewer.companyId))
       .order("desc")
       .take(100);
   },
@@ -121,8 +121,10 @@ export const getMyAlerts = query({
 
 // PE firm view: every alert for an incident, including the vendor letter.
 export const getIncidentAlerts = query({
-  args: { incidentId: v.id("incidents") },
+  args: { incidentId: v.id("incidents"), actingUserId: v.id("users") },
   handler: async (ctx, args) => {
+    const viewer = await getViewer(ctx, args.actingUserId);
+    if (!viewer.firm) return [];
     const kinds = ["company_alert", "vendor_letter", "hold_notice"] as const;
     const groups = await Promise.all(
       kinds.map((kind) =>

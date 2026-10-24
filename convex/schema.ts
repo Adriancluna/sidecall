@@ -134,6 +134,7 @@ export default defineSchema({
     incidentId: v.id("incidents"),
     companyId: v.id("companies"),
     status: exposureStatus,
+    acknowledgedBy: v.optional(v.id("users")), // the one browser that won the race
     urgency,
     score: v.number(), // 0..100
     confidence: v.number(), // 0..1; self_reported links weigh more than dns_inferred

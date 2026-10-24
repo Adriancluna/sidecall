@@ -1,25 +1,53 @@
-// Read-side queries for the UI. getBlastRadius is the PE firm view: it is the only
-// place the reporting company is named.
+// Read-side queries for the UI. Every query takes the viewer (actingUserId) and scopes
+// to what that viewer may see. getBlastRadius is the PE firm view: the only place the
+// reporting company is named.
 import { v } from "convex/values";
 import { query } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
+import { canSeeCompany, getViewer } from "./access";
 
+// Firm: every incident, newest first. Company: only incidents that touch it, with the
+// reporter and the free-text summary removed (the summary can identify who was hit).
 export const listIncidents = query({
-  args: {},
-  handler: async (ctx) => {
-    const incidents = await ctx.db.query("incidents").order("desc").take(50);
+  args: { actingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    const viewer = await getViewer(ctx, args.actingUserId);
+    let incidents: Doc<"incidents">[];
+    if (viewer.firm) {
+      incidents = await ctx.db.query("incidents").order("desc").take(50);
+    } else {
+      const exposures = await ctx.db
+        .query("exposures")
+        .withIndex("by_companyId", (q) => q.eq("companyId", viewer.companyId))
+        .order("desc")
+        .take(50);
+      incidents = (
+        await Promise.all(exposures.map((e) => ctx.db.get("incidents", e.incidentId)))
+      ).filter((i): i is Doc<"incidents"> => i !== null);
+    }
     return await Promise.all(
       incidents.map(async (incident) => {
         const asset = await ctx.db.get("assets", incident.assetId);
-        return { ...incident, assetName: asset?.name ?? "", vendorName: asset?.vendorName ?? "" };
+        return {
+          _id: incident._id,
+          externalId: incident.externalId,
+          assetId: incident.assetId,
+          createdAt: incident.createdAt,
+          reportedByCompanyId: viewer.firm ? (incident.reportedByCompanyId ?? null) : null,
+          summary: viewer.firm ? (incident.summary ?? null) : null,
+          assetName: asset?.name ?? "",
+          vendorName: asset?.vendorName ?? "",
+        };
       }),
     );
   },
 });
 
 export const getBlastRadius = query({
-  args: { incidentId: v.id("incidents") },
+  args: { incidentId: v.id("incidents"), actingUserId: v.id("users") },
   handler: async (ctx, args) => {
+    const viewer = await getViewer(ctx, args.actingUserId);
+    if (!viewer.firm) return null; // portfolio-wide map is for the PE firm only
     const incident = await ctx.db.get("incidents", args.incidentId);
     if (!incident) return null;
     const asset = await ctx.db.get("assets", incident.assetId);
@@ -122,22 +150,41 @@ export const getBlastRadius = query({
 });
 
 export const getExposureEvidence = query({
-  args: { exposureId: v.id("exposures") },
+  args: { exposureId: v.id("exposures"), actingUserId: v.id("users") },
   handler: async (ctx, args) => {
+    const viewer = await getViewer(ctx, args.actingUserId);
     const exposure = await ctx.db.get("exposures", args.exposureId);
-    if (!exposure) return null;
+    if (!exposure || !canSeeCompany(viewer, exposure.companyId)) return null;
     return {
+      exposureId: exposure._id,
+      incidentId: exposure.incidentId,
+      companyId: exposure.companyId,
       reasons: exposure.reasons,
       confidence: exposure.confidence,
       evidence: exposure.evidence,
       urgency: exposure.urgency,
       score: exposure.score,
       status: exposure.status,
+      acknowledgedBy: exposure.acknowledgedBy ?? null,
     };
   },
 });
 
-// For the demo user switcher and company picker.
+// A company user's own exposures, newest first (their home screen).
+export const getMyExposures = query({
+  args: { actingUserId: v.id("users") },
+  handler: async (ctx, args) => {
+    const viewer = await getViewer(ctx, args.actingUserId);
+    if (viewer.firm) return [];
+    return await ctx.db
+      .query("exposures")
+      .withIndex("by_companyId", (q) => q.eq("companyId", viewer.companyId))
+      .order("desc")
+      .take(50);
+  },
+});
+
+// Demo user switcher and pickers: public directory data, no secrets.
 export const listCompanies = query({
   args: {},
   handler: async (ctx) => await ctx.db.query("companies").take(100),

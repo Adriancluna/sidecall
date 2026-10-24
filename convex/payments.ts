@@ -4,6 +4,7 @@ import { mutation, query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { HeldSummary } from "./scoring";
+import { canSeeCompany, getViewer } from "./access";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export const BANK_CHANGE_WINDOW_MS = 30 * DAY_MS;
@@ -239,13 +240,19 @@ export const rejectPayment = mutation({
 });
 
 // Payments an incident touched (held, then paid or rejected), or a company's touched payments.
-// Never includes who reported the incident.
+// Company users only ever get their own company's rows. Never includes who reported the incident.
 export const getHeldPayments = query({
   args: {
+    actingUserId: v.id("users"),
     incidentId: v.optional(v.id("incidents")),
-    companyId: v.optional(v.id("companies")),
+    companyId: v.optional(v.id("companies")), // firm only; company users are pinned to their own
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, rawArgs) => {
+    const viewer = await getViewer(ctx, rawArgs.actingUserId);
+    const args = {
+      incidentId: rawArgs.incidentId,
+      companyId: viewer.firm ? rawArgs.companyId : viewer.companyId,
+    };
     let payments: Doc<"payments">[];
     if (args.incidentId) {
       payments = await ctx.db
@@ -308,8 +315,11 @@ export const getHeldPayments = query({
 });
 
 export const getPaymentAudit = query({
-  args: { paymentId: v.id("payments") },
+  args: { paymentId: v.id("payments"), actingUserId: v.id("users") },
   handler: async (ctx, args) => {
+    const viewer = await getViewer(ctx, args.actingUserId);
+    const payment = await ctx.db.get("payments", args.paymentId);
+    if (!payment || !canSeeCompany(viewer, payment.companyId)) return [];
     return await ctx.db
       .query("auditLog")
       .withIndex("by_paymentId", (q) => q.eq("paymentId", args.paymentId))
@@ -318,11 +328,17 @@ export const getPaymentAudit = query({
 });
 
 export const getLedger = query({
-  args: { companyId: v.id("companies") },
+  args: {
+    actingUserId: v.id("users"),
+    companyId: v.optional(v.id("companies")), // firm only; company users get their own
+  },
   handler: async (ctx, args) => {
+    const viewer = await getViewer(ctx, args.actingUserId);
+    const companyId = viewer.firm ? args.companyId : viewer.companyId;
+    if (!companyId) return null;
     const entries = await ctx.db
       .query("ledgerEntries")
-      .withIndex("by_companyId_and_date", (q) => q.eq("companyId", args.companyId))
+      .withIndex("by_companyId_and_date", (q) => q.eq("companyId", companyId))
       .order("desc")
       .take(200);
     // Balances in natural sign: assets/expense debit-positive, liabilities/equity credit-positive.
