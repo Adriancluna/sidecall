@@ -1,5 +1,5 @@
 # Role 4: AI + scorecard + DNS (Waterloo #2, Omar)
-Last updated: Oct 24, 04:30 by Omar's Claude
+Last updated: Oct 24, 04:47 by Omar's Claude
 
 ## Status (this PR)
 - **AI writing (`convex/ai.ts`):** same three exports and args; writes each batch with one `saveAlerts` call (✓ done for Role 1), live calls 5 at a time. Text comes from `data/ai_cache.json` first (used only if the facts it was written from still match: urgency, reasons, amount, account, flag), then a live call only when `AI_LIVE=true` + `ANTHROPIC_API_KEY`, then the old canned text. Live text that breaks the copy rules falls back to canned. `npm test` 25 green.
@@ -24,6 +24,7 @@ node scripts/dns/scan.mjs --seed-only       # dns_links.json only, no network
 Each Convex script runs `npx convex dev --once` first (`--no-push` skips it) and reseeds.
 
 ## Needs from others
+- → **Role 1 (blocking): please invite Omar to the sidecall Convex team** (dashboard → Team settings → Members → Invite; Omar will send you his email). Without it he has no dev deployment, so `prompts/generate.mjs`, the scorecard and the live DNS scan can't run, and `ai_cache.json` / `scorecard.json` stay empty.
 - → Role 1 (optional, nice for the evidence panel): when a `dns_links.json` entry matches a pair that is already `dns_inferred` in `seed.ts` LINKS (Alder/Summit/Harborline/Meridian → Relay Mail, Granite Peak → Keystone), set its `detail` instead of skipping, so those links show the DNS record too. Today they're skipped and carry no detail.
 - → Role 2: `data/dns_findings.json` (`[{ domain, vendor, record, evidence }]`, real public domains) will land after the scan run; Proof panel "Real" can list it. The AI vendor letter will be ~150–230 words in several paragraphs (`\n\n`), so render it with `whitespace-pre-wrap`.
 
