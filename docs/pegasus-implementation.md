@@ -61,8 +61,8 @@ Keep two narratives over the same implementation: Hyphenate = evidence gathering
 ## Integration and remaining external requirements
 
 - Backend schema changes require a normal development deployment/code generation and then reviewed integration with Role 1. New fields are optional on existing tables; new tables are cleared by demo resets.
-- This checkout has no `CONVEX_DEPLOYMENT`, signing secret, AI key or owned identity-provider tenant configured. Live model/deployment testing requires the team's development setup.
-- The GitHub connection returned 403 for the attempted Pegasus handoff publication. Local files and patch are the delivery until write access or a shared checkout is available.
+- GitHub CLI write access is verified; Convex account login can access Adrian's team, but this checkout still has no `CONVEX_DEPLOYMENT`, signing secret, AI key or owned identity-provider tenant configured. Live model/deployment testing requires the team's development setup.
+- Vercel CLI can access the existing Sidecall project in `adriancluna23-3084s-projects`; account authentication does not establish that these application changes have been deployed.
 - Do not reset production to test this branch. The existing production frontend and other roles' in-progress work have not been overwritten.
 - Keep source enrollment credentials separate per detector in a production implementation; the prototype retains the existing shared HMAC key.
 
