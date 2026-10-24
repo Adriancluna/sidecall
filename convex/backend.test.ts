@@ -879,7 +879,13 @@ describe("red-team finding, one step ahead", () => {
       linkType: "shared_credential",
       source: "validated_at_source",
       here: "reachable_not_tested",
+      whatToCheck:
+        "What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. " +
+        "Rotate that login today, even if nothing looks wrong.",
     });
+    expect(evidence?.evidence.some((e) => e.kind === "what_to_check")).toBe(true);
+    const [alert] = await cedar.query(api.alerts.getMyAlerts, {});
+    expect(alert.body).toContain("What to check: sign-ins to Ironclad shared admin account");
     expect(await cedar.query(api.blastRadius.getBlastRadius, { incidentId })).toBeNull();
   });
 
@@ -901,5 +907,9 @@ describe("red-team finding, one step ahead", () => {
     const context = await s.t.query(internal.alerts.getWritingContext, { incidentId });
     expect(context?.technique).toEqual({ id: "T1078", name: "Valid Accounts" });
     expect(context?.companyAlerts.every((a) => a.pathSummary?.includes("not tested"))).toBe(true);
+    expect(context?.companyAlerts.every((a) => a.whatToCheck?.startsWith("What to check:"))).toBe(true);
+    // Harborline gives Ironclad admin access rather than sharing the login: a different action.
+    const harborline = context?.companyAlerts.find((a) => a.companyName === "Harborline Foods");
+    expect(harborline?.whatToCheck).toContain("Ask Ironclad Managed IT to rotate the admin account it uses for you");
   });
 });

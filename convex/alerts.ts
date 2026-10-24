@@ -101,6 +101,7 @@ export const getWritingContext = internalQuery({
           confidence: e.confidence,
           // Sister-safe path sentence (scoring.ts sisterPath); null without a finding.
           pathSummary: e.evidence.find((x) => x.kind === "path")?.detail ?? null,
+          whatToCheck: e.path?.whatToCheck ?? null, // concrete check for the IT lead; null without a finding
         };
       }),
     );

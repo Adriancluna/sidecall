@@ -115,6 +115,40 @@ const HERE_SENTENCE: Record<Doc<"links">["shareType"], (vendor: string) => strin
     `You use your own login, so it reaches your company only if an attacker can cross between ${vendor} customers (not tested at your company).`,
 };
 
+// What the IT lead at a sister company should look at, from the technique, our own asset row and
+// the time the path was proven. Never the finding's hop labels, so nothing names who was hit.
+const CHECK_BY_TECHNIQUE: Record<string, (account: string, vendor: string) => string> = {
+  T1078: (account) => `sign-ins to ${account}`,
+  T1021: (account) => `remote logins that used ${account}`,
+  T1110: (account) => `failed sign-ins to ${account}`,
+  T1133: (_, vendor) => `remote-access sessions through ${vendor}`,
+  T1199: (_, vendor) => `actions ${vendor} staff took in your systems`,
+  T1552: (account) => `where the ${account} password is stored (scripts, shared drives, password managers)`,
+};
+
+const ACT_BY_SHARE: Record<Doc<"links">["shareType"], (vendor: string) => string> = {
+  shared_credential: () => "Rotate that login today, even if nothing looks wrong.",
+  shared_admin_access: (vendor) =>
+    `Ask ${vendor} to rotate the admin account it uses for you, and confirm by calling the number on file.`,
+  same_vendor_only: (vendor) => `Ask ${vendor} to confirm your account is kept separate from other customers'.`,
+};
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// e.g. "Oct 24, 08:12 UTC"
+function utcMinute(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
+}
+
+export function whatToCheck(finding: Finding, link: Doc<"links">, asset: Doc<"assets">): string {
+  const check = CHECK_BY_TECHNIQUE[finding.technique.id.split(".")[0]] ?? ((account: string) => `access through ${account}`);
+  return (
+    `What to check: ${check(asset.name, asset.vendorName)} in the last 30 days, especially after ` +
+    `${utcMinute(finding.validatedAt)}. ${ACT_BY_SHARE[link.shareType](asset.vendorName)}`
+  );
+}
+
 export function sisterPath(
   finding: Finding,
   link: Doc<"links">,
@@ -122,6 +156,7 @@ export function sisterPath(
 ): { path: Infer<typeof exposurePath>; evidence: { kind: string; detail: string }[] } {
   const sharedHop = vendorLabel(asset);
   const vendor = asset.vendorName;
+  const check = whatToCheck(finding, link, asset);
   const summary = [
     `A validated attack path at another portfolio company ends at ${sharedHop}.`,
     HERE_SENTENCE[link.shareType](vendor),
@@ -136,10 +171,12 @@ export function sisterPath(
       sharedHop,
       linkType: link.shareType,
       here: "reachable_not_tested",
+      whatToCheck: check,
     },
     evidence: [
       { kind: "technique", detail: techniqueLabel(finding.technique.id) },
       { kind: "path", detail: summary },
+      { kind: "what_to_check", detail: check },
     ],
   };
 }
