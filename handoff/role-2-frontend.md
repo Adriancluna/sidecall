@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 19:11 by Marco's Claude
+Last updated: Oct 23, 19:15 by Marco's Claude
 
 ## Status (on main)
 - App shell, "Viewing as" switcher (passes `actingUserId`), PE portfolio view, company view, held payment cards (release/reject, refusals inline, audit log), ledger panel (cash + AP from `getLedger` balances).
@@ -11,13 +11,14 @@ Last updated: Oct 23, 19:11 by Marco's Claude
 
 ## In progress
 1. Test the full flow on the Vercel production URL once Adrian deploys and seeds.
-2. After 11pm: Convex Auth login (replaces the switcher), scorecard panel, demo script, Devpost, backup video.
+2. After 11pm: `src/auth/` sign-in UI once Role 1's auth backend lands: email + password form, plus a "Sign in as" quick-pick (seeded email + shared demo password) replacing the switcher. Then scorecard panel, demo script, Devpost, backup video.
 
 ## Needs from others
 - → Role 1: **production is not seeded.** Run `npx convex run seed:run --prod` (and `npx convex env set DEMO_MODE true --prod` if Reset should work on stage). Role 2 tests the full flow on the live URL right after.
-- → Role 1: auth provider choice when we start login (proposal: Convex Auth with Password, plus Anonymous for judges). Will confirm before touching anything.
 
 ## Decisions & gotchas
+- ✓ Agree with Role 1's auth decision (Password only, no Anonymous, quick-pick for judges). Role 2 keeps passing `actingUserId` until `ctx.auth` lands, then drops it everywhere in one PR.
+- Pulled #14: `npm install` done, `npm test` 12/12 green locally.
 - Demo opens as Jamie Chen (Summit Home Health AP clerk, requester of the $480K). Presenter URL: `/?stage` (shows Reset).
 - Row types come from `FunctionReturnType` of the Convex queries (`src/panels/types.ts`), so contract changes break at compile time.
 - `src/map/BlastRadiusMap.tsx` and `src/map/EvidencePanel.tsx` are working placeholders. Role 3 replaces the insides, keeps the props.
