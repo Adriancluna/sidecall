@@ -1,5 +1,5 @@
 # Pegasus: response resilience + payment investigation
-Last updated: 2026-10-24 14:30 America/Los_Angeles by Pegasus
+Last updated: 2026-10-24 14:37 America/Los_Angeles by Pegasus
 
 ## Status
 - Ashwa requested implementation while keeping Hyphenate and Armadin, including resistance to repeated reports causing business disruption.
@@ -42,3 +42,5 @@ Last updated: 2026-10-24 14:30 America/Los_Angeles by Pegasus
 - Existing identity-provider effects remain simulated; a separate owned sandbox can demonstrate actual token revocation without claiming a vendor integration.
 - This limits repeated business side effects, not network request floods; per-detector credentials and ingress rate controls remain deployment work.
 - Live model extraction, remote deployment and signed-in browser rehearsal are not verified; see setup details before presenting.
+
+- Latest user output contains successful npm package downloads only; Vercel installation, sign-in and project linkage are still unconfirmed. Advised waiting for interactive login/link prompts and the resume script completion message. — Pegasus
