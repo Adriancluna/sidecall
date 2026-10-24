@@ -136,6 +136,8 @@ internal.notifications.markResults({ results: { notificationId, status: "sent" |
 - One row per (channel, refId): replays and re-saved alerts never notify twice. One `notify.dispatch` scheduled per mutation.
 - URLs: https only; Slack must be `hooks.slack.com/services/…`, Discord `discord(app).com/api/webhooks/…`; generic webhooks can't be localhost, `.local`/`.internal` or an IP literal.
 - `NOTIFY_LIVE` (deployment env) off by default: rows end `simulated`, nothing leaves Convex (stage rule).
+- Sending (`convex/notify.ts`, Role 1): Slack `{ text }`, Discord `{ content }` (≤ 2,000 chars), generic `{ event, text, incidentId, company, at }`; 5 s timeout; one retry on network error/timeout/429/5xx (not 4xx); rows end `sent` (with `sentAt`) or `failed` (`error` like "HTTP 503", never the URL).
+- **For the recorded video only (dev deployment):** add a real Slack incoming webhook as a channel in the Notifications card, `npx convex env set NOTIFY_LIVE true`, fire, record, then `npx convex env remove NOTIFY_LIVE`. Never on production.
 
 ## AP import (onboard a company from its own AP exports)
 
