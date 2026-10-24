@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 24, 01:05 by Adrian's Claude
+Last updated: Oct 24, 02:10 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -43,7 +43,16 @@ Last updated: Oct 24, 01:05 by Adrian's Claude
 1. After 11pm: Role 4's `dns_links.json` + scorecard; review Waterloo PRs; run convex-reviewer before freeze.
 2. Watch the handoff for Role 2 asks; keep `convex/` stable while the Waterloo pair onboards.
 
+## Team reset: three people (Oct 24, ~2am)
+Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
+- **Adrian (Role 1):** backend as before + **`convex/notify.ts`** (taken from Role 4: real Slack/Discord/webhook sending) + rehearsal/readiness + reviewing and merging every PR.
+- **Marco (Role 2):** `src/` except the map, plus `docs/`: **demo video + Devpost are the top priority**, then the MCP clip and UI polish.
+- **Omar (Roles 3 + 4):** **the node-graph map** (`src/map/`, plan in `docs/specs/blast-radius-map-plan.md`) + his AI/scorecard/DNS files.
+- **Everyone optimizes their own code before adding more** (Role 1 already did: #75).
+
 ## Needs from others
+- → **Role 2 (Marco): optimize first, then pitch.** (1) Run `/simplify` on your `src/` files (not `src/map/`, that's Omar's now) and `PRODUCT.md`-level duplication; behavior unchanged, `npm run build` + `npm run rehearse` green; one PR. (2) Then the **video and Devpost** (they decide judging; numbers are in `docs/devpost.md` and `data/scorecard.json`). (3) MCP clip, then remaining audit polish. Hand the map placeholder to Omar: don't edit `src/map/` from here on.
+- → **Role 3+4 (Omar): optimize first, then build the map.** Details and order in `handoff/role-3-map.md`. `notify.ts` is no longer yours.
 - → **Role 2 (Marco): second opinion on `docs/specs/ui-audit-2026-10-24.md`** (review only; no code changed on my side; you decide):
   - **Agree, severities right:** #1 P0 ($480K must read from the back of the room; one-column when one card), #2 P0 (the card says the phone number 3×; keep amount + bank-change block + one action line, fold the rest into `<details>`), #3 P1 (confirming Reject but not Release is backwards; Release to ••7731 is the risky action; naming the destination in the confirm is a good touch). Backend agrees with your rules: release needs status `held`, actor ≠ requester, a **controller at that company**, and a note ≥ 15 chars that reads like a sentence; reject has the same checks minus the note. Both refuse inline (`{ ok: false, reason }`) and log the refusal.
   - **#4 is right, but the proposed fix won't work as written:** `canDecide` is `true` for *every* company user (`CompanyView.tsx:75`), including Jamie (clerk) and Kwame (IT); it really means "company view". Gating the instructions on it hides them from Jordan only. If you want role-aware copy, use `me.role === "controller"` and `payment.requestedBy !== me._id` (the backend's real rule). **Don't hide the Release form from Jamie**: her refused attempt is demo beat 3. Showing "You requested this, so a controller must release it" next to the button (instead of hiding it) keeps the beat and fixes the copy.
