@@ -32,7 +32,8 @@ async function escalateIfDue(ctx: MutationCtx, payment: Doc<"payments">, now: nu
     .filter((u) => u.role === "controller" && u._id !== payment.requestedBy)
     .map((u) => u.name);
   const hours = Math.round(msLeft / (60 * 60 * 1000));
-  const when = msLeft <= 0 ? "is past due" : `is due in about ${hours} hour${hours === 1 ? "" : "s"}`;
+  const when =
+    msLeft <= 0 ? "is past due" : hours < 1 ? "is due within the hour" : `is due in about ${hours} hour${hours === 1 ? "" : "s"}`;
   const vendor = asset?.vendorName ?? "the vendor";
   const body = `Decision needed: the ${formatUsd(payment.amountCents)} payment to ${vendor} ${when} and is still held. ${controllers.join(" or ") || "A controller"}: call ${vendor} at the number on file${asset ? ` (${asset.phoneOnFile})` : ""}, then release or reject it.`;
 
