@@ -23,7 +23,7 @@ export function UserMenu({ me }: { me: CurrentUser }) {
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-ash">
       <label className="flex min-w-0 items-center gap-2">
-        <span className="sr-only whitespace-nowrap sm:not-sr-only">
+        <span className="sr-only shrink-0 sm:not-sr-only">
           Signed in as
         </span>
         <select
