@@ -1,6 +1,7 @@
 // A portfolio company's dashboard. The hero is the one thing this person must do now (finance:
 // the held payment; IT and everyone else: the incident steps). Everything else is a tab.
 // The backend never sends which company reported the incident.
+import { InvestigationPanel } from "./InvestigationPanel";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
@@ -66,11 +67,12 @@ export function CompanyView({ companyId, meId, role }: Props) {
   const viewer = { id: meId, isController };
   const heroPayment = handlesPayments ? pickHeroPayment(stillHeld, escalations) : undefined;
 
-  const tabIds = ["alerts", "payments", "bills", "playbook", "timeline", "controls", "ledger", "notifications"] as const;
+  const tabIds = ["investigate", "alerts", "payments", "bills", "playbook", "timeline", "controls", "ledger", "notifications"] as const;
   const fallback = isController ? "payments" : role === "ap_clerk" ? "bills" : "alerts";
   const { active, select } = useTabs(tabIds, fallback);
 
   const tabs: TabDef[] = [
+    { id: "investigate", label: "Investigate payments", content: () => <InvestigationPanel /> },
     {
       id: "alerts",
       label: "Incident & evidence",

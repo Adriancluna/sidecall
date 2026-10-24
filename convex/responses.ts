@@ -12,6 +12,7 @@ import { getViewer, type Viewer } from "./access";
 import { playbookAction, responseMode } from "./schema";
 import { lowerMode, raisesMode, responseFor, type ResponseAction, type ResponseMode } from "./scoring";
 import { MAX_FANOUT, memo } from "./shared";
+import { applySandboxResponse, undoSandboxResponse } from "./sandbox";
 
 // At most this many companies get steps that run without a click from one report, so a forged or
 // buggy report can't cause a portfolio-wide outage. The rest are lowered to one click.
@@ -73,6 +74,13 @@ export async function planResponses(
     if (!policy || policy.mode === "notify") continue;
     let mode = lowerMode(policy.mode, rule.cap);
     let capNote = mode !== policy.mode ? rule.capNote : undefined;
+    const prior = await ctx.db.query("responseSteps")
+      .withIndex("by_companyId_and_action_and_target", (q) => q.eq("companyId", link.companyId).eq("action", rule.action).eq("target", asset.name))
+      .order("desc").first();
+    if (mode === "act" && prior && prior.incidentId !== incidentId) {
+      mode = "prepare";
+      capNote = "This target already had a response episode. A new report cannot repeat an automatic action or reverse an undo; a company approver must review it.";
+    }
     if (mode === "act" && !budget.companies.has(link.companyId) && budget.companies.size >= MAX_ACT_COMPANIES) {
       mode = "prepare";
       capNote = `One click this time: no more than ${MAX_ACT_COMPANIES} companies run steps without a click from one report.`;
@@ -128,7 +136,14 @@ export const recordSimulated = internalMutation({
     const now = Date.now();
     const userName = memo(async (id: Id<"users">) => (await ctx.db.get("users", id))?.name ?? "a teammate");
     for (const step of queued) {
-      await ctx.db.patch("responseSteps", step._id, { status: "done", executedAt: now });
+      const incident = await ctx.db.get("incidents", step.incidentId);
+      const policy = await policyFor(ctx, step.companyId, step.action);
+      if (!incident || incident.containedAt !== undefined || incident.responseClass === "observation" || !policy || policy.mode === "notify" || (!step.approvedBy && policy.mode !== "act")) {
+        await ctx.db.patch("responseSteps", step._id, { status: "expired" });
+        continue;
+      }
+      const sandbox = await applySandboxResponse(ctx, step.companyId, incident.assetId, step.action);
+      await ctx.db.patch("responseSteps", step._id, { status: "done", executedAt: now, executionMode: sandbox ? "sandbox" : "simulated" });
       const how = step.approvedBy
         ? `approved by ${await userName(step.approvedBy)}`
         : `pre-approved in the company's playbook (${step.policyRule.split(":").pop()})`;
@@ -139,7 +154,7 @@ export const recordSimulated = internalMutation({
         companyId: step.companyId,
         incidentId: step.incidentId,
         rule: step.policyRule,
-        reason: `${STEP_INFO[step.action].label}: ${step.target}, ${how}. Simulated connector.`,
+        reason: `${STEP_INFO[step.action].label}: ${step.target}, ${how}. ${sandbox ? "Owned sandbox authorization changed; no external identity provider." : "Simulated connector."}`,
       });
     }
     return queued.length;
@@ -209,6 +224,17 @@ export const undoStep = mutation({
     if ("refused" in own) return { ok: false as const, reason: own.refused };
     const { step, viewer } = own;
     if (step.status !== "done") return { ok: false as const, reason: step.status === "undone" ? "already_undone" : `not_done_yet` };
+    if (step.executionMode === "sandbox") {
+      if (step.action === "revoke_vendor_tokens") return { ok: false as const, reason: "Revoked sandbox tokens cannot be resurrected; provision a new test token." };
+      const latest = await ctx.db.query("responseSteps")
+        .withIndex("by_companyId_and_action_and_target", (q) => q.eq("companyId", step.companyId).eq("action", step.action).eq("target", step.target))
+        .order("desc").take(20);
+      if (latest.some((s) => s._id !== step._id && s.plannedAt >= step.plannedAt && (s.status === "done" || s.status === "queued"))) {
+        return { ok: false as const, reason: "A newer response controls this sandbox target; review that response instead." };
+      }
+      const incident = await ctx.db.get("incidents", step.incidentId);
+      if (incident) await undoSandboxResponse(ctx, step.companyId, incident.assetId);
+    }
     const now = Date.now();
     await ctx.db.patch("responseSteps", step._id, { status: "undone", undoneBy: viewer.user._id, undoneAt: now });
     await ctx.db.insert("auditLog", {
@@ -218,7 +244,7 @@ export const undoStep = mutation({
       companyId: step.companyId,
       incidentId: step.incidentId,
       rule: step.policyRule,
-      reason: `${viewer.user.name}: ${STEP_INFO[step.action].undo.toLowerCase()} (${step.target}). Simulated connector.`,
+      reason: `${viewer.user.name}: ${STEP_INFO[step.action].undo.toLowerCase()} (${step.target}). ${step.executionMode === "sandbox" ? "Owned sandbox access restored." : "Simulated connector."}`,
     });
     return { ok: true as const };
   },
@@ -448,6 +474,7 @@ export const getMyResponsePlan = query({
         effect: info.effect(asset.name, asset.vendorName),
         undo: info.undo,
         wouldCall: info.wouldCall,
+        executionMode: step?.executionMode ?? "simulated",
         mode: (step?.mode ?? "notify"),
         status: step?.status ?? ("recommended" as const),
         capNote: step?.capNote ?? (rule.cap === "notify" ? (rule.capNote ?? null) : null),
@@ -457,7 +484,7 @@ export const getMyResponsePlan = query({
         executedAt: step?.executedAt ?? null,
         msAfterReport: step?.executedAt !== undefined ? step.executedAt - incident.createdAt : null,
         canApprove: decider && step?.status === "awaiting_approval",
-        canUndo: decider && step?.status === "done",
+        canUndo: decider && step?.status === "done" && !(step.executionMode === "sandbox" && step.action === "revoke_vendor_tokens"),
       });
     }
     return plan;
@@ -511,7 +538,8 @@ export const getResponseTracker = query({
         ready: companies.filter((c) => c.done === 0 && c.ready > 0).length,
         notifyOnly: companies.filter((c) => c.notifyOnly).length,
       },
-      simulated: true as const,
+      simulated: steps.every((step) => step.executionMode !== "sandbox"),
+      sandbox: steps.some((step) => step.executionMode === "sandbox"),
     };
   },
 });

@@ -41,28 +41,9 @@ export function EvidencePanel({
           <AcknowledgedBy userId={evidence.acknowledgedBy} />
         </p>
       )}
-      <div className="mb-4">
-        <div className="mb-1 flex justify-between gap-3 text-xs text-ash">
-          <span>Confidence</span>
-          <span className="tabular-nums">
-            {Math.round(evidence.confidence * 100)}% ·{" "}
-            {inferred ? "candidate link from public DNS" : "self-reported link"}
-          </span>
-        </div>
-        <div
-          className="h-1.5 rounded-full bg-graphite"
-          role="meter"
-          aria-label="Confidence"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(evidence.confidence * 100)}
-        >
-          <div
-            className="h-full rounded-full bg-amber"
-            style={{ width: `${evidence.confidence * 100}%` }}
-          />
-        </div>
-      </div>
+      <p className="mb-4 text-sm text-ash">
+        {inferred ? "Candidate link · inferred from public DNS, not confirmed" : "Self-reported link · supplied during onboarding"}
+      </p>
       <h3 className="mb-1 text-xs font-semibold text-ash">Reasons</h3>
       <ul className="mb-4 list-disc space-y-1 pl-5 text-sm">
         {evidence.reasons.map((r) => (

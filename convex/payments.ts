@@ -105,6 +105,7 @@ async function holdPayment(
   },
 ): Promise<{ flagged: boolean }> {
   const { payment, incident, asset, at } = hold;
+  if (payment.status !== "pending") throw new Error("Only pending payments may acquire a new hold.");
   // Flag only if this payment is going to an account that changed recently.
   const change = hold.changes.find((c) => c.accountLast4 === payment.accountLast4);
   const holdReasons = [hold.reason];
@@ -199,17 +200,14 @@ export async function holdPaymentsForIncident(
   return { byCompany, held };
 }
 
-const ACTIVE_INCIDENT_MS = 30 * DAY_MS;
-
-// The vendor's latest incident, if it is still active: not contained and under 30 days old.
-export async function activeIncidentFor(ctx: MutationCtx, assetId: Id<"assets">, now: number) {
-  const [incident] = await ctx.db
+// Observations never mask an active compromise. Age alone never clears a confirmed incident.
+export async function activeIncidentFor(ctx: MutationCtx, assetId: Id<"assets">, _now: number) {
+  const incidents = await ctx.db
     .query("incidents")
     .withIndex("by_assetId", (q) => q.eq("assetId", assetId))
     .order("desc")
-    .take(1);
-  if (!incident || incident.containedAt !== undefined || now - incident.createdAt > ACTIVE_INCIDENT_MS) return null;
-  return incident;
+    .take(100);
+  return incidents.find((incident) => incident.responseClass !== "observation" && incident.responseClass !== "credential" && incident.finding?.terminalKind !== "credential" && incident.containedAt === undefined) ?? null;
 }
 
 // An AP clerk requests payment of a bill, to the vendor's current bank details on file (the

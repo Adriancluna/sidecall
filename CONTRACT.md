@@ -417,3 +417,15 @@ Rules (enforced in Convex):
 - At most 3 companies get `act` steps from one incident; the rest are lowered to one click (`capNote`).
 - Steps are planned in the incident's transaction after the `externalId` dedupe (replays plan nothing); one row per (incident, company, action); the executor is scheduled once per incident.
 - Only the company's `it` lead or `controller` approves, undoes or changes the playbook (holds: controller only); the firm and AP clerks are refused and logged. Raising a step to `act` takes two different people (propose, then confirm).
+
+
+## Pegasus extension (branch feat/pegasus-resilience; not deployed)
+
+- `incidents` gains optional `responseClass` (observation/vendor/credential), server-derived `correlationKey`, bounded `correlatedReports` and `evidenceRefs`, `lastReportedAt`, fixed `reviewDueAt`, `reviewedAt`, and `reviewEscalatedAt`; new index `by_correlationKey`.
+- Signed HTTP intake defaults to observation. Confirmed automation requires `INCIDENT_AUTO_RESPONSE=true`, `assessment: "confirmed"`, and nonempty bounded `evidenceRefs`. Stage scenarios retain their confirmed behavior. Cross-ID repeats return the canonical incident with `duplicate: true` and increment its related-report count without repeating effects.
+- `incidents.getResponseSafety({})` is firm-only; `reviewReport({incidentId, decision: "confirm"|"dismiss", note})` requires the firm and an independent-evidence note. Reopening a contained episode does not authorize repeat identity actions without company approval.
+- Fixed review deadline escalates after 15 minutes; never auto-releases payment. Active confirmed incidents no longer age out automatically after 30 days.
+- `investigations.submit({companyId?, sourceText})` schedules source extraction and deterministic reconciliation; `list({companyId?})` returns up to 20 company-scoped packets; `paymentQueue({companyId?})` returns `{csv, truncated}` for up to 500 company payments. None of these functions can release money or alter vendor details. New `investigations` table is scoped by `companyId`.
+- AP import now rejects ambiguous/duplicate vendor identities and uses exact normalized matching, removing prefix matching.
+- `sandboxResources` is an owned-test authorization table, not external identity-provider state. `sandbox.provision` is internal and demo-gated; `/sandbox/resource` verifies a test bearer credential. `RESPONSE_SANDBOX=true` lets the response executor change only explicitly provisioned resources. `responseSteps.executionMode?` is `sandbox` or `simulated`; repeated actions on the same company/action/target require approval.
+- Detailed limits, deployment prerequisites and demo: `docs/pegasus-implementation.md` (Pegasus).

@@ -36,7 +36,7 @@ export const listIncidents = query({
       ).filter((i): i is Doc<"incidents"> => i !== null);
     }
     return await Promise.all(
-      incidents.map(async (incident) => {
+      incidents.filter((incident) => incident.responseClass !== "observation").map(async (incident) => {
         const asset = await ctx.db.get("assets", incident.assetId);
         return {
           _id: incident._id,
@@ -61,7 +61,7 @@ export const getBlastRadius = query({
     const viewer = await getViewer(ctx);
     if (!viewer.firm) return null; // portfolio-wide map is for the PE firm only
     const incident = await ctx.db.get("incidents", args.incidentId);
-    if (!incident) return null;
+    if (!incident || incident.responseClass === "observation") return null;
     const asset = await ctx.db.get("assets", incident.assetId);
     if (!asset) return null;
 

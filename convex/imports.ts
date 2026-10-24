@@ -138,6 +138,14 @@ function parseFiles(vendorsCsv: string, billsCsv: string) {
     });
   }
 
+  const refs = new Map<string, ParsedVendor>();
+  for (const vendor of vendors) {
+    for (const ref of [vendor.ref, vendor.name]) {
+      if (refs.has(ref) && refs.get(ref) !== vendor) throw new ConvexError(`Ambiguous vendor reference "${ref}"; resolve duplicate vendor rows before importing.`);
+      refs.set(ref, vendor);
+    }
+  }
+
   const bt = table(billsCsv, "Open bills");
   const bVendor = bt.col(COLUMNS.vendorId) !== -1 ? bt.col(COLUMNS.vendorId) : bt.col(COLUMNS.vendorName);
   const bAmount = bt.col(COLUMNS.amount);
@@ -174,7 +182,7 @@ async function matchVendors(ctx: QueryCtx, vendors: ParsedVendor[]) {
     const n = normalizeName(vendor.name);
     return assets.filter((a) => {
       const names = [normalizeName(a.vendorName), normalizeName(a.name)];
-      return names.some((x) => x === n || (n.length >= 6 && (x.startsWith(n) || n.startsWith(x))));
+      return n.length > 0 && names.some((x) => x === n);
     });
   });
   // Bank history only for assets some vendor actually matched, fetched in parallel.
@@ -196,10 +204,14 @@ async function matchVendors(ctx: QueryCtx, vendors: ParsedVendor[]) {
   );
   return vendors.map((vendor, i) => {
     const candidates = candidatesFor[i];
-    // A vendor can have several tracked assets (e.g. its MSP service and a shared admin login):
-    // payments go to the one with bank history, i.e. the payee.
-    const asset =
-      candidates.sort((a, b) => (bankHistory.get(b._id)?.length ?? 0) - (bankHistory.get(a._id)?.length ?? 0))[0] ?? null;
+    // A credential asset is not a payee. Resolve a multi-asset vendor only when exactly one
+    // matching asset has bank records; never guess between two possible payees.
+    const payees = candidates.filter((a) => (bankHistory.get(a._id)?.length ?? 0) > 0);
+    const resolved = payees.length === 1 ? payees : candidates;
+    if (resolved.length > 1) {
+      throw new ConvexError(`Ambiguous vendor "${vendor.name}": multiple tracked assets match; resolve the vendor master before importing.`);
+    }
+    const asset = resolved[0] ?? null;
     const history = asset ? (bankHistory.get(asset._id) ?? []) : [];
     const verified = history.find((c) => c.requestChannel === "verified_call");
     const fileChange = vendor.bankLast4 ? history.find((c) => c.accountLast4 === vendor.bankLast4) : undefined;
