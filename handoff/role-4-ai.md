@@ -1,6 +1,11 @@
 # Role 4: AI + scorecard + DNS (Waterloo #2, Omar)
+Last updated: Oct 24, 23:30 by Omar's Claude
 
-Last updated: Oct 24, 20:25 by Omar's Claude
+## Status (PR: breach fix advice, branch `claude/project-thread-tliv3d`, NOT merged)
+- **"What to do now" after a breach, ready to wire, not mounted.** For Ashwa's agent (Pegasus) to put in the UI later: `src/ai/fixPlan/README.md`. Nothing in `src/` imports it, so no screen changes.
+- **Rules pick, AI explains** (`prompts/breachFix.ts`): per exposed company, fixed rules choose items (acknowledge, confirm a DNS candidate, pause / rotate the shared login, ask the MSP to rotate its admin account, revoke tokens, check access with the backend's "What to check" first, verify held payments, treat recently changed accounts as unverified, confirm remittance by phone, restore access, tell insurer/counsel/CEO, close out). Owner, priority and live status (done / ready / to do) come from rows. The AI writes only the summary and one "why" per item, pre-generated into **`data/ai_breach_fix.json`** (12 plans, 4 scenarios, all passed `checkBreachFixCopy` first try). Same shape as the stop-loss advice (other thread, `prompts/advice.ts` once it lands).
+- **Query `api.ai.getBreachFixAdvice({ exposureId })`** (appended to `convex/ai.ts`): company sees only its own, firm any; never reads the reporter. **`internal.ai.breachFixContexts`** feeds `prompts/generateBreachFix.mjs`. Item list depends only on facts fixed at incident time, so the cache hits in any firing order (pinned by a test); statuses follow acknowledge, the playbook steps, payment decisions and containment.
+- Tests: `convex/ai.test.ts` (7, under `npm test`: 102 green), `node --test prompts/breachFix.test.mjs` (13). Lint, typecheck, build green. Live on dev: query returns `source: "cache"`.
 
 ## Status (this PR, #102 part 2: richer demo data, omar's call)
 
@@ -58,6 +63,7 @@ node --test prompts/writing.test.mjs scripts/scorecard/score.test.mjs   # Role 4
 node scripts/dns/scan.mjs                   # → data/dns_links.json + data/dns_findings.json
 node scripts/dns/scan.mjs --seed-only       # dns_links.json only, no network
 node scripts/dns/portfolio.mjs              # portfolio_domains.json → portfolio_report.json (totals only)
+ANTHROPIC_API_KEY=… node prompts/generateBreachFix.mjs   # → data/ai_breach_fix.json (same reuse rules)
 ```
 
 Each Convex script runs `npx convex dev --once` first (`--no-push` skips it) and reseeds.
