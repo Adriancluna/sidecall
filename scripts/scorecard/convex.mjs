@@ -3,12 +3,17 @@
 // deployment in .env.local. Never production: these scripts reseed (wipe) the data.
 import { spawnSync } from "node:child_process";
 
+// The four demo scenarios of seed:fireDemoIncident (convex/seed.ts SCENARIOS), in firing order.
 export const SCENARIOS = [
   // Order matters: the Ironclad credential case expects Ironclad payments untouched,
   // so it fires before the Ironclad MSP case on the same seed.
   { scenario: "brightline", externalId: "demo-brightline-001" },
   { scenario: "ironcladCredential", externalId: "demo-ironclad-cred-002" },
   { scenario: "ironcladMsp", externalId: "demo-ironclad-msp-003" },
+  // The red-team finding: same asset and exposures as ironcladCredential, so it holds no
+  // payments and firing it last changes nothing for the scorecard (it has no answer-key entry).
+  // It is here so prompts/generate.mjs gets its writing context (pathSummary, technique).
+  { scenario: "armadinFinding", externalId: "demo-armadin-004" },
 ];
 
 export function refuseProd() {

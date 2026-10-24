@@ -1,6 +1,7 @@
 // Small helpers and limits shared across the backend. No Convex functions here.
 
-export const DAY_MS = 24 * 60 * 60 * 1000;
+export const HOUR_MS = 60 * 60 * 1000;
+export const DAY_MS = 24 * HOUR_MS;
 
 // Fan-out reads are bounded: one incident reaches at most this many linked companies and
 // payments, everywhere that reads its rows. Far above a PE portfolio.

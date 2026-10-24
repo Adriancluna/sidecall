@@ -8,6 +8,7 @@ const app = defineApp({
     ANTHROPIC_API_KEY: v.optional(v.string()), // Role 4: only for generating text off stage
     NOTIFY_LIVE: v.optional(v.string()), // "true" lets notify.dispatch POST to real webhooks; otherwise rows end "simulated"
     AI_LIVE: v.optional(v.string()), // Role 4: "true" lets ai.ts call the model; otherwise cached text only
+    PRESENTER_KEY: v.optional(v.string()), // set on prod: Reset and the unsigned stage Fire need it (the demo password is public)
   },
 });
 

@@ -11,7 +11,7 @@ import type { Doc, Id, TableNames } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { recordIncidentImpl } from "./incidents";
 import type { Finding } from "./findings";
-import { getViewer } from "./access";
+import { getViewer, isPresenter } from "./access";
 // Role 4's DNS findings, bundled at deploy time. Each entry becomes a dns_inferred candidate link.
 import dnsLinks from "../data/dns_links.json";
 import { DAY_MS, demoEmail } from "./shared";
@@ -454,7 +454,7 @@ export const run = internalMutation({
 // "Reset demo" button. Wipes and reseeds, so it only works where DEMO_MODE=true is set
 // on the deployment (`npx convex env set DEMO_MODE true`). Never set it on a real deployment.
 export const resetDemo = mutation({
-  args: {},
+  args: { presenterKey: v.optional(v.string()) },
   returns: v.object({
     companies: v.number(),
     assets: v.number(),
@@ -466,11 +466,14 @@ export const resetDemo = mutation({
     dnsSkipped: v.array(v.string()),
     continuing: v.boolean(), // true: the wipe was too big for one transaction and finishes shortly
   }),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     if (env.DEMO_MODE !== "true") {
       throw new ConvexError("Demo reset is disabled on this deployment (DEMO_MODE is not true).");
     }
-    await getViewer(ctx); // signed-in presenters only
+    await getViewer(ctx); // signed in
+    if (!isPresenter(args.presenterKey)) {
+      throw new ConvexError("Reset is presenter-only on this deployment: enter the presenter key on /?stage.");
+    }
     return await resetAll(ctx);
   },
 });

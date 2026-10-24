@@ -35,6 +35,7 @@ type Env = {
   readonly DEMO_MODE: string | undefined;
   readonly INCIDENT_WEBHOOK_SECRET: string | undefined;
   readonly NOTIFY_LIVE: string | undefined;
+  readonly PRESENTER_KEY: string | undefined;
 };
 
 /**

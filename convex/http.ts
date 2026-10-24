@@ -6,6 +6,7 @@ import { SCENARIOS } from "./seed";
 import { mcpHandler, mcpMethodNotAllowed } from "./mcp";
 import { toHex } from "./shared";
 import { parseFinding } from "./findings";
+import { isPresenter } from "./access";
 
 const http = httpRouter();
 
@@ -16,7 +17,7 @@ auth.addHttpRoutes(http);
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, X-Sidecall-Signature",
+  "Access-Control-Allow-Headers": "Content-Type, X-Sidecall-Signature, X-Sidecall-Presenter",
 };
 
 // Real senders sign the raw body: X-Sidecall-Signature: sha256=<hex HMAC-SHA256 with
@@ -24,6 +25,8 @@ const CORS = {
 // scenarios, and only on deployments with DEMO_MODE=true (the stage button).
 const SIGNATURE_HEADER = "X-Sidecall-Signature";
 const MAX_BODY_CHARS = 32 * 1024;
+// The stage's presenter key (see access.ts isPresenter), for unsigned demo scenarios.
+const PRESENTER_HEADER = "X-Sidecall-Presenter";
 
 async function hmacSha256Hex(secret: string, body: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -122,6 +125,9 @@ http.route({
     const demo = env.DEMO_MODE === "true" ? demoScenario(externalId, assetName) : undefined;
     if (!signed && !demo) {
       return json(401, { error: `missing or invalid ${SIGNATURE_HEADER}` });
+    }
+    if (!signed && !isPresenter(req.headers.get(PRESENTER_HEADER))) {
+      return json(401, { error: "demo scenarios are presenter-only on this deployment" });
     }
 
     const result = await ctx.runMutation(

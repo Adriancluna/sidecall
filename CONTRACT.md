@@ -7,6 +7,7 @@ The data shapes and function signatures every role builds against. Owned by Role
 
 ## Changelog
 
+- **Oct 24, ~9am.** Presenter lock (council A1): env `PRESENTER_KEY`. Where set (prod), `seed.resetDemo({ presenterKey? })` and unsigned demo `POST /incident` (header `X-Sidecall-Presenter`) need it; signed senders are unaffected. Unset = unchanged (dev, tests). Readiness gained "Presenter lock" (advisory) and stricter freshness (bank change < 2.5 days, $480K due in 18–20h). Lakeside sample due dates moved past Oct 30.
 - **Oct 24, ~2:45am.** "What to check" for sister companies' IT leads: `exposures.path.whatToCheck?`, `getExposureEvidence().path.whatToCheck`, evidence kind `what_to_check`, `getWritingContext().companyAlerts[].whatToCheck`. Built from the technique, our own asset row and the time the path was proven, e.g. "What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong." The action differs by link type.
 - **Oct 24, ~3am.** Red-team findings, one step ahead (spec `docs/specs/armadin-one-step-ahead.md` Part A; **our own finding schema**, not Armadin's). `POST /incident` takes an optional `finding` (see HTTP); `404 unknown_reporter` when its scope isn't a portfolio company. Incidents gained `finding?` (firm-only); exposures gained `path?` and evidence kinds `technique` and `path`. `listIncidents` rows gained `findingSource` (firm only); `getBlastRadius` edges gained `path`; `getExposureEvidence` gained `path`; `getWritingContext` gained `technique` and `companyAlerts[].pathSummary`. New scenario `armadinFinding` (`demo-armadin-004`). A finding never changes score, urgency or confidence; a credential finding skips `same_vendor_only` links. Unsigned demo requests now run the stored scenario as-is (body text and findings ignored).
 - **Oct 24, ~2am.** Access and robustness: `listCompanies` / `listUsers` / `listAssets` are public only where `DEMO_MODE=true` (the sign-in quick-pick); elsewhere they return `[]` when signed out, and a company user gets `email`/`phone` only for their own colleagues. `getIncidentTimeline` returns `null` to a company the incident never touched. `resetDemo` / `seed:run` return `continuing: boolean` (true: the wipe was too big for one transaction and finishes in a moment). Notifications gained `claimedAt?`; a 5-min cron requeues rows stuck in `sending`. Bank-change seed refs renamed `*_fraud` → `*_email_change` (answer key updated; `data/scorecard.json` needs a regenerate).
@@ -269,7 +270,7 @@ claude mcp add --transport http sidecall https://<deployment>.convex.site/mcp --
 ```ts
 [incidents] acknowledgeExposure({ exposureId }) -> { ok: true } | { ok: false, reason: "not_found" | "not_your_company" | "already_acknowledged" | "closed" }
 [incidents] closeExposure({ exposureId })       -> same shape
-[seed]      resetDemo({}) -> counts & { continuing }                        // "Reset demo" button; throws unless DEMO_MODE=true and someone is signed in
+[seed]      resetDemo({ presenterKey? }) -> counts & { continuing }                        // "Reset demo" button; throws unless DEMO_MODE=true and someone is signed in
 
 [incidents] containIncident({ incidentId, note }) -> { ok: true } | { ok: false, reason }   // PE partner only
 
@@ -367,7 +368,7 @@ Header (real senders): X-Sidecall-Signature: sha256=<hex HMAC-SHA256 of the raw 
 
 200 { "incidentId", "duplicate": false }   first time
 200 { "incidentId", "duplicate": true }    replay of the same externalId (nothing new written)
-400 bad body · 401 missing/invalid signature · 404 unknown_asset / unknown_reporter
+400 bad body · 401 missing/invalid signature, or "presenter-only" · 404 unknown_asset / unknown_reporter
 ```
 
 Optional `finding` (our own schema, modelled on autonomous red-team output; parsed in `convex/findings.ts`):

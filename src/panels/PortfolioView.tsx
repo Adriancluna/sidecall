@@ -22,12 +22,33 @@ import type { BlastRadius } from "./types";
 import { VendorLetterActions } from "./VendorLetterActions";
 import { Card, Chip, Empty, LookChip } from "./ui";
 
+const PIN_KEY = "sidecall-pe-incident";
+function loadPinned(): Id<"incidents"> | undefined {
+  try {
+    return (window.sessionStorage.getItem(PIN_KEY) as Id<"incidents"> | null) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+function savePinned(id: Id<"incidents">) {
+  try {
+    window.sessionStorage.setItem(PIN_KEY, id);
+  } catch {
+    // remembered for this page only
+  }
+}
+
 const TAB_IDS = ["map", "alerts", "payments", "timeline", "letter", "closeout", "onboard", "notifications", "proof"] as const;
 
 export function PortfolioView() {
   const incidents = useQuery(api.blastRadius.listIncidents, {});
-  // Follow the newest incident (list is newest first) unless the firm picked another one.
-  const [chosen, setChosen] = useState<Id<"incidents">>();
+  // Follow the newest incident (list is newest first) unless the firm picked another one. The pick
+  // survives switching people (this view remounts), so "Mark contained" never lands on the wrong one.
+  const [chosen, setChosenState] = useState<Id<"incidents"> | undefined>(loadPinned);
+  const setChosen = (id: Id<"incidents">) => {
+    setChosenState(id);
+    savePinned(id);
+  };
   const incidentId = incidents?.find((i) => i._id === chosen)?._id ?? incidents?.[0]?._id;
   const blast = useQuery(api.blastRadius.getBlastRadius, incidentId ? { incidentId } : "skip");
   const held = useQuery(api.payments.getHeldPayments, incidentId ? { incidentId } : "skip");

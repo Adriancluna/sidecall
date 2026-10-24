@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-24T04:29:42.033Z",
+  "generatedAt": "2026-10-24T13:20:45.767Z",
   "scenarios": [
     {
       "externalId": "demo-brightline-001",
@@ -57,7 +57,7 @@
           "why": "Already paid last month"
         },
         {
-          "ref": "bc_brightline_7731_fraud",
+          "ref": "bc_brightline_7731_email_change",
           "type": "bankChange",
           "expected": "hold_and_flag",
           "actual": "hold_and_flag",
@@ -65,7 +65,7 @@
           "why": "Email change 2 days before incident"
         },
         {
-          "ref": "bc_brightline_4419_fraud",
+          "ref": "bc_brightline_4419_email_change",
           "type": "bankChange",
           "expected": "hold_and_flag",
           "actual": "hold_and_flag",
@@ -155,7 +155,7 @@
           "why": "Pending to the breached vendor, verified account"
         },
         {
-          "ref": "bc_ironclad_9902_fraud",
+          "ref": "bc_ironclad_9902_email_change",
           "type": "bankChange",
           "expected": "hold_and_flag",
           "actual": "hold_and_flag",

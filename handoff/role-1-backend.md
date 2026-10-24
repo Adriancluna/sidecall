@@ -76,6 +76,13 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 ## Status update (~2:45am): "What to check" (last backend feature before hardening)
 Team decision (Adrian): **no more new features**; focus on precision, the $480K moment, and the red-team finding. One gap closed: an exposed company's IT lead now gets a concrete check, not just "rotate and review". `getExposureEvidence().path.whatToCheck` / evidence kind `what_to_check` / `getWritingContext().companyAlerts[].whatToCheck`, e.g. "What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong." (Harborline, which gives admin access, gets "Ask Ironclad Managed IT to rotate the admin account it uses for you…"). 55 tests, rehearsal 25/25. From here Role 1 = demo hardening + support for the video.
 
+## Council fixes A1–A3 + O1 (Role 1, branch `fix/stage-lock`, NOT pushed yet: waiting on the UI remake decision)
+- **A1 presenter lock:** env `PRESENTER_KEY` (prod only). Reset and the unsigned stage Fire need it; `/?stage` has a "Presenter key" field (this browser only). Visitors pressing Fire on prod get "the live demo's scenarios are run by the presenter". Rehearsal: `PRESENTER_KEY=… npm run rehearse -- --url …`.
+- **A2:** readiness wants the bank change < 2.5 days old and the $480K due in 18–20h ⇒ **Reset on prod within ~2h of going on stage.** "Presenter lock" shows in readiness (advisory).
+- **A3:** Lakeside sample due dates moved to Oct 31+ (no escalation / "past due" during judging).
+- **O1:** the PE view remembers the picked incident across person switches, so "Mark contained" can't land on the wrong incident.
+- 57 tests, lint, build, rehearsal with and without the key on dev.
+
 ## Dashboards rebuilt (Role 1, `feat/dashboards`)
 Full-width page. Header row 1: logo, company · role view, "Signed in as", sign out. Row 2: **Data leak simulator** strip (scenario + one-line description, Fire, Replay; Reset still `?stage` only; the scenario menu is now visible to everyone). Then per person: **a hero with the one job** + **"Jump to" quick links** (real `#tab-…` links) + **tabs** for the rest.
 - **IT lead / anyone without a held payment:** `ExposureHero`: plain headline by link type ("Your shared login with Ironclad Managed IT may be compromised"), why, "Proven at another portfolio company · reachable here, not tested" badge for red-team findings, numbered **Do this now** steps (red-team: "What to check" first), Acknowledge → Mark resolved. All clear / resolved states when nothing applies (the discipline story).
