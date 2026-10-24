@@ -35,7 +35,7 @@ links:     { companyId, assetId,
 
 incidents: { externalId, assetId, reportedByCompanyId?, summary?, createdAt }
 
-exposures: { incidentId, companyId, status: "open" | "acknowledged" | "closed", acknowledgedBy?,
+exposures: { incidentId, companyId, status: "open" | "acknowledged" | "closed", acknowledgedBy?, acknowledgedAt?,
              urgency: "urgent" | "advisory",
              score,                              // 0..100
              confidence,                         // 0..1
@@ -43,8 +43,8 @@ exposures: { incidentId, companyId, status: "open" | "acknowledged" | "closed", 
              evidence: { kind: string, detail: string }[] }
 
 alerts:    { incidentId, exposureId?, companyId?, paymentId?,
-             kind: "company_alert" | "vendor_letter" | "hold_notice",
-             status: "pending" | "ready", body }
+             kind: "company_alert" | "vendor_letter" | "hold_notice" | "escalation",
+             status: "pending" | "ready", body, readyAt? }
 
 // ---- Money layer ----
 
@@ -57,7 +57,7 @@ payments:  { billId, companyId, assetId, amountCents, accountLast4,
              status: "pending" | "held" | "released" | "rejected" | "paid",
              requestedBy, approvedBy?, heldByIncidentId?,
              bankChangeFlag?, flaggedBankChangeId?, holdReasons?: string[],
-             verificationNote?, decidedAt? }
+             verificationNote?, decidedAt?, dueDate?, escalatedAt? }
 
 ledgerEntries: { companyId, date, memo, paymentId?, billId?,
                  lines: { account: "cash" | "accounts_payable" | "expense" | "equity",
