@@ -8,6 +8,7 @@ import { toHex } from "./shared";
 import { parseFinding } from "./findings";
 import { isPresenter } from "./access";
 import { sandboxAccess } from "./sandbox";
+import { sha256Hex } from "./agents";
 
 const http = httpRouter();
 http.route({ path: "/sandbox/resource", method: "GET", handler: sandboxAccess });
@@ -19,14 +20,37 @@ auth.addHttpRoutes(http);
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, X-Sidecall-Signature, X-Sidecall-Presenter",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Sidecall-Signature, X-Sidecall-Presenter",
 };
 
-// Real senders sign the raw body: X-Sidecall-Signature: sha256=<hex HMAC-SHA256 with
-// INCIDENT_WEBHOOK_SECRET>. Unsigned requests are accepted only for the built-in demo
+// Legacy senders sign the raw body: X-Sidecall-Signature: sha256=<hex HMAC-SHA256 with
+// INCIDENT_WEBHOOK_SECRET>. Named detectors use their scoped bearer credential instead.
+// Unsigned requests are accepted only for the built-in demo
 // scenarios, and only on deployments with DEMO_MODE=true (the stage button).
 const SIGNATURE_HEADER = "X-Sidecall-Signature";
-const MAX_BODY_CHARS = 32 * 1024;
+const MAX_BODY_BYTES = 32 * 1024;
+
+// Stop consuming at the byte limit; reading the complete text first does not bound memory.
+async function readIncidentBody(req: Request): Promise<string | null> {
+  if (Number(req.headers.get("Content-Length")) > MAX_BODY_BYTES) return null;
+  if (!req.body) return "";
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_BODY_BYTES) { await reader.cancel(); return null; }
+      chunks.push(value);
+    }
+  } finally { reader.releaseLock(); }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+}
 // The stage's presenter key (see access.ts isPresenter), for unsigned demo scenarios.
 const PRESENTER_HEADER = "X-Sidecall-Presenter";
 
@@ -81,15 +105,17 @@ http.route({
   path: "/incident",
   method: "POST",
   handler: httpAction(async (ctx, req) => {
-    const rawBody = await req.text();
-    if (rawBody.length > MAX_BODY_CHARS) return json(400, { error: "body is larger than 32 KB" });
+    let rawBody: string | null;
+    try { rawBody = await readIncidentBody(req); }
+    catch { return json(400, { error: "body must be valid UTF-8" }); }
+    if (rawBody === null) return json(413, { error: "body is larger than 32 KB" });
     let body: unknown;
     try {
       body = JSON.parse(rawBody);
     } catch {
       return json(400, { error: "body must be JSON" });
     }
-    if (typeof body !== "object" || body === null) {
+    if (typeof body !== "object" || body === null || Array.isArray(body)) {
       return json(400, { error: "body must be an object" });
     }
     const raw = body as Record<string, unknown>;
@@ -115,6 +141,10 @@ http.route({
     if (Object.values(fields).includes(null)) {
       return json(400, { error: "externalId, assetName, reportedByDomain and summary must be strings" });
     }
+    if ((fields.externalId?.length ?? 0) > 200 || (fields.assetName?.length ?? 0) > 200 ||
+        (fields.reportedByDomain?.length ?? 0) > 253 || (fields.summary?.length ?? 0) > 4000) {
+      return json(400, { error: "incident identifier, asset, reporter or summary exceeds its field limit" });
+    }
     if (
       parsed &&
       ((fields.assetName && fields.assetName !== parsed.assetName) ||
@@ -124,10 +154,31 @@ http.route({
     }
     const externalId = fields.externalId || (parsed ? `${parsed.finding.source}:${parsed.finding.findingId}` : "");
     const assetName = fields.assetName || parsed?.assetName || "";
-    if (!externalId || !assetName) {
+    if (!externalId.trim() || !assetName.trim() || externalId.length > 200 || assetName.length > 200) {
       return json(400, {
         error: "expected { externalId: string, assetName: string, reportedByDomain?: string, summary?: string, finding?: object }",
       });
+    }
+
+    // Supplying a detector credential chooses this path exclusively: no HMAC/demo fallback.
+    const authorization = req.headers.get("Authorization");
+    if (authorization !== null) {
+      if (!/^Bearer sc_detector_[a-f0-9]{64}$/.test(authorization))
+        return json(401, { error: "Invalid or inactive detector credential." });
+      const result = await ctx.runMutation(internal.detectors.ingest, {
+        tokenHash: await sha256Hex(authorization.slice(7)),
+        report: { externalId, assetName, reportedByDomain: fields.reportedByDomain || parsed?.organizationDomain,
+          summary: fields.summary || undefined, finding: parsed?.finding,
+          assessment: raw.assessment, evidenceRefs },
+      });
+      if (!result.ok) {
+        const response = json(result.status, { error: result.error });
+        if ("retryAfter" in result && result.retryAfter !== undefined)
+          response.headers.set("Retry-After", String(Math.max(1, result.retryAfter)));
+        return response;
+      }
+      return json(200, { incidentId: result.incidentId, duplicate: result.duplicate,
+        correlated: result.correlated, assessment: result.assessment });
     }
 
     const signed = await hasValidSignature(req, rawBody);
@@ -143,6 +194,7 @@ http.route({
       internal.incidents.recordIncident,
       signed
         ? {
+            transport: "legacy_hmac" as const,
             externalId,
             assetName,
             reportedByDomain: fields.reportedByDomain || parsed?.organizationDomain,
@@ -156,7 +208,14 @@ http.route({
           }
         : demo!,
     );
-    if (!result.ok) return json(404, { error: result.error });
+    if (!result.ok) {
+      if ("status" in result) {
+        const response = json(result.status, { error: result.error });
+        response.headers.set("Retry-After", String(Math.max(1, result.retryAfter)));
+        return response;
+      }
+      return json(404, { error: result.error });
+    }
     return json(200, { incidentId: result.incidentId, duplicate: result.duplicate, correlated: result.correlated });
   }),
 });

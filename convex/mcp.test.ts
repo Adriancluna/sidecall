@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 // MCP agent access: an AI assistant acting as Summit's AP clerk, with a clerk's limits.
 import { convexTest } from "convex-test";
+import rateLimiterTest from "@convex-dev/rate-limiter/test";
 import { describe, expect, test } from "vitest";
 import { api, internal } from "./_generated/api";
 import schema from "./schema";
@@ -17,6 +18,7 @@ const BRIGHTLINE = {
 
 async function seeded(tools = ["list_held_payments", "explain_hold"]) {
   const t = convexTest(schema, modules);
+  rateLimiterTest.register(t);
   await t.mutation(internal.seed.run, {});
   await t.run(async (ctx) =>
     ctx.db.insert("agents", {

@@ -61,6 +61,7 @@ export const getRecord = query({
       incident: {
         id: incident._id,
         externalId: incident.externalId,
+        authenticatedSource: incident.sourceId ? { id: incident.sourceId, name: incident.sourceName ?? "Detector" } : null,
         assetName: asset?.name ?? "Unknown",
         responseClass: incident.responseClass ?? "vendor",
         createdAt: incident.createdAt,
@@ -75,6 +76,9 @@ export const getRecord = query({
         .slice(0, MAX_FANOUT)
         .map((r) => ({
           externalId: r.externalId,
+          authenticatedSource: r.sourceId ? { id: r.sourceId, name: r.sourceName ?? "Detector" } : null,
+          requestedAssessment: r.requestedAssessment ?? null,
+          effectiveAssessment: r.effectiveAssessment ?? null,
           receivedAt: r.receivedAt,
           evidenceRefs: r.evidenceRefs,
           summary: r.summary ?? null,

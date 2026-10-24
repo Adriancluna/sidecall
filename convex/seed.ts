@@ -44,6 +44,7 @@ const TABLES: TableNames[] = [
   "bills",
   "bankDetailChanges",
   "incidents",
+  "detectorSources",
   "links",
   "users",
   "assets",

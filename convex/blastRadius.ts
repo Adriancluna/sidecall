@@ -40,7 +40,8 @@ export const listIncidents = query({
         const asset = await ctx.db.get("assets", incident.assetId);
         return {
           _id: incident._id,
-          externalId: incident.externalId,
+          // Sender-controlled IDs can contain the reporter's name; companies get an opaque local reference.
+          externalId: viewer.firm ? incident.externalId : incident._id,
           assetId: incident.assetId,
           createdAt: incident.createdAt,
           responseClass: incident.responseClass ?? "vendor",
