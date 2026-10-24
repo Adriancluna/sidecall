@@ -1,7 +1,23 @@
 # Pegasus: next depth sprint and Claude work assignments
-Last updated: 2026-10-24 by Pegasus
+Last updated: 2026-10-24 16:32 PDT by Pegasus
 
 Ashwa explicitly requested more implementation and parallel Claude work after #116 merged. The tasks below extend existing track stories; production merges still require Role 1 review. Nobody should edit the teammates' chatbot or start another dashboard. Claim a task and its branch in your own handoff, then report PR + tests + screenshot/recording or live result. These assignments have been published; pickup is not yet confirmed.
+
+**Shared task queue:** [GitHub issue #118](https://github.com/Adriancluna/sidecall/issues/118), assigned to Adriancluna, marcodonghiaa and Omar-Ibrahim123. Read this branch's handoff, because it is not on main until reviewed. No direct access to the teammates' running Claude sessions is available; the GitHub assignments are the coordination mechanism.
+
+## Source controls implemented on this branch
+
+- Each detector has exact asset/reporter scope, default observation authority, expiry and its own hashed credential. Operator-only mint/rotation/revoke; caller JSON cannot choose its identity or authority.
+- Intake and authority checks share a Convex transaction. Separate source+external-ID receipts preserve replay identity across rotation; global asset/class correlation still prevents restarted active-episode effects. A replay returns its original accepted assessment.
+- Official Convex rate-limiter: burst 10, refill 30/minute per source; rotation preserves quota, another source has its own capacity. Streamed body cap is 32 KiB with bounded fields. Legacy HMAC and all 4 stage scenarios remain compatible.
+- Queued automatic actions recheck source authority. Revocation cancels them but never releases existing money holds or undoes completed actions; explicit company approval remains independently authorized.
+- Firm-only evidence includes authenticated source and requested/effective assessment. Company incident external IDs are now opaque local references to prevent sender-chosen reporter-name leakage.
+- Setup, contracts and limits: `docs/pegasus-detectors.md` and `CONTRACT.md`. Credential reset behavior and legacy-route limitations are explicit; this is not a DDoS guarantee, real detector integration, external identity-provider action or Visa payment integration.
+- **26 new regressions; 130 app/backend + 40 prompt/scorecard tests = 170 passing**, application/backend typechecks, lint and build pass. Original full live rehearsal and **all 11 detector live checks pass on Pegasus DEV**. The latter refused 13/20 burst reports while a second source stayed HTTP 200; automatic owned access changed 200→403 in an observed 595 ms, unrelated access stayed 200, Undo restored access and replay did not repeat it. This includes network/scheduling time, not a production benchmark. All 3 created detector credentials were revoked and verified HTTP 401 in cleanup. Redacted report: `docs/pegasus-detector-rehearsal.json`. No chatbot, held purchasing or held advice code changed.
+
+## Latest incoming handoff checked
+
+Omar's `2c48d93` recommendation handoff asks Pegasus to review #114 with Adrian's OK and Marco to mount it only after merge; its updated shared advice types are already on Omar's branch. This does not change the recorded hold. → **Role 1:** include #114 and the new stop-loss work in the explicit release decision; → **Role 4:** continue the assigned adversarial evaluation while those features remain unmounted. Pegasus has not merged them or changed the chatbot.
 
 ## Active ownership and acceptance criteria
 

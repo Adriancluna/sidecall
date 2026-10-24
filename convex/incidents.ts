@@ -29,7 +29,7 @@ type RecordIncidentResult =
     }
   | { ok: false; error: "unknown_asset" | "unknown_reporter" };
 
-const incidentArgs = {
+export const incidentArgs = {
   externalId: v.string(),
   assetName: v.string(),
   reportedByDomain: v.optional(v.string()),
@@ -50,11 +50,17 @@ export async function recordIncidentImpl(
     assessment?: "observation" | "confirmed";
     evidenceRefs?: string[];
   },
+  source?: {
+    sourceId: Id<"detectorSources">;
+    sourceName: string;
+    requestedAssessment?: "observation" | "confirmed";
+    effectiveAssessment: "observation" | "confirmed";
+  },
 ): Promise<RecordIncidentResult> {
   // Idempotency: a replayed webhook returns the original incident and writes nothing.
   const receipt = await ctx.db
     .query("incidentReports")
-    .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
+    .withIndex("by_sourceId_and_externalId", (q) => q.eq("sourceId", source?.sourceId).eq("externalId", args.externalId))
     .unique();
   if (receipt)
     return {
@@ -65,7 +71,7 @@ export async function recordIncidentImpl(
     };
   const existing = await ctx.db
     .query("incidents")
-    .withIndex("by_externalId", (q) => q.eq("externalId", args.externalId))
+    .withIndex("by_sourceId_and_externalId", (q) => q.eq("sourceId", source?.sourceId).eq("externalId", args.externalId))
     .unique();
   if (existing)
     return {
@@ -128,6 +134,7 @@ export async function recordIncidentImpl(
   // Contained or inactive episodes never swallow genuinely new reports.
   if (episode) {
     await ctx.db.insert("incidentReports", {
+      ...source,
       externalId: args.externalId,
       incidentId: episode._id,
       receivedAt: now,
@@ -176,6 +183,8 @@ export async function recordIncidentImpl(
   }
 
   const incidentId = await ctx.db.insert("incidents", {
+    sourceId: source?.sourceId,
+    sourceName: source?.sourceName,
     externalId: args.externalId,
     assetId: asset._id,
     reportedByCompanyId: reporter?._id,
@@ -191,6 +200,7 @@ export async function recordIncidentImpl(
   });
   const incident = (await ctx.db.get("incidents", incidentId))!;
   await ctx.db.insert("incidentReports", {
+    ...source,
     externalId: args.externalId,
     incidentId,
     receivedAt: now,

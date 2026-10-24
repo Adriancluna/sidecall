@@ -4,6 +4,7 @@
 // balanced ledger, per-company scoping, session-only identity, and
 // "same vendor ≠ shared weakness".
 import { convexTest } from "convex-test";
+import rateLimiterTest from "@convex-dev/rate-limiter/test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import schema from "./schema";
@@ -54,6 +55,7 @@ const PINECREST_FINDING_STORED = {
 
 async function seeded() {
   const t = convexTest(schema, modules);
+  rateLimiterTest.register(t);
   await t.mutation(internal.seed.run, {});
   const userId = (name: string) =>
     t.run(async (ctx) => {

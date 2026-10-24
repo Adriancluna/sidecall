@@ -201,6 +201,15 @@ export const recordSimulated = internalMutation({
     for (const step of queued) {
       const incident = await ctx.db.get("incidents", step.incidentId);
       const policy = await policyFor(ctx, step.companyId, step.action);
+      const source = incident?.sourceId ? await ctx.db.get("detectorSources", incident.sourceId) : null;
+      if (incident?.sourceId && !step.approvedBy &&
+          (!source || source.revokedAt !== undefined || source.expiresAt <= now || source.mode !== "confirm")) {
+        await ctx.db.patch("responseSteps", step._id, { status: "expired" });
+        await ctx.db.insert("auditLog", { at: now, actor: "system", action: "expire",
+          incidentId: incident._id, companyId: step.companyId, rule: "detector_authority_inactive",
+          reason: "Queued automatic step expired because its detector authority was revoked or expired. Existing money holds and completed actions were not changed." });
+        continue;
+      }
       if (
         !incident ||
         !activeEpisode(incident, now) ||

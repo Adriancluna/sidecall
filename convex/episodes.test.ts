@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
+import rateLimiterTest from "@convex-dev/rate-limiter/test";
 import { afterEach, expect, test, vi } from "vitest";
 import schema from "./schema";
 import { api, internal } from "./_generated/api";
@@ -15,6 +16,7 @@ const note =
   "Independent vendor and access evidence checked by the response team.";
 async function setup() {
   const t = convexTest(schema, modules);
+  rateLimiterTest.register(t);
   await t.mutation(internal.seed.run, {});
   const users = await t.run((ctx) => ctx.db.query("users").take(100));
   const as = (name: string) =>
