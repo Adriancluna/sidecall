@@ -68,11 +68,11 @@ export function AccountChange({ row, size = "large" }: { row: HeldPaymentRow; si
   );
 }
 
-// "••2208": Manrope's bullets sit far apart, so they're pulled together.
+// "••2208": Geist spaces its bullets evenly, so they keep normal tracking and a small gap.
 function Last4({ digits }: { digits: string }) {
   return (
     <>
-      <span aria-hidden className="mr-[0.14em] tracking-[-0.34em]">
+      <span aria-hidden className="mr-[0.08em] tracking-normal">
         ••
       </span>
       <span className="sr-only">ending </span>
