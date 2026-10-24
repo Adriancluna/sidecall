@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 23, 19:05 by Adrian's Claude
+Last updated: Oct 23, 19:15 by Adrian's Claude
 
 ## Status (on main)
 - Schema, `CONTRACT.md` (with changelog), `CLAUDE.md` are the source of truth.
@@ -8,14 +8,14 @@ Last updated: Oct 23, 19:05 by Adrian's Claude
 - Every query/mutation takes `actingUserId`, scoped in `convex/access.ts` (pe_partner sees all; others their own company only).
 - `seed:run`, `seed:fireDemoIncident` (scenarios: `brightline`, `ironcladCredential`, `ironcladMsp`), `seed:resetDemo` (needs `DEMO_MODE=true`).
 - Verified on dev: 3 exposed · 4,200 people · $612K held; answer key matches all 3 scenarios.
-- `vercel.json` + README deploy steps. Vercel project just created; not deployed yet.
+- `vercel.json` + README deploy steps. Vercel project created by Adrian; env var + first deploy pending.
+- Merged Role 2's #5 (frontend wired to Convex), #7 (title + favicon), #9 (webhook URL derived from `VITE_CONVEX_URL`). Main builds and lints clean.
 
 ## In progress
-1. Vercel + Convex production: Adrian adds `CONVEX_DEPLOY_KEY` and `VITE_CONVEX_SITE_URL` in Vercel, first deploy, then `npx convex env set DEMO_MODE true --prod` and `npx convex run seed:run --prod` (Adrian runs these; Claude is blocked from prod).
-2. Review/merge PR #7 (Role 2, favicon + title) once Adrian OKs.
-3. convex-test suite (idempotent replay, race-safe acknowledge, segregation of duties, ledger balances). Waiting on team OK to add `convex-test`, `vitest`, `@edge-runtime/vm` as devDependencies.
-4. Fresh-clone test by 10:45pm.
-5. After 11pm: import `data/dns_links.json` into seed (as `same_vendor_only` / `dns_inferred`), switch identity to `ctx.auth` once Role 2's auth lands.
+1. Vercel + Convex production: Adrian adds `CONVEX_DEPLOY_KEY` in Vercel (only var needed after #9), first deploy, then `npx convex env set DEMO_MODE true --prod` and `npx convex run seed:run --prod` (Adrian runs these; Claude is blocked from prod).
+2. convex-test suite (idempotent replay, race-safe acknowledge, segregation of duties, ledger balances). Waiting on team OK to add `convex-test`, `vitest`, `@edge-runtime/vm` as devDependencies.
+3. Fresh-clone test by 10:45pm.
+4. After 11pm: import `data/dns_links.json` into seed (as `same_vendor_only` / `dns_inferred`), switch identity to `ctx.auth` once Role 2's auth lands.
 
 ## Needs from others
 - → Role 2: show the Reset button only when the URL has `?stage` (prod will have `DEMO_MODE=true`). Drop the local find-skills skill (`git checkout skills-lock.json`, delete `.agents/skills/find-skills/`).
