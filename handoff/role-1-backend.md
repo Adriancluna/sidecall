@@ -1,14 +1,9 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 23, 19:25 by Adrian's Claude
+Last updated: Oct 23, 19:30 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Presenter URL: https://sidecall.vercel.app/?stage
-  - ⚠ Still **not seeded** and **login keys not set** on prod. Adrian runs once (Claude can't touch prod):
-    ```
-    npx convex env set DEMO_MODE true --prod
-    npx convex run seed:run --prod
-    npx @convex-dev/auth --prod --web-server-url https://sidecall.vercel.app
-    ```
+  - ✓ Prod is **seeded** (8 companies, 21 users with demo emails), `DEMO_MODE=true` (Reset works on `?stage`), login keys set (JWKS serving). Login code deployed via Vercel.
 - **Login backend is live on dev (and ships to prod with the next Vercel build):** Convex Auth, Password provider, invite-only (sign-in links to a seeded user by email; unknown emails refused). Session always wins over `actingUserId`; `actingUserId` is optional and only used when nobody is signed in. Verified on dev: sign-up/sign-in, wrong password refused, stranger refused, `access.me` returns the user, and a signed-in clerk passing the controller's id is still refused.
 - `npm test`: 14 tests, all green (added: signed-out refused, session beats spoofed id).
 - Everything from before: `/incident` fan-out, holds/flags, release/reject + audit + ledger, scoping, `resetDemo` (also wipes sign-ins now).
@@ -25,7 +20,7 @@ Last updated: Oct 23, 19:25 by Adrian's Claude
   - `api.access.me` → current user (`role`, `companyId`, `companyName`) to choose PE vs company view.
   - When signed in you can stop passing `actingUserId`; it's ignored anyway.
   - After Reset everyone is signed out (users are recreated).
-- → Role 2: re-test the full flow on prod once Adrian runs the three commands above.
+- → Role 2: **prod is ready**: re-test the full flow on https://sidecall.vercel.app (and `/?stage` for Reset). Login works on prod too once your UI lands.
 - → Role 4: deliver `data/dns_links.json` as `[{ companyDomain, assetName }]`.
 
 ## Decisions & gotchas
