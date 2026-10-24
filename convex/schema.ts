@@ -364,9 +364,12 @@ export default defineSchema({
     setBy: v.union(v.id("users"), v.literal("seed")),
     confirmedBy: v.optional(v.id("users")),
     setAt: v.number(),
+    reason: v.optional(v.string()), // why the current mode was chosen (required for Pre-approved)
+    confirmNote: v.optional(v.string()), // the second person's note when confirming a raise
     proposedMode: v.optional(responseMode),
     proposedBy: v.optional(v.id("users")),
     proposedAt: v.optional(v.number()),
+    proposedReason: v.optional(v.string()),
   }).index("by_companyId_and_action", ["companyId", "action"]),
 
   // A step planned for one exposed company in one incident (only "prepare" and "act" are stored;

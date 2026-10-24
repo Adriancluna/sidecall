@@ -1085,15 +1085,52 @@ describe("response playbook (pre-approved steps)", () => {
   test("raising a step to pre-approved takes two different people; lowering takes one", async () => {
     const s = await seeded();
     const [ben, aisha] = [await s.as("Ben Carter"), await s.as("Aisha Rahman")];
-    const set = (who: typeof ben, mode: "notify" | "prepare" | "act") =>
-      who.mutation(api.responses.setPlaybookMode, { action: "pause_shared_login", mode });
-    expect(await set(ben, "act")).toMatchObject({ ok: true, applied: false, awaitingSecondPerson: true });
-    expect(await set(ben, "act")).toMatchObject({ applied: false, awaitingSecondPerson: true }); // same person again
-    expect(await set(aisha, "act")).toMatchObject({ ok: true, applied: true });
+    const why = "Our deploy pipeline uses this login; pausing costs minutes, a leak costs the codebase.";
+    const agree = "Agreed: the vendor has a separate break-glass account if we pause this one.";
+    const set = (who: typeof ben, mode: "notify" | "prepare" | "act", note?: string) =>
+      who.mutation(api.responses.setPlaybookMode, { action: "pause_shared_login", mode, note });
+    expect(await set(ben, "act", why)).toMatchObject({ ok: true, applied: false, awaitingSecondPerson: true });
+    expect(await set(ben, "act", why)).toMatchObject({ applied: false, awaitingSecondPerson: true }); // same person again
+    expect(await set(aisha, "act", agree)).toMatchObject({ ok: true, applied: true });
     const row = (await aisha.query(api.responses.getMyPlaybook, {})).find((r) => r.action === "pause_shared_login");
-    expect(row).toMatchObject({ mode: "act", version: 2, setByName: "Ben Carter", confirmedByName: "Aisha Rahman" });
+    expect(row).toMatchObject({
+      mode: "act",
+      version: 2,
+      setByName: "Ben Carter",
+      confirmedByName: "Aisha Rahman",
+      reason: why,
+      confirmNote: agree,
+    });
     expect(await set(ben, "notify")).toMatchObject({ applied: true });
     expect((await ben.query(api.responses.getMyPlaybook, {})).find((r) => r.action === "pause_shared_login")?.mode).toBe("notify");
+  });
+
+  test("pre-approval needs a written reason from both people, and the log keeps it", async () => {
+    const s = await seeded();
+    const [ben, aisha] = [await s.as("Ben Carter"), await s.as("Aisha Rahman")];
+    const set = (who: typeof ben, note?: string) =>
+      who.mutation(api.responses.setPlaybookMode, { action: "pause_shared_login", mode: "act", note });
+    expect(await set(ben)).toMatchObject({ ok: false });
+    expect(await set(ben, "  because  ")).toMatchObject({ ok: false }); // too short once trimmed
+    const why = "This login reaches production; a pause costs minutes.";
+    expect(await set(ben, why)).toMatchObject({ ok: true, awaitingSecondPerson: true });
+    const proposed = (await aisha.query(api.responses.getMyPlaybook, {})).find((r) => r.action === "pause_shared_login");
+    expect(proposed).toMatchObject({ proposedMode: "act", proposedByName: "Ben Carter", proposedReason: why });
+    expect(await set(aisha)).toMatchObject({ ok: false }); // the confirmer writes one too
+    expect(await set(aisha, "Agreed, the vendor keeps a separate break-glass account.")).toMatchObject({ ok: true, applied: true });
+    const log = await s.t.run((ctx) => ctx.db.query("auditLog").take(500));
+    expect(log.filter((e) => e.action === "policy" && e.reason?.includes(why)).length).toBe(2); // proposal + confirmation carry it
+    // Lowering never needs a reason.
+    expect(await ben.mutation(api.responses.setPlaybookMode, { action: "pause_shared_login", mode: "notify" })).toMatchObject({ ok: true, applied: true });
+  });
+
+  test("Cedar Ridge's seeded pre-approval shows its reason on the step that ran", async () => {
+    const s = await seeded();
+    const incidentId = await fireRedTeam(s);
+    const plan = await (await s.as("Sam Kowalski")).query(api.responses.getMyResponsePlan, { incidentId });
+    const pause = plan.find((p) => p.action === "pause_shared_login");
+    expect(pause?.status).toBe("done");
+    expect(pause?.approvalReason).toMatch(/plant floor/);
   });
 
   test("payment holds keep their single controller switch", async () => {
