@@ -7,6 +7,7 @@ The data shapes and function signatures every role builds against. Owned by Role
 
 ## Changelog
 
+- **Oct 23, ~11:15pm.** AP import: `imports.previewApImport({ vendorsCsv, billsCsv })` and `imports.importPortfolioCompany({ vendorsCsv, billsCsv, company })` (PE partner only). Audit action `import`. Sample files in `data/samples/`.
 - **Oct 23, ~10:50pm.** Notifications (spec `docs/specs/notifications.md`), backend part: tables `notificationChannels`, `notifications` (outbox); `notifications.listChannels / listOutbox / addChannel / removeChannel / sendTest`; enqueue hooks on ready alerts, holds, escalations, incidents (firm) and containment (firm); `internal.notifications.claimQueued / markResults` for Role 4's `convex/notify.ts` (stub in place); env `NOTIFY_LIVE`. Seed adds `#summit-finance` (Summit) and `#northpass-portfolio-risk` (firm) simulated Slack channels.
 - **Oct 23, ~9:45pm.** Scale: `getBlastRadius` totals now come from the incident's exposures and payments (were capped by reading only 100 companies); fan-out reads bounded at 500 everywhere. New `internal.alerts.saveAlerts({ alerts: [...] })` (batch upsert, same fields as `saveAlert`). Dev/test-only `internal.ops.addScalePortfolio({ count })` (DEMO_MODE only).
 - **Oct 23, ~9:25pm.** Containment: `incidents.containIncident({ incidentId, note })` (PE partner only; note ≥ 15 chars). Incidents gained `containedAt?`, `containedBy?`, `containmentNote?`; `listIncidents` rows gained `containedAt | null`; audit action `contain`; timeline event `contain` + `stats.msToContained`. After containment new requests to that vendor are not held; existing holds stay held. `scoring:exportOutcomes` may list payments with `seedRef: null` (created by `requestPayment`): scorecard scripts should skip them.
@@ -68,7 +69,7 @@ ledgerEntries: { companyId, date, memo, paymentId?, billId?,
                           debitCents, creditCents }[] }
 
 auditLog:  { at, actor: "system" | userId,
-             action: "hold" | "flag" | "release" | "reject" | "refused" | "escalate",
+             action: "hold" | "flag" | "release" | "reject" | "refused" | "escalate" | "contain" | "import",
              companyId?, paymentId?, incidentId?, rule, reason }
 ```
 
@@ -134,6 +135,28 @@ internal.notifications.markResults({ results: { notificationId, status: "sent" |
 - One row per (channel, refId): replays and re-saved alerts never notify twice. One `notify.dispatch` scheduled per mutation.
 - URLs: https only; Slack must be `hooks.slack.com/services/…`, Discord `discord(app).com/api/webhooks/…`; generic webhooks can't be localhost, `.local`/`.internal` or an IP literal.
 - `NOTIFY_LIVE` (deployment env) off by default: rows end `simulated`, nothing leaves Convex (stage rule).
+
+## AP import (onboard a company from its own AP exports)
+
+```ts
+// PE partner only. Files are the CSV text (vendor master + open bills from any AP system).
+[imports] previewApImport({ vendorsCsv, billsCsv }) -> null | {     // writes nothing; null for non-PE
+  vendors: { name, bankLast4 | null, matchedTo /* tracked vendor */ | null, warning | null, openBills }[],
+  bills, totalCents, problems: string[]                            // skipped rows, with reasons
+}
+[imports] importPortfolioCompany({ vendorsCsv, billsCsv,
+  company: { name, domain, sector, headcount, apClerkName, controllerName } }) -> {
+  companyId, vendors: { name, matchedTo | null, warning | null }[], newVendors, bills, totalCents,
+  held, flagged, heldCents, exposedTo: string[], problems,
+  logins: { name, role, email }[]                                  // sign in with password sidecall-demo
+}   // throws ConvexError with a readable message for bad files, duplicate domain, non-PE
+```
+
+- Columns are matched by common AP export names: vendor master needs a vendor name (`Vendor Name` / `Vendor` / `Payee` / `Supplier`), optional `Vendor ID`, `Phone`, `Bank Account` (masked `****7731` is fine). Open bills need vendor (ID or name), amount (`Amount Due` / `Open Balance` / `Amount`) and due date (`YYYY-MM-DD` or `MM/DD/YYYY`).
+- Vendors are matched to tracked vendors by normalized name; unknown vendors become new tracked vendors. Each becomes a self-reported link.
+- `warning` appears when the file pays a different account than the last one confirmed by phone, even before any incident.
+- During an active incident on a vendor: the new company's payments to it are held on import (flagged when the account changed recently), it gets an exposure and alert, and the PE headline includes it.
+- Limits: 200 vendors, 500 bills. Samples: `data/samples/lakeside-vendor-master.csv`, `data/samples/lakeside-open-bills.csv`.
 
 ## Sign-in (Convex Auth, Password provider)
 

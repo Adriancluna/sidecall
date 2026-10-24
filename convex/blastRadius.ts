@@ -298,7 +298,8 @@ export const getIncidentTimeline = query({
       },
     ];
     for (const row of audit) {
-      if (row.action === "contain") continue; // added below with a viewer-safe label
+      // "contain" is added below with a viewer-safe label; "import" rows belong to no incident.
+      if (row.action === "contain" || row.action === "import") continue;
       events.push({ at: row.at, kind: row.action, label: row.reason, companyName: await companyName(row.companyId) });
     }
     for (const alert of alertGroups.flat()) {

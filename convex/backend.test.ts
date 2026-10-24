@@ -7,6 +7,9 @@ import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "./_generated/api";
 import schema from "./schema";
+import { parseCsv } from "./imports";
+import lakesideVendors from "../data/samples/lakeside-vendor-master.csv?raw";
+import lakesideBills from "../data/samples/lakeside-open-bills.csv?raw";
 
 const modules = import.meta.glob("./**/*.ts");
 
@@ -403,6 +406,75 @@ describe("notifications", () => {
       ok: false,
     }); // another company's controller
     expect(await rosa.mutation(api.notifications.sendTest, { channelId: added.channelId })).toEqual({ ok: true });
+  });
+});
+
+describe("AP import", () => {
+  const files = { vendorsCsv: lakesideVendors, billsCsv: lakesideBills };
+  const lakeside = {
+    name: "Lakeside Orthopedics",
+    domain: "lakesideortho.example",
+    sector: "Healthcare",
+    headcount: 450,
+    apClerkName: "Morgan Ellis",
+    controllerName: "Daniel Okoro",
+  };
+
+  test("CSV parsing handles quoted commas and $ amounts", () => {
+    expect(parseCsv('a,b\n"x, y","$1,200.00"\r\n')).toEqual([["a", "b"], ["x, y", "$1,200.00"]]);
+  });
+
+  test("preview spots the swapped bank account before any incident; only the firm can preview", async () => {
+    const { as } = await seeded();
+    const preview = await (await as(PE)).query(api.imports.previewApImport, files);
+    const brightline = preview!.vendors.find((v) => v.matchedTo === "Brightline Payroll Inc.");
+    expect(brightline?.warning).toMatch(/••7731.*••2208/);
+    expect(preview!.vendors.filter((v) => v.matchedTo === null).map((v) => v.name)).toEqual([
+      "Northwind Medical Supply",
+      "Cascade Linen Services",
+    ]);
+    expect(await (await as("Rosa Alvarez")).query(api.imports.previewApImport, files)).toBeNull();
+  });
+
+  test("importing during an incident holds and flags the new company's payments and exposes it", async () => {
+    const { t, as, fire } = await seeded();
+    const { incidentId } = await fire();
+    const pe = await as(PE);
+    const result = await pe.mutation(api.imports.importPortfolioCompany, { ...files, company: lakeside });
+    expect(result).toMatchObject({ bills: 6, held: 2, flagged: 2, heldCents: 6_640_000, newVendors: 2 });
+
+    const blast = await pe.query(api.blastRadius.getBlastRadius, { incidentId });
+    expect(blast!.totals).toMatchObject({ companiesExposed: 4, peopleExposed: 4650, paymentsHeld: 6 });
+    expect(blast!.nodes.find((n) => n.name === "Lakeside Orthopedics")).toMatchObject({ exposed: true, urgency: "urgent" });
+
+    const controller = t.withIdentity({
+      subject: `${await t.run(async (ctx) => (await ctx.db.query("users").take(300)).find((u) => u.name === "Daniel Okoro")!._id)}|s`,
+    });
+    const held = await controller.query(api.payments.getHeldPayments, {});
+    expect(held.map((r) => r.payment.accountLast4)).toEqual(["7731", "7731"]);
+
+    const entries = await t.run((ctx) => ctx.db.query("ledgerEntries").take(500));
+    for (const e of entries) {
+      expect(e.lines.reduce((s, l) => s + l.debitCents - l.creditCents, 0)).toBe(0);
+    }
+  });
+
+  test("only the firm imports; bad files and duplicate companies are refused", async () => {
+    const { as } = await seeded();
+    const pe = await as(PE);
+    await expect(
+      (await as("Rosa Alvarez")).mutation(api.imports.importPortfolioCompany, { ...files, company: lakeside }),
+    ).rejects.toThrow(/PE firm/);
+    await expect(
+      pe.mutation(api.imports.importPortfolioCompany, { ...files, billsCsv: "Vendor,Notes\nV-100,hi", company: lakeside }),
+    ).rejects.toThrow(/amount and due date/);
+    await expect(
+      pe.mutation(api.imports.importPortfolioCompany, { ...files, company: { ...lakeside, controllerName: "Morgan Ellis" } }),
+    ).rejects.toThrow(/two different people/);
+    await pe.mutation(api.imports.importPortfolioCompany, { ...files, company: lakeside });
+    await expect(pe.mutation(api.imports.importPortfolioCompany, { ...files, company: lakeside })).rejects.toThrow(
+      /already in the portfolio/,
+    );
   });
 });
 
