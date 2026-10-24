@@ -10,6 +10,7 @@ import { ExposureAcknowledgedBy } from "./AcknowledgedBy";
 import { ContainPanel } from "./ContainPanel";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
+import { NotificationsPanel } from "./NotificationsPanel";
 import { ProofPanel } from "./ProofPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { VendorLetterActions } from "./VendorLetterActions";
@@ -220,6 +221,8 @@ export function PortfolioView() {
           </p>
         </Card>
       )}
+
+      <NotificationsPanel scope="firm" canManage incidentId={incident._id} />
 
       <ContainPanel
         key={incident._id}

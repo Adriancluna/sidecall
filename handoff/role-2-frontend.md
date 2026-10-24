@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 21:44 by Marco's Claude
+Last updated: Oct 23, 22:03 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -33,15 +33,15 @@ Last updated: Oct 23, 21:44 by Marco's Claude
 - ✓ Vendor letter renders with `whitespace-pre-wrap` (✓ done for Role 4).
 - ✓ `docs/`: scorecard table (18 planted cases, 0 missed, 0 false holds; "our own planted cases, not a benchmark"), Role 1's scale line worded "in our test suite", `npm run rehearse` in the pre-flight.
 - ✓ Batching merges per Role 1's #59 (one PR per finished chunk).
+- ✓ **Notifications UI** (`src/panels/NotificationsPanel.tsx`, per `docs/specs/notifications.md`; thanks Role 1 for #62): one card in the company view (company channels) and the PE view (firm channels): connected channels with masked target + events, **Send test** / **Remove** where `canEdit`, "Connect a channel" form (Slack / Discord / webhook, label, URL, events) for controllers and the PE partner, refusals inline; **Outbox** with time · channel · event · status chip (simulated / sent / failed) · preview. Verified on dev: Brightline fire → Summit outbox alert + hold + escalation, firm outbox incident, all simulated; Send test → +1; `https://127.0.0.1/hook` → "IP addresses aren't allowed; use a hostname."; AP clerk read-only.
+- ✓ **Live full-demo check on prod after #60** (all of #44–#60 now deployed): Reset → Jamie fire → $480K held + `••2208 → ••7731` + escalation banner + timeline "…alerts written in 224 ms" → $38K bill held + flagged → release refused → Jordan headline, tailored alerts, vendor letter, controls log, Proof (DNS + scorecard) → Rosa release (cash $5.00M → $4.52M, AP → $38K) → contained badge → Reset. Prod left clean.
+- ✓ `docs/` + presenter: after the $38K request the PE headline is **$650K** (not $612K); script/shot list/presenter updated; optional beat 2c "It reached their Slack" (outbox).
 
 ## In progress
-1. Notifications UI (after Role 1's API lands), per `docs/specs/notifications.md`.
+1. Next: `docs/` `[after 11pm]` lines once Role 3's map and Role 4's AI cache land; new asks from Role 1.
 
 ## Needs from others
-- → **Role 1 + Role 4: notifications (Slack / Discord / webhook) are approved.** Spec: `docs/specs/notifications.md` (data, API shapes, flow, rules, tests, owners, order). Please accept your part here in your own file, or push back:
-  - → **Role 1 (~1.5 h):** `notificationChannels` + `notifications` (outbox) tables, CONTRACT.md entries, `listChannels` / `listOutbox` / `addChannel` / `removeChannel` / `sendTest`, enqueue hooks in `saveAlert(s)`, the escalation writer, `recordIncident` and `containIncident` (dedupe on `(channelId, refId)`, one `runAfter` per mutation), `NOTIFY_LIVE` env declared, seeded simulated channels for Summit + the firm, tests listed in the spec.
-  - → **Role 4 (~1 h):** new `convex/notify.ts`: `dispatch({})` internal action (Slack `{ text }` / Discord `{ content }` / generic JSON, 5 s timeout, one retry, `simulated` when `NOTIFY_LIVE` is off, never throws), one-line message headers, reuse `checkCopy`.
-  - Role 2 builds the Notifications card + Outbox panel against the CONTRACT.md shapes as soon as Role 1 lands them.
+- → **Role 4:** notifications UI is live against Role 1's API; `convex/notify.ts` real sending (per the spec) is the remaining piece. Outbox shows `sent` / `failed` automatically once it lands.
 - → **Role 4:** `data/ai_cache.json` on `main` still has 0 entries (`generatedAt: null`), so the demo shows placeholder alert text. Please run `prompts/generate.mjs` and commit the cache; the Proof panel moves "AI writing" to Real automatically.
 - → Role 1: an MCP server is **not decided**. A separate research session is writing `docs/specs/mcp-research.md` (feasibility, auth, tool list, effort, recommendation); no action needed until it lands.
 

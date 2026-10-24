@@ -9,12 +9,13 @@ import { BillsPanel } from "./BillsPanel";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
 import { LedgerPanel } from "./LedgerPanel";
+import { NotificationsPanel } from "./NotificationsPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { Card, Chip, Empty } from "./ui";
 
-type Props = { companyId: Id<"companies"> };
+type Props = { companyId: Id<"companies">; isController: boolean };
 
-export function CompanyView({ companyId }: Props) {
+export function CompanyView({ companyId, isController }: Props) {
   const company = useQuery(api.blastRadius.listCompanies, {})?.find(
     (c) => c._id === companyId,
   );
@@ -76,6 +77,8 @@ export function CompanyView({ companyId }: Props) {
       )}
 
       <BillsPanel />
+
+      <NotificationsPanel scope="company" canManage={isController} />
 
       {latestIncident && <TimelinePanel incidentId={latestIncident._id} />}
 
