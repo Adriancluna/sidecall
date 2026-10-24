@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 20:30 by Marco's Claude
+Last updated: Oct 23, 20:35 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -20,9 +20,10 @@ Last updated: Oct 23, 20:30 by Marco's Claude
 - ✓ **Round 2, task 6: vendor letter actions** (`src/panels/VendorLetterActions.tsx`): Copy (Clipboard API, falls back to select-and-copy where the API is blocked) + "Open in email" (`mailto:` with subject "Open security incident at <vendor>: one coordinated request from our portfolio" and the letter as body; no address, the vendor contact isn't in our data). Shown once the letter is ready. Verified on dev: "Copied", mailto subject/body correct.
 - ✓ Checked #35 (signed webhook, gated reset): no frontend change needed. Fire/Replay send the built-in `brightline` scenario (accepted unsigned on DEMO_MODE); Reset only renders while signed in.
 - ✓ **Round 2, task 7: errors and polish.** `ErrorBoundary` around the signed-in app: a query that throws "Not signed in" / "Unknown user" (Reset, wiped data, deploy mid-session) signs out and shows sign-in instead of a blank page; any other crash shows a message + Reload. `friendlyError()` (`src/layout/errors.ts`) shows `ConvexError` data text, hides raw "[CONVEX … Server Error" dumps. Phones: 16px gutter (`px-4`, `md:px-6`), header and audit rows wrap, ledger table scrolls inside its card, presenter panel starts collapsed under 768px. Measured at 375px: sign-in, PE view, company view all `scrollWidth = 375`. Copy audit: no "fraud" / "block" / "stop"; presenter's "never validated" reworded to "Inferred links are labelled candidate." Verified the crash path by wiping dev data under a signed-in session → lands on sign-in.
+- ✓ **Round 2, task 8: pitch material** in `docs/` (Role 2 owns it): `demo-script.md` (≤ 3 min, opens on the $480K hold, who/click/say per beat, recovery tips), `devpost.md` (draft: what it does, how we built it on Convex, real vs simulated, scorecard, challenges, seat line), `video-shot-list.md` (10 shots + checklist). Lines marked **[after 11pm]** wait for Role 3's map, Role 4's AI text and scorecard numbers, and Role 1's escalation.
 
 ## In progress
-1. Round 2 task 8: `docs/` pitch material (demo script, Devpost draft, video shot list).
+1. Round 2 complete. Next: update `docs/` once Roles 3/4 land; pick up new asks from Role 1 (e.g. incident timeline / escalation UI).
 
 ## Needs from others
 - (none right now)
