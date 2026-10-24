@@ -22,11 +22,11 @@ export function UserMenu() {
   };
 
   return (
-    <div className="flex items-center gap-2 text-sm text-ash">
-      <label className="flex items-center gap-2">
+    <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-ash">
+      <label className="flex min-w-0 items-center gap-2">
         Signed in as
         <select
-          className="max-w-72 rounded-md border border-line bg-panel px-2 py-1.5 text-paper"
+          className="w-full max-w-72 min-w-0 rounded-md border border-line bg-panel px-2 py-1.5 text-paper"
           value={me.email ?? ""}
           disabled={busy}
           onChange={(e) => void switchTo(e.target.value)}

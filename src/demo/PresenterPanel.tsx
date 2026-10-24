@@ -57,7 +57,7 @@ const BEATS: Beat[] = [
   },
   {
     title: "Evidence",
-    say: "Click a company: reasons, confidence, its held payments. Inferred links say candidate, never validated.",
+    say: "Click a company: reasons, confidence, its held payments. Inferred links are labelled candidate.",
     as: JORDAN,
   },
   {
@@ -81,7 +81,8 @@ const BEATS: Beat[] = [
 export function PresenterPanel() {
   const me = useQuery(api.access.me);
   const switchTo = useSwitchTo();
-  const [open, setOpen] = useState(true);
+  // Collapsed on phones so it doesn't cover the app; open on laptops.
+  const [open, setOpen] = useState(() => window.innerWidth >= 768);
   const [current, setCurrent] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();

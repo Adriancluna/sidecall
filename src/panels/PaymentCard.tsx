@@ -3,6 +3,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
+import { friendlyError } from "../layout/errors";
 import type { Doc } from "../../convex/_generated/dataModel";
 import { dateTime, money } from "./format";
 import type { HeldPaymentRow } from "./types";
@@ -63,9 +64,7 @@ export function PaymentCard({ row, canDecide }: Props) {
           : await reject(trimmed ? { ...args, note: trimmed } : args);
       if (!res.ok) setRefusal(res.reason);
     } catch (err) {
-      setRefusal(
-        err instanceof Error ? err.message : "Something went wrong. Try again.",
-      );
+      setRefusal(friendlyError(err));
     } finally {
       setBusy(false);
     }
@@ -202,7 +201,7 @@ export function PaymentCard({ row, canDecide }: Props) {
           </summary>
           <ol className="mt-2 space-y-1">
             {audit.map((a) => (
-              <li key={a._id} className="flex gap-3">
+              <li key={a._id} className="flex flex-wrap gap-x-3 gap-y-0.5">
                 <span className="w-28 shrink-0 text-xs text-ash">
                   {dateTime(a.at)}
                 </span>
