@@ -20,10 +20,11 @@ export function PortfolioView({ actingUserId }: { actingUserId: Id<"users"> }) {
     api.payments.getHeldPayments,
     incidentId ? { incidentId, actingUserId } : "skip",
   );
-  const letter = useQuery(
+  const alerts = useQuery(
     api.alerts.getIncidentAlerts,
     incidentId ? { incidentId, actingUserId } : "skip",
-  )?.find((a) => a.kind === "vendor_letter");
+  );
+  const letter = alerts?.find((a) => a.kind === "vendor_letter");
   const [selected, setSelected] = useState<Id<"companies">>();
 
   if (incidents === undefined) return <Empty>Loading…</Empty>;
@@ -41,6 +42,14 @@ export function PortfolioView({ actingUserId }: { actingUserId: Id<"users"> }) {
 
   const { incident, totals } = blast;
   const selectedNode = blast.nodes.find((n) => n.companyId === selected);
+  const selectedHeld = held?.filter((r) => r.payment.companyId === selected);
+  const nodeFor = (companyId?: Id<"companies">) =>
+    blast.nodes.find((n) => n.companyId === companyId);
+  // Tailored company alerts, most urgent first (the AI writes; scoring decides urgency).
+  const companyAlerts = (alerts ?? [])
+    .filter((a) => a.kind === "company_alert")
+    .map((alert) => ({ alert, node: nodeFor(alert.companyId) }))
+    .sort((a, b) => (b.node?.score ?? 0) - (a.node?.score ?? 0));
 
   return (
     <div className="space-y-6">
@@ -69,12 +78,68 @@ export function PortfolioView({ actingUserId }: { actingUserId: Id<"users"> }) {
           selected={selected}
           onSelect={setSelected}
         />
-        <EvidencePanel
-          exposureId={selectedNode?.exposureId ?? undefined}
-          companyName={selectedNode?.name}
-          actingUserId={actingUserId}
-        />
+        <div className="space-y-6">
+          <EvidencePanel
+            exposureId={selectedNode?.exposureId ?? undefined}
+            companyName={selectedNode?.name}
+            actingUserId={actingUserId}
+          />
+          {selectedNode && (
+            <Card title={`Payments held · ${selectedNode.name}`}>
+              {!selectedHeld?.length ? (
+                <Empty>No payments held at this company.</Empty>
+              ) : (
+                <ul className="space-y-2 text-sm">
+                  {selectedHeld.map((r) => (
+                    <li
+                      key={r.payment._id}
+                      className="flex flex-wrap items-center justify-between gap-2"
+                    >
+                      <span className="font-semibold tabular-nums">
+                        {money(r.payment.amountCents)}
+                      </span>
+                      <span className="flex gap-1">
+                        {r.bankChange && <Chip tone="danger">bank change</Chip>}
+                        <Chip
+                          tone={r.payment.status === "held" ? "amber" : "muted"}
+                        >
+                          {r.payment.status}
+                        </Chip>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          )}
+        </div>
       </div>
+
+      {companyAlerts.length > 0 && (
+        <Card title={`Tailored alerts · ${companyAlerts.length}`}>
+          <ul className="space-y-3">
+            {companyAlerts.map(({ alert, node }) => (
+              <li
+                key={alert._id}
+                className="rounded-lg border border-line bg-graphite p-4"
+              >
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{node?.name}</span>
+                  {node?.urgency && (
+                    <Chip tone={node.urgency === "urgent" ? "danger" : "amber"}>
+                      {node.urgency}
+                    </Chip>
+                  )}
+                  {node?.status && <Chip tone="muted">{node.status}</Chip>}
+                </div>
+                <p className="text-sm leading-relaxed">
+                  {alert.status === "ready" ? alert.body : "Writing alert…"}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <HeldPaymentsPanel
         title={`Payments held · ${totals.paymentsHeld}`}

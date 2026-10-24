@@ -32,6 +32,20 @@ export function PaymentCard({ row, actingUser, canDecide }: Props) {
     api.payments.getPaymentAudit,
     viewer ? { paymentId: payment._id, actingUserId: viewer._id } : "skip",
   );
+  // Audit rows carry ids; resolve who acted and which incident for the reader.
+  const users = useQuery(api.blastRadius.listUsers, {});
+  const incidents = useQuery(
+    api.blastRadius.listIncidents,
+    viewer ? { actingUserId: viewer._id } : "skip",
+  );
+  const actorName = (actor: Doc<"auditLog">["actor"]) =>
+    actor === "system"
+      ? "System"
+      : (users?.find((u) => u._id === actor)?.name ?? "Unknown user");
+  const incidentName = (id: Doc<"auditLog">["incidentId"]) => {
+    const incident = incidents?.find((i) => i._id === id);
+    return incident ? `${incident.assetName} incident` : undefined;
+  };
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState<string>();
@@ -163,8 +177,15 @@ export function PaymentCard({ row, actingUser, canDecide }: Props) {
                   {a.action}
                 </span>
                 <span>
+                  <span className="font-medium">{actorName(a.actor)}</span>:{" "}
                   {a.reason}{" "}
-                  <span className="text-xs text-ash">({a.rule})</span>
+                  <span className="text-xs text-ash">
+                    (
+                    {[a.rule, incidentName(a.incidentId)]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    )
+                  </span>
                 </span>
               </li>
             ))}
