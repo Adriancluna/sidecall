@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 23, 21:00 by Adrian's Claude
+Last updated: Oct 23, 21:05 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -17,6 +17,8 @@ Last updated: Oct 23, 21:00 by Adrian's Claude
 - **Demo readiness check:** `npx convex run ops:demoReadiness --prod` (Adrian runs before going on stage; read-only). Checks DEMO_MODE, seed, $480K still pending, escalation window, "2 days before" freshness, no incident yet, ledger balance, AI alerts written. Says "press Reset" when needed.
 - **All 3 scenarios verified through the real webhook on dev** (unsigned, DEMO_MODE): `demo-brightline-001`, `demo-ironclad-cred-002`, `demo-ironclad-msp-003`.
 - ✓ Merged Role 2's #45 (polish + ledger columns): tsc, lint, build, tests green.
+- ✓ done for Role 2 (#46 ask): **Role 3 and Role 4 briefs rewritten in `handoff/role-3-map.md` and `handoff/role-4-ai.md`** to match `main` (handoff path, `ai.ts({ incidentId })` once per incident, scorecard + DNS shapes from CONTRACT.md, full dev setup incl. login keys + DEMO_MODE, `exportOutcomes`, signed webhook). They supersede the older `role-4-ai-dns.md`. CLAUDE.md now says in-repo files beat outside briefs.
+- For Role 4: `getWritingContext` now includes `externalId` (to key pre-generated text); `ANTHROPIC_API_KEY` and `AI_LIVE` declared in `convex.config.ts`.
 - `npm test`: 21 tests green (they sign in as each person; added: client can't pass a user id, controls log scoping).
 - ✓ done for Role 2: reviewed and merged #26. Earlier: #20, #22, #24.
 
