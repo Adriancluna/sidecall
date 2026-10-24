@@ -76,6 +76,34 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 ## Status update (~2:45am): "What to check" (last backend feature before hardening)
 Team decision (Adrian): **no more new features**; focus on precision, the $480K moment, and the red-team finding. One gap closed: an exposed company's IT lead now gets a concrete check, not just "rotate and review". `getExposureEvidence().path.whatToCheck` / evidence kind `what_to_check` / `getWritingContext().companyAlerts[].whatToCheck`, e.g. "What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong." (Harborline, which gives admin access, gets "Ask Ironclad Managed IT to rotate the admin account it uses for you…"). 55 tests, rehearsal 25/25. From here Role 1 = demo hardening + support for the video.
 
+## → Ashwa (Pegasus, #103): Role 1 review. Please fix 1–4, ask Adrian on 2
+Reviewed on main @ d3ccff2. What's good: 95 tests, careful gating of live AI (`AI_LIVE` + key), source-backed investigation, owned sandbox clearly labelled, imports refuse ambiguous vendors. Rehearsal passes on a fresh dev reset. The issues below are in Role 1 files (`incidents.ts`, `http.ts`, `payments.ts`, `responses.ts`, `schema.ts`), which CLAUDE.md says to clear with Adrian first. Next time, open the PR and wait for Role 1 review before merging.
+
+1. **HIGH: correlation swallows genuinely new incidents** (`incidents.ts` `recordIncidentImpl`).
+   - The `correlationKey` is `asset:class` with **no time window** and no end when the episode is contained. A real new breach of the same vendor weeks later returns `duplicate: true` and does nothing until the firm finds it in "Response safety".
+   - "Adopt pre-upgrade episodes" also means **production (not reset) treats the next Brightline fire as a duplicate.**
+   - Fix:
+     - Correlate only while the episode is active: not contained, and within 30 days of `lastReportedAt`.
+     - Return `correlated: true`, not `duplicate: true`. `duplicate` must keep meaning "same `externalId`" (CONTRACT, and the replay beat).
+     - Notify the firm when a correlated report arrives.
+2. **MEDIUM-HIGH (ask Adrian): signed real reports now default to "observation" and are invisible.**
+   - Unless `INCIDENT_AUTO_RESPONSE=true` and the sender marks the report `confirmed` with evidence, a signed report creates no exposures and no alerts.
+   - It's hidden from `listIncidents` and `getBlastRadius`.
+   - That contradicts the pitch: "a signed red-team finding is carried to the sister companies".
+   - Proposal: an observation still opens notify-only exposures and company alerts (no holds, no steps, firm told "unconfirmed"); only holds and steps wait for confirmation. Or Adrian decides to set `INCIDENT_AUTO_RESPONSE=true` on prod and the docs say so.
+3. **MEDIUM: `activeIncidentFor` lost its 30-day limit** (`payments.ts`).
+   - An uncontained incident now holds every new payment request to that vendor forever.
+   - CONTRACT, the field guide (`team-notes/field-guide.md` §5.4) and the Devpost all say 30 days.
+   - Restore `now - createdAt <= 30 days`, or update all three docs with Adrian's OK.
+4. **MEDIUM: the "prior target" downgrade in `planResponses` is permanent.** Any earlier step on the same company + step + target, from any past incident (even contained and undone), turns Pre-approved into One click forever. Scope it to the active episode (same `correlationKey`, not contained).
+5. **LOW: the 15-minute review deadline fires during the live demo.** If the demo plus Q&A runs past 15 minutes, the firm's Slack and timeline show "response review is due". Either word it as routine ("Scheduled review: …") or skip it when `DEMO_MODE=true`. Your call.
+6. **Process:**
+   - Another session deployed the **unmerged PR #96** to Adrian's dev deployment (`reminiscent-caribou-128`). Its seed added fields main's schema rejects, so `convex dev --once` failed until I cleared `responsePolicies`. **Only push branch code to your own dev deployment.**
+   - Also update CONTRACT for `INCIDENT_AUTO_RESPONSE`, `RESPONSE_SANDBOX` and the observation / correlated semantics, if any of 1–2 changes them.
+7. **Not a bug, don't "fix":** "Acknowledged by Sam Kowalski" on Cedar Ridge is a human click (the two-browser race beat), never automatic. And Brightline's pause shows "Done 128 s after the report · Run by Sam" because payroll logins are capped at one click. In the red-team (Ironclad) scenario, Cedar's pre-approved pause runs automatically in about 0.1 s.
+
+**Production:** press Reset before demoing (old incidents plus #1 means fires come back as duplicates). Run the rehearsal against prod after Reset.
+
 ## → Omar (and everyone): what data Sidecall runs on, before we go "real data"
 `handoff/role-1-data-inventory.md`: every piece of mock data, where it lives, and options for real data, safest first. **Omar's Claude: please answer the 3 questions there and add your notes at the bottom.** Correction to our pitch: the DNS text on the demo companies' links comes from *simulated* records; only `data/dns_findings.json` (10 real domains) is a live scan.
 
