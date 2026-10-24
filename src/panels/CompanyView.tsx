@@ -76,17 +76,21 @@ type AlertItemProps = {
 
 function AlertItem({ exposure, alert, actingUserId }: AlertItemProps) {
   const acknowledge = useMutation(api.incidents.acknowledgeExposure);
+  const close = useMutation(api.incidents.closeExposure);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string>();
 
-  const onAcknowledge = async () => {
+  // Refusals (already acknowledged, closed) are expected when two people act at once.
+  const change = async (action: "acknowledge" | "close") => {
     setBusy(true);
     try {
-      const res = await acknowledge({ exposureId: exposure._id, actingUserId });
+      const args = { exposureId: exposure._id, actingUserId };
+      const res =
+        action === "acknowledge" ? await acknowledge(args) : await close(args);
       setMessage(
         res.ok
           ? undefined
-          : `Not acknowledged: ${res.reason.replace(/_/g, " ")}`,
+          : `Not ${action === "acknowledge" ? "acknowledged" : "closed"}: ${res.reason.replace(/_/g, " ")}`,
       );
     } catch (err) {
       setMessage(
@@ -97,6 +101,8 @@ function AlertItem({ exposure, alert, actingUserId }: AlertItemProps) {
     }
   };
 
+  const button =
+    "rounded-md border border-line px-3 py-1.5 text-sm hover:border-ash disabled:opacity-50";
   return (
     <article className="rounded-lg border border-line bg-graphite p-4">
       <div className="mb-2 flex items-center gap-2">
@@ -108,15 +114,27 @@ function AlertItem({ exposure, alert, actingUserId }: AlertItemProps) {
       <p className="text-sm leading-relaxed">
         {alert?.status === "ready" ? alert.body : "Writing your alert…"}
       </p>
-      {exposure.status === "open" && (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void onAcknowledge()}
-          className="mt-3 rounded-md border border-line px-3 py-1.5 text-sm hover:border-ash disabled:opacity-50"
-        >
-          Acknowledge
-        </button>
+      {exposure.status !== "closed" && (
+        <div className="mt-3 flex gap-2">
+          {exposure.status === "open" && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void change("acknowledge")}
+              className={button}
+            >
+              Acknowledge
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void change("close")}
+            className={button}
+          >
+            Close
+          </button>
+        </div>
       )}
       {message && (
         <p role="status" className="mt-2 text-sm text-ash">
