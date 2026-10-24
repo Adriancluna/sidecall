@@ -6,7 +6,7 @@ Lines marked **[after 11pm]** depend on Role 3 (map) and need a re-read once it 
 ## Before you start (2 minutes, off camera)
 
 0. **Dress rehearsal (Adrian):** `npm run rehearse -- --url https://judicious-tiger-712.convex.cloud` plays every beat against prod with real sign-ins and checks every number (~11 s). Then **readiness check:** run `npx convex run ops:demoReadiness --prod` (needs the prod deploy key / Adrian). Fix anything it reports before going on stage.
-1. Open **https://sidecall.vercel.app/?stage** in tab A. Sign in as anyone, press **Reset** in the header. Everyone is signed out and the portfolio is reseeded, so the "changed 2 days before the breach" date is fresh.
+1. Open **https://sidecall.vercel.app/?stage** in tab A. Sign in as anyone, press **Reset** in the header. Everyone is signed out and the portfolio is reseeded, so the "changed 2 days before the incident" date is fresh.
 2. The **Presenter** panel (bottom right) has every beat below with a one-click "Sign in as".
 3. Open a second tab B on `/?stage` and leave it on the sign-in screen (for the race in beat 7).
 4. Optional: open the Convex dashboard for prod (`judicious-tiger-712`) in a third tab, Data → `payments`.

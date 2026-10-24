@@ -1,6 +1,6 @@
 import type { Id } from "../../convex/_generated/dataModel";
 import type { HeldPaymentRow } from "./types";
-import { PaymentCard } from "./PaymentCard";
+import { PaymentCard, type Viewer } from "./PaymentCard";
 import { Card, Empty } from "./ui";
 
 type Props = {
@@ -10,6 +10,7 @@ type Props = {
   intro?: string;
   // "Decision needed" text per payment (escalation alerts), company view only.
   escalations?: Map<Id<"payments">, string>;
+  viewer?: Viewer;
 };
 
 export function HeldPaymentsPanel({
@@ -18,6 +19,7 @@ export function HeldPaymentsPanel({
   canDecide,
   intro,
   escalations,
+  viewer,
 }: Props) {
   return (
     <Card title={title}>
@@ -27,13 +29,16 @@ export function HeldPaymentsPanel({
       ) : rows.length === 0 ? (
         <Empty>No payments held.</Empty>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div
+          className={`grid gap-3 ${rows.length > 1 ? "lg:grid-cols-2" : ""}`}
+        >
           {rows.map((row) => (
             <PaymentCard
               key={row.payment._id}
               row={row}
               canDecide={canDecide}
               escalation={escalations?.get(row.payment._id)}
+              viewer={viewer}
             />
           ))}
         </div>

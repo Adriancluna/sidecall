@@ -13,9 +13,13 @@ import { NotificationsPanel } from "./NotificationsPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { Card, Chip, Empty } from "./ui";
 
-type Props = { companyId: Id<"companies">; isController: boolean };
+type Props = {
+  companyId: Id<"companies">;
+  meId: Id<"users">;
+  isController: boolean;
+};
 
-export function CompanyView({ companyId, isController }: Props) {
+export function CompanyView({ companyId, meId, isController }: Props) {
   const company = useQuery(api.blastRadius.listCompanies, {})?.find(
     (c) => c._id === companyId,
   );
@@ -46,6 +50,17 @@ export function CompanyView({ companyId, isController }: Props) {
         )}
       </header>
 
+      {/* The decision comes first: it's the money moment and needs no scrolling. */}
+      {held && held.length > 0 && (
+        <HeldPaymentsPanel
+          title="Payments held until verified"
+          rows={held}
+          escalations={escalations}
+          canDecide
+          viewer={{ id: meId, isController }}
+        />
+      )}
+
       <Card title="Alerts">
         {exposures === undefined ? (
           <Empty>Loading…</Empty>
@@ -66,15 +81,6 @@ export function CompanyView({ companyId, isController }: Props) {
           </div>
         )}
       </Card>
-
-      {held && held.length > 0 && (
-        <HeldPaymentsPanel
-          title="Payments held until verified"
-          rows={held}
-          escalations={escalations}
-          canDecide
-        />
-      )}
 
       <BillsPanel />
 
