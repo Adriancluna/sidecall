@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 24, 03:30 by Marco's Claude
+Last updated: Oct 24, 04:00 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -47,9 +47,11 @@ Last updated: Oct 24, 03:30 by Marco's Claude
 
 - ✓ **UI audit round 2** (`docs/specs/ui-audit-2026-10-24-rerun.md`, Role 1's notes in #79): Release/Reject confirm only for a controller who isn't the requester (Jamie goes straight to the refusal); IT keeps Alerts first and doesn't see "Decision needed"; status chips use labels from one map (`src/panels/labels.ts`, `LookChip`); smaller amounts in the firm view; alert text `max-w-prose`; trusted ••2208 grey, only ••7731 coral; "due within the hour" / "1 hour"; "Releasing…" / "Rejecting…"; subtitle drops the account when the bank-change block shows it. Map tile (#2) left to Omar.
 - ✓ **/simplify pass** on our `src/` (not `src/map/`), behavior unchanged: shared `refusalOf` / `isSessionEnded` (`src/layout/errors.ts`), `humanize` (`format.ts`), `BUTTON_PRIMARY` / `BUTTON_SECONDARY` / `FIELD` (`src/panels/styles.ts`), one `DEMO_START_EMAIL`, node and alert lookups by Map, `canDecide` derived from `viewer`, memoized CSV link, unused exports dropped. `npm run build` + `npm run rehearse` PASS on dev (incl. 7b AP import).
+- ✓ **Live-site run-through after #80** (Reset first, left clean): every beat passed, incl. AP import (4 · 4,650 · $716,400) and Proof listing AI under Real. One regression fixed here: the released $480K chip said "Paid" after #80; now "Released" when the payment went through a hold, "Paid" only without one (card, PE list and bills list).
+- ✓ **Red-team finding stage button** (Role 1's ask in #86): 4th scenario in `src/demo/DemoControls.tsx`, "Red-team finding (Ironclad login)" → `demo-armadin-004`, id and asset name only. Fired on dev: accepted. Demo script / Devpost wording for it waits until Omar's finding UI lands ("a validated finding from an autonomous red team *like* Armadin").
 
 ## In progress
-1. Devpost and demo video (top priority per #76). Recording waits for Marco's go.
+1. Devpost: final draft in `docs/devpost.md` (paste-ready; one `[map]` line to re-check). Demo video waits for Marco's go.
 2. MCP Task 8 (agent clip): on hold until we record.
 3. Live-site run-through after this merges.
 

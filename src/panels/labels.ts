@@ -12,6 +12,14 @@ export const PAYMENT_STATUS: Record<Doc<"payments">["status"], Look> = {
   rejected: { tone: "danger", label: "Rejected" },
 };
 
+// A payment that was held and then released reads "Released"; one paid without a hold, "Paid".
+export const paymentLook = (
+  p: Pick<Doc<"payments">, "status" | "heldByIncidentId">,
+): Look =>
+  p.status === "paid" && p.heldByIncidentId !== undefined
+    ? PAYMENT_STATUS.released
+    : PAYMENT_STATUS[p.status];
+
 export const URGENCY: Record<Doc<"exposures">["urgency"], Look> = {
   urgent: { tone: "danger", label: "Urgent" },
   advisory: { tone: "amber", label: "Advisory" },

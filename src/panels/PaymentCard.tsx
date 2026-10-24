@@ -7,7 +7,7 @@ import { api } from "../../convex/_generated/api";
 import { refusalOf } from "../layout/errors";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { dateTime, humanize, money } from "./format";
-import { PAYMENT_STATUS } from "./labels";
+import { paymentLook } from "./labels";
 import type { HeldPaymentRow } from "./types";
 import { LookChip } from "./ui";
 import { BUTTON_PRIMARY, BUTTON_SECONDARY } from "./styles";
@@ -124,7 +124,7 @@ export function PaymentCard({ row, escalation, viewer }: Props) {
             {!row.bankChange && ` · account ••${payment.accountLast4}`}
           </p>
         </div>
-        <LookChip look={PAYMENT_STATUS[payment.status]} />
+        <LookChip look={paymentLook(payment)} />
       </header>
 
       {escalation && isHeld && (
