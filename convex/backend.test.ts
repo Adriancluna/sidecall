@@ -295,6 +295,33 @@ describe("payment requests", () => {
   });
 });
 
+describe("containment", () => {
+  test("only the PE firm contains; afterwards new requests aren't held but old holds stay", async () => {
+    const { as, fire } = await seeded();
+    const { incidentId } = await fire();
+    const clerk = await as("Jamie Chen");
+    const note = "Brightline rotated every shared credential; confirmed by phone at the number on file";
+
+    expect(await clerk.mutation(api.incidents.containIncident, { incidentId, note })).toMatchObject({ ok: false });
+    const pe = await as(PE);
+    expect(await pe.mutation(api.incidents.containIncident, { incidentId, note: "done" })).toMatchObject({ ok: false });
+    expect(await pe.mutation(api.incidents.containIncident, { incidentId, note })).toEqual({ ok: true });
+
+    const unpaid = (await clerk.query(api.payments.getMyBills, {})).find((b) => b.payment === null)!;
+    expect(await clerk.mutation(api.payments.requestPayment, { billId: unpaid.bill._id })).toMatchObject({
+      ok: true,
+      held: false,
+    });
+    const held = await clerk.query(api.payments.getHeldPayments, { incidentId });
+    expect(held.find((r) => r.payment.amountCents === 48_000_000)?.payment.status).toBe("held");
+
+    const firmTimeline = await pe.query(api.blastRadius.getIncidentTimeline, { incidentId });
+    expect(firmTimeline!.events.at(-1)).toMatchObject({ kind: "contain" });
+    const companyTimeline = await clerk.query(api.blastRadius.getIncidentTimeline, { incidentId });
+    expect(companyTimeline!.events.find((e) => e.kind === "contain")?.label).toMatch(/no longer held/);
+  });
+});
+
 describe("demo readiness", () => {
   test("fresh seed is ready; after firing it says to Reset", async () => {
     const { t, fire } = await seeded();

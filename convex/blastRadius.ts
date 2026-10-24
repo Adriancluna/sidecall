@@ -40,6 +40,7 @@ export const listIncidents = query({
           externalId: incident.externalId,
           assetId: incident.assetId,
           createdAt: incident.createdAt,
+          containedAt: incident.containedAt ?? null,
           reportedByCompanyId: viewer.firm ? (incident.reportedByCompanyId ?? null) : null,
           summary: viewer.firm ? (incident.summary ?? null) : null,
           assetName: asset?.name ?? "",
@@ -222,6 +223,7 @@ type TimelineEvent = {
     | "hold"
     | "flag"
     | "escalate"
+    | "contain"
     | "refused"
     | "release"
     | "reject"
@@ -289,6 +291,7 @@ export const getIncidentTimeline = query({
       },
     ];
     for (const row of audit) {
+      if (row.action === "contain") continue; // added below with a viewer-safe label
       events.push({ at: row.at, kind: row.action, label: row.reason, companyName: await companyName(row.companyId) });
     }
     for (const alert of alertGroups.flat()) {
@@ -309,6 +312,16 @@ export const getIncidentTimeline = query({
         companyName: await companyName(exposure.companyId),
       });
     }
+    if (incident.containedAt !== undefined) {
+      events.push({
+        at: incident.containedAt,
+        kind: "contain",
+        label: viewer.firm
+          ? `Marked contained: ${incident.containmentNote ?? ""}`
+          : "Vendor remediation confirmed: new payments to this vendor are no longer held",
+        companyName: null,
+      });
+    }
     events.sort((a, b) => a.at - b.at);
 
     const after = (kind: TimelineEvent["kind"]) => {
@@ -324,6 +337,7 @@ export const getIncidentTimeline = query({
         msToVendorLetter: after("vendor_letter_ready"),
         msToFirstAcknowledgement: after("acknowledged"),
         msToFirstRelease: after("release"),
+        msToContained: after("contain"),
       },
     };
   },
