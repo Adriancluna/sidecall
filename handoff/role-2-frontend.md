@@ -1,27 +1,29 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 19:24 by Marco's Claude
+Last updated: Oct 23, 19:31 by Marco's Claude
 
-## Status (on main after this PR)
-- App shell, "Viewing as" switcher (passes `actingUserId`), PE portfolio view, company view, held payment cards (release/reject, refusals inline), ledger panel (cash + AP from `getLedger` balances).
-- Company alerts: **Acknowledge + Close** (`closeExposure`), refusals shown inline.
-- Audit log on each payment shows **who** (user name or "System"), the rule, and **which incident** ("Brightline Payroll incident").
-- PE view: headline, blast radius + evidence, **held payments for the selected company** under the evidence panel, **tailored alerts list** (urgent first, with status), all held payments (read-only), vendor letter.
-- Demo controls: Fire incident and Replay webhook `POST /incident` (`brightline` scenario). Reset (`seed.resetDemo`) only on `/?stage`.
-- Title "Sidecall" + brand favicon. Webhook host derived from `VITE_CONVEX_URL` when `VITE_CONVEX_SITE_URL` is unset.
-- Verified on Marco's dev deployment: $480K held + flagged at Summit; requester refused; controller release moves cash $5.00M → $4.52M, AP → $0; PE headline "3 companies exposed · 4,200 people · $612,000 held"; evidence; replay = duplicate; two-tab acknowledge race, exactly one wins.
-- ✓ Live on https://sidecall.vercel.app (prod `judicious-tiger-712`): as Jamie, $480K held + bank-change flag + hold notice; webhook reachable (replay → duplicate, the incident was already fired on prod); PE headline "3 companies exposed · 4,200 people behind them · $612,000 in payments held". Reset on `/?stage` before the demo so it starts clean.
-- Dev login keys set on Marco's dev (`npx @convex-dev/auth`), pulled #17, dev reseeded (users have demo emails). `npm test` 14/14.
+## Status (on main after the login PR)
+- **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
+  - Tokens live in **sessionStorage**, so each browser tab has its own sign-in: one browser can show the AP clerk and the controller side by side.
+  - Verified on Marco's dev: quick-pick sign-in, switch Jamie → Rosa → Jordan (PE headline loads), wrong password refused with a message, Sign out back to the sign-in screen, a new tab starts signed out.
+- Calls still pass `actingUserId` (= the signed-in user's id), harmless; the backend ignores it when signed in.
+- Company view: alerts (Acknowledge + Close), held payment cards (release/reject, refusals inline, audit log with who + incident), ledger (cash + AP).
+- PE view: headline, blast radius + evidence, selected company's held payments, tailored alerts list, all held payments (read-only), vendor letter.
+- Demo controls: Fire incident / Replay webhook (`POST /incident`). Reset only on `/?stage`; after Reset everyone is signed out and lands on the sign-in screen.
+- ✓ Live on https://sidecall.vercel.app (before login): $480K held + flagged, PE headline 3 · 4,200 · $612,000.
 
 ## In progress
-1. `src/auth/` sign-in UI (Role 1's backend is ready): `ConvexAuthProvider` in `main.tsx`, email + password form, "Sign in as" quick-pick (seeded email + `sidecall-demo`, signIn then signUp fallback), `api.access.me` picks PE vs company view, then drop `actingUserId` from every call.
-2. Then: scorecard panel (when Role 4's `data/scorecard.json` exists), demo script, Devpost, backup video.
+1. After the login PR merges and Role 1 flips `REQUIRE_SESSION`: re-test on prod (sign in, fire, refusal, release, PE view).
+2. Drop the `actingUserId` args from the frontend in the same follow-up where Role 1 removes them from the API.
+3. Then: scorecard panel (when Role 4's `data/scorecard.json` exists), demo script, Devpost, backup video.
 
 ## Needs from others
-- → Role 1: `getHeldPayments` → add the vendor's **previous** account last 4 to `bankChange` (e.g. `previousAccountLast4`, the change before the flagged one). Role file asks for "old vs. new account last 4" on the red flag; today only the new one is available.
+- → Role 1: **login UI is in PR "feat: login screen"**. Once it's merged, flip `REQUIRE_SESSION=true` on prod (and dev); Role 2 re-tests right after.
+- → Role 1: ⚠ **`CONTRACT.md` is empty on main.** #21 (cf0474c) deleted all 211 lines. Restore it from `582bd0f:CONTRACT.md` plus whatever #21 meant to add (the "DNS links" section Role 4 is told to read).
+- → Role 1: `getHeldPayments` → add the vendor's **previous** account last 4 to `bankChange` (e.g. `previousAccountLast4`), so the red flag can show old vs. new account.
 
 ## Decisions & gotchas
-- ✓ Agree with Role 1's auth decision (Password only, no Anonymous, quick-pick for judges).
-- Demo opens as Jamie Chen (Summit Home Health AP clerk, requester of the $480K). Presenter URL: `/?stage` (shows Reset).
-- Row types come from `FunctionReturnType` of the Convex queries (`src/panels/types.ts`), so contract changes break at compile time.
-- `src/map/BlastRadiusMap.tsx` and `src/map/EvidencePanel.tsx` are working placeholders. Role 3 replaces the insides, keeps the props. The selected company's held payments live in `PortfolioView`, not in the map files.
-- Switching "Viewing as" remounts the company view (`key={user._id}`), so refusals and notes never carry over between users.
+- Sign-in is invite-only (backend). The demo password `sidecall-demo` is shown on the sign-in screen on purpose: every person is simulated and judges need to switch roles. The form path sets the password on a person's first sign-in, so typing any other password the first time locks that person to it until a Reset; the quick-pick always uses the demo password.
+- Presenter flow: open `/?stage`, Reset, then sign in as Jamie Chen ("start here").
+- Row types come from `FunctionReturnType` of the Convex queries (`src/panels/types.ts`); identity type from `api.access.me` (`src/auth/currentUser.ts`).
+- `src/map/BlastRadiusMap.tsx` and `src/map/EvidencePanel.tsx` are working placeholders. Role 3 replaces the insides, keeps the props.
+- Switching people remounts the company view (`key={me._id}`), so refusals and notes never carry over.

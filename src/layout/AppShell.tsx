@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import logoUrl from "../../brand/logo/sidecall-horizontal-dark.svg";
-import { ActingUserPicker } from "../demo/ActingAs";
+import { UserMenu } from "../auth/UserMenu";
 import { DemoControls } from "../demo/DemoControls";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -16,7 +16,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             className="h-8 w-auto"
           />
           <DemoControls />
-          <ActingUserPicker />
+          <UserMenu />
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>

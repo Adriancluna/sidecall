@@ -1,4 +1,4 @@
-import type { Doc } from "../../convex/_generated/dataModel";
+import type { CurrentUser } from "../auth/currentUser";
 import type { HeldPaymentRow } from "./types";
 import { PaymentCard } from "./PaymentCard";
 import { Card, Empty } from "./ui";
@@ -6,7 +6,7 @@ import { Card, Empty } from "./ui";
 type Props = {
   title: string;
   rows: HeldPaymentRow[] | undefined;
-  actingUser?: Doc<"users">;
+  actingUser?: CurrentUser;
   canDecide: boolean;
   intro?: string;
 };
