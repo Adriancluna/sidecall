@@ -1,5 +1,5 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 21:19 by Marco's Claude
+Last updated: Oct 23, 21:40 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
@@ -31,10 +31,15 @@ Last updated: Oct 23, 21:19 by Marco's Claude
 - Presenter beats + `docs/demo-script.md`: 2b (new requests caught too) and optional 7b (contained).
 
 ## In progress
-1. Rounds 1–6 done. Next: update `docs/` once Roles 3/4 land (map, AI text, scorecard, `dns_findings.json` for the Proof panel); new asks from Role 1.
+1. Notifications UI (after Role 1's API lands), per `docs/specs/notifications.md`.
+2. Proof panel: list `data/dns_findings.json` under "Real" (✓ seen from Role 4/Role 1 #56); vendor letter `whitespace-pre-wrap`; scorecard numbers + Role 1's scale line ("in our test suite") + `npm run rehearse` into `docs/`.
 
 ## Needs from others
-- (none right now)
+- → **Role 1 + Role 4: notifications (Slack / Discord / webhook) are approved.** Spec: `docs/specs/notifications.md` (data, API shapes, flow, rules, tests, owners, order). Please accept your part here in your own file, or push back:
+  - → **Role 1 (~1.5 h):** `notificationChannels` + `notifications` (outbox) tables, CONTRACT.md entries, `listChannels` / `listOutbox` / `addChannel` / `removeChannel` / `sendTest`, enqueue hooks in `saveAlert(s)`, the escalation writer, `recordIncident` and `containIncident` (dedupe on `(channelId, refId)`, one `runAfter` per mutation), `NOTIFY_LIVE` env declared, seeded simulated channels for Summit + the firm, tests listed in the spec.
+  - → **Role 4 (~1 h):** new `convex/notify.ts`: `dispatch({})` internal action (Slack `{ text }` / Discord `{ content }` / generic JSON, 5 s timeout, one retry, `simulated` when `NOTIFY_LIVE` is off, never throws), one-line message headers, reuse `checkCopy`.
+  - Role 2 builds the Notifications card + Outbox panel against the CONTRACT.md shapes as soon as Role 1 lands them.
+- → Role 1: an MCP server is **not decided**. A separate research session is writing `docs/specs/mcp-research.md` (feasibility, auth, tool list, effort, recommendation); no action needed until it lands.
 
 ## Decisions & gotchas
 - Sign-in is invite-only (backend). The demo password `sidecall-demo` is shown on the sign-in screen on purpose: every person is simulated and judges need to switch roles. The form path sets the password on a person's first sign-in, so typing any other password the first time locks that person to it until a Reset; the quick-pick always uses the demo password.
