@@ -1,15 +1,15 @@
 // Role 4: stop-loss recommendations, the controls a portfolio company sets up before a breach so
 // one shared vendor's incident costs less. Shared by convex/ai.ts (getStopLossAdvice) and
 // prompts/generateStopLoss.mjs (pre-generates data/ai_stop_loss.json off stage).
-// Only type imports (from ./advice.ts), so Node can run it as-is.
+// Explicit .ts imports keep this runnable in Node and in the Convex bundler.
 //
 // Fixed rules pick every recommendation from backend rows (links, playbook modes, hold rule,
 // pending payments, bank-detail changes). The AI writes only the summary at the top of each list.
 
 import type { AdviceBrief, PlaybookMode, Recommendation } from "./advice.ts";
+import { checkAdvice } from "./advice.ts";
 
-// Same order as advice.ts PRIORITY_RANK; a value import would need allowImportingTsExtensions in
-// convex/tsconfig.json.
+// Same order as advice.ts PRIORITY_RANK.
 const PRIORITY_RANK: Record<Recommendation["priority"], number> = {
   now: 0,
   soon: 1,
@@ -32,6 +32,8 @@ export type StopLossLink = {
   emailChangedAccounts: string[];
   pendingToChangedAccountsCents: number; // this company's pending payments to one of those accounts
   pendingChangedAccounts: string[]; // which of those accounts those payments go to
+  // Resolved by the same responseFor function that plans incident actions; never chosen by AI.
+  responseCaps?: { action: "pause_shared_login" | "revoke_vendor_tokens"; cap: PlaybookMode; capNote?: string }[];
 };
 
 export type StopLossCompany<CompanyId = string> = {
@@ -41,6 +43,9 @@ export type StopLossCompany<CompanyId = string> = {
   hasItLead: boolean;
   playbook: { pause_shared_login: PlaybookMode; revoke_vendor_tokens: PlaybookMode };
   links: StopLossLink[];
+  evidenceComplete?: boolean;
+  // Internal validation context only; never included in facts, readiness, or a company response.
+  companyNamesForValidation?: string[];
 };
 
 export type StopLossCacheEntry = { facts: string; body: string };
@@ -61,7 +66,9 @@ const names = (list: string[]) =>
   list.length <= 2
     ? list.join(" and ")
     : `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
-const isShared = (l: StopLossLink) => l.shareType !== "same_vendor_only";
+const isShared = (l: StopLossLink) => l.source === "self_reported" && l.shareType !== "same_vendor_only";
+const canPrepare = (l: StopLossLink, action: "pause_shared_login" | "revoke_vendor_tokens") =>
+  isShared(l) && (l.responseCaps === undefined || l.responseCaps.some(r => r.action === action && r.cap !== "notify"));
 // Connected-app (OAuth) grants worth a prepared revoke: identity, email and payroll vendors reach
 // accounts and people data. An MSP works through admin access instead, and "other" (ERP, e-sign,
 // device management) stays off the list so the advice doesn't flag every app a company uses.
@@ -143,7 +150,7 @@ export function stopLossRecommendations(
     });
   }
 
-  const sharedLogins = c.links.filter(isShared);
+  const sharedLogins = c.links.filter((l) => canPrepare(l, "pause_shared_login"));
   if (sharedLogins.length > 0 && c.playbook.pause_shared_login === "notify") {
     const urgent = sharedLogins.some(
       (l) =>
@@ -171,7 +178,7 @@ export function stopLossRecommendations(
   }
 
   const tokenLinks = c.links.filter(
-    (l) => l.source === "self_reported" && TOKEN_KINDS.has(l.assetKind),
+    (l) => canPrepare(l, "revoke_vendor_tokens") && TOKEN_KINDS.has(l.assetKind),
   );
   if (tokenLinks.length > 0 && c.playbook.revoke_vendor_tokens === "notify") {
     recs.push({
@@ -435,10 +442,40 @@ export function summaryProblems(text: string): string[] {
   return problems;
 }
 
+// Matching input facts do not make cached model output trustworthy. Recheck delivery too.
+export function summaryForFactsProblems(text: string, facts: object, otherCompanies: string[] = [], maxChars = 1100): string[] {
+  const problems = [...checkAdvice(text, { otherCompanies, maxChars }), ...summaryProblems(text)];
+  const known = JSON.stringify(facts);
+  const amountsIn = (value: string) => {
+    const amounts: number[] = [];
+    // Consume full numeric amounts and scale words, rather than accepting a known prefix
+    // of "$480,000 million". Support the ordinary dollar/ USD forms a model may write.
+    const patterns = [
+      /(?:\$|\bUSD\s*)\s*(\d[\d,]*(?:\.\d+)?)(?:\s*(thousand|million|billion|[kmb])\b)?/gi,
+      /\b(\d[\d,]*(?:\.\d+)?)(?:\s*(thousand|million|billion|[kmb])\b)?\s*(?:US\s+)?(?:dollars?|USD)\b/gi,
+    ];
+    const scale: Record<string, number> = { k: 1000, thousand: 1000, m: 1_000_000, million: 1_000_000, b: 1_000_000_000, billion: 1_000_000_000 };
+    for (const pattern of patterns) for (const match of value.matchAll(pattern))
+      amounts.push(Number(match[1].replace(/,/g, "")) * (scale[match[2]?.toLowerCase()] ?? 1));
+    return amounts;
+  };
+  const amounts = new Set(amountsIn(known));
+  for (const amount of amountsIn(text))
+    if (!Number.isFinite(amount) || !amounts.has(amount)) problems.push("amount is not in the recorded facts");
+  const accounts = new Set([...known.matchAll(/ending\s+(\d{4})\b/gi)].map(m => m[1]));
+  for (const match of text.matchAll(/(?:ending(?:\s+in)?|account(?:\s+number)?|••)\s*(\d{4,})\b/gi))
+    if (!accounts.has(match[1])) problems.push("account reference is not in the recorded facts");
+  return problems;
+}
+
 export function cannedCompanySummary(c: StopLossCompany<unknown>): string {
+  if (c.evidenceComplete === false)
+    return "This assessment is partial because some records exceeded the read limit. Review the listed gaps; the absence of another recommendation does not establish readiness.";
+  if (c.links.length === 0)
+    return `No vendor relationships are recorded for this company, so readiness cannot be assessed yet. Payment holds are ${c.holdRuleEnabled ? "enabled" : "disabled"}; record the company's vendor and access relationships before relying on this assessment.`;
   const recs = stopLossRecommendations(c);
   if (recs.length === 0)
-    return "Your stop-losses are in place: payment holds are on and your shared logins have a prepared pause. Nothing to add right now.";
+    return "No additional stop-loss setup is identified for the recorded relationships. Review the eligibility preview for each asset; this does not verify external accounts or establish that every relationship is recorded.";
   const now = recs.filter((r) => r.priority === "now").length;
   const pending = pendingSharedCents(c);
   return `${recs.length === 1 ? "One stop-loss" : `${recs.length} stop-losses`} to set up before a shared vendor has an incident${now > 0 ? `, ${now} of them now` : ""}. Start with "${recs[0].title}".${pending > 0 ? ` ${usd(pending)} is pending to vendors you share with other portfolio companies.` : ""}`;
@@ -447,9 +484,13 @@ export function cannedCompanySummary(c: StopLossCompany<unknown>): string {
 export function cannedPortfolioSummary(
   companies: StopLossCompany<unknown>[],
 ): string {
+  if (companies.some(c => c.evidenceComplete === false))
+    return "This portfolio assessment is partial because some records exceeded the read limit. Review the visible gaps; the listed companies and amounts may be incomplete.";
+  if (companies.length === 0 || companies.some(c => c.links.length === 0))
+    return "Vendor relationship evidence is missing for some or all companies. Review the listed gaps and complete their relationship records before assessing portfolio readiness.";
   const recs = portfolioRecommendations(companies);
   if (recs.length === 0)
-    return "Every portfolio company has its stop-losses in place. Nothing to ask for right now.";
+    return "No additional setup is identified for the recorded portfolio relationships. This assessment does not verify external accounts or establish that every relationship is recorded.";
   return `${recs.length} portfolio-wide gaps across ${companies.length} companies. The biggest: "${recs[0].title}". Each company adopts its own steps; the firm asks.`;
 }
 
@@ -459,9 +500,12 @@ export function companyBrief<CompanyId>(
   c: StopLossCompany<CompanyId>,
   cache: StopLossCache,
 ): AdviceBrief<CompanyId> {
-  // Nothing to set up: the canned "in place" line says it; the AI isn't asked (generateStopLoss.mjs).
+  // Cached copy is usable only for complete, matching facts and a valid summary.
   const hit = cache.entries[companyKey(c.companyName)];
-  const fresh = hit && hit.facts === factsKey(companyFacts(c));
+  const facts = companyFacts(c);
+  const otherCompanies = c.companyNamesForValidation?.filter(name => name !== c.companyName) ?? [];
+  const fresh = hit && c.evidenceComplete !== false && c.links.length > 0 && hit.facts === factsKey(facts) &&
+    summaryForFactsProblems(hit.body, facts, otherCompanies).length === 0;
   return {
     scope: "company",
     companyId: c.companyId,
@@ -477,7 +521,9 @@ export function portfolioBrief<CompanyId>(
   cache: StopLossCache,
 ): AdviceBrief<CompanyId> {
   const hit = cache.entries[PORTFOLIO_KEY];
-  const fresh = hit && hit.facts === factsKey(portfolioFacts(companies));
+  const facts = portfolioFacts(companies);
+  const fresh = hit && companies.length > 0 && companies.every(c => c.evidenceComplete !== false && c.links.length > 0) &&
+    hit.facts === factsKey(facts) && summaryForFactsProblems(hit.body, facts, [], 1400).length === 0;
   return {
     scope: "portfolio",
     companyId: null,
@@ -485,5 +531,34 @@ export function portfolioBrief<CompanyId>(
     summary: fresh ? hit.body : cannedPortfolioSummary(companies),
     source: fresh ? "cache" : "canned",
     recommendations: portfolioRecommendations(companies),
+  };
+}
+
+// Read-only eligibility preview. It explains the current policy and existing relationship cap;
+// it never plans a response, changes a policy, or claims that an external account was tested.
+export function companyReadiness<CompanyId>(c: StopLossCompany<CompanyId>) {
+  const rank: Record<PlaybookMode, number> = { notify: 0, prepare: 1, act: 2 };
+  const status = c.evidenceComplete === false ? "partial" as const : c.links.length === 0 ? "needs_evidence" as const : "assessed" as const;
+  return {
+    companyId: c.companyId,
+    companyName: c.companyName,
+    status,
+    paymentHoldsEnabled: c.holdRuleEnabled,
+    limits: "Eligibility for a confirmed report only. Observations do not run actions; episode rules, portfolio action limits and execution-time authority checks can lower this mode. External provider actions are simulated unless an owned sandbox resource is explicitly provisioned.",
+    assets: c.links.map(link => ({
+      assetName: link.assetName,
+      relationship: link.shareType,
+      source: link.source,
+      unpaidCents: link.pendingCents,
+      actions: (["pause_shared_login", "revoke_vendor_tokens"] as const).map(action => {
+        const configuredMode = c.playbook[action];
+        const rule = link.responseCaps?.find(rule => rule.action === action);
+        const eligibleMode = rule ? (rank[configuredMode] <= rank[rule.cap] ? configuredMode : rule.cap) : null;
+        const reason = !rule
+          ? link.shareType === "same_vendor_only" ? "Using the same vendor does not establish shared access; no access step applies." : "Access-step eligibility has not been established for this relationship."
+          : rule.capNote ?? (configuredMode === "notify" ? "Your company currently permits notification only." : "Within this relationship's limit; current company policy applies.");
+        return { action, configuredMode, eligibleMode, reason };
+      }),
+    })),
   };
 }

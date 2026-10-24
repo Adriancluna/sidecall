@@ -38,7 +38,7 @@ const ids = (recs) => recs.map((r) => r.id);
 
 test("holds on, prepared playbook, same vendor only: nothing to add", () => {
   assert.deepEqual(stopLossRecommendations(company()), []);
-  assert.match(cannedCompanySummary(company()), /in place/);
+  assert.match(cannedCompanySummary(company()), /No additional stop-loss setup is identified/);
 });
 
 test("holds off with money pending to a shared vendor is 'now'; without money it's 'soon'", () => {

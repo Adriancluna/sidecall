@@ -31,9 +31,9 @@ import { StopLossCard } from "../ai/stopLoss/StopLossCard";
 ```
 
 - `StopLossCard` subscribes with `useQuery` (no polling). It shows a skeleton while loading, then the card. It renders nothing when the brief isn't there.
-- `StopLossView({ brief, onOpenPlaybookStep? })` is the same card, for a brief you already have.
-- `useStopLossAdvice()` returns `{ portfolio, companies } | undefined`, typed from the query. It passes `asOf`, the client's time rounded down to the hour and fixed for the component's life, because queries can't read the clock.
-- `onOpenPlaybookStep` is optional and only used in the company view; the firm never gets the button. The card never changes a playbook mode itself. Adopting a step goes through the existing switches in `PlaybookPanel`, which keep the two-person rule for raising a step to Pre-approved.
+- `StopLossView({ brief, readiness?, onOpenPlaybookStep? })` is the same card, for a brief you already have.
+- `useStopLossAdvice()` returns `{ portfolio, companies, readiness, nextReviewAt } | undefined`, typed from the query. `asOf` starts at the exact current time and anchors the rolling 90-day lower bound, not a historical upper bound; new bank-change records remain visible through Convex updates. A one-shot timer advances the anchor at the returned next expiry (with the browser's timeout limit respected), without periodic polling. This is a live assessment, not an as-of historical snapshot.
+- `onOpenPlaybookStep` is optional and only used in the company view; the firm never gets the button. The card never changes a playbook mode itself. Adopting a step goes through the existing switches in `PlaybookPanel`, which keep the two-person rule for any increase in access-action authority, including Notify only → One click. The controller's payment-hold rule uses its existing separate authorization.
 
 ## Where it fits
 
@@ -47,7 +47,9 @@ import { StopLossCard } from "../ai/stopLoss/StopLossCard";
 ```ts
 {
   portfolio: AdviceBrief | null;   // firm only
-  companies: AdviceBrief[];        // company user: exactly its own; firm: every company, by name
+  companies: AdviceBrief[];        // company user: exactly its own; firm: bounded list, by name
+  readiness: CompanyReadiness[];   // same company scope; read-only, see below
+  nextReviewAt: number | null;     // earliest included bank-change expiry in milliseconds
 }
 // AdviceBrief = prompts/advice.ts, shared with the breach fix advice:
 {
@@ -74,6 +76,16 @@ import { StopLossCard } from "../ai/stopLoss/StopLossCard";
 - A company's brief never names another portfolio company. It counts sisters ("shared with 3 other portfolio companies") but never names them.
 - Held payments count as unpaid, so firing an incident doesn't change the advice (tested). Changing a playbook mode or the hold switch does: the item drops off live.
 
+### Readiness preview (Pegasus companion branch)
+
+Each `CompanyReadiness` has `companyId`, `companyName`, `status` (`assessed`, `needs_evidence`, `partial`), `paymentHoldsEnabled`, `limits`, and `assets`. Each asset has its name, source and relationship, recorded unpaid cents, and access actions with `configuredMode`, nullable `eligibleMode`, and a reason. The caps come from the incident engine's existing `responseFor` function. They are eligibility ceilings under current company policy; observations, active episodes, portfolio limits and execution authority can prevent or lower a real action. No preview writes a policy, creates a response, holds money or tests an external system.
+
+`StopLossCard` includes this preview for a company or firm-selected company. `StopLossView` accepts optional `readiness`; pass the matching entry when rendering it manually. The portfolio summary stays read-only; its recommendations remain a company-owned adoption workflow. Assets expand with native keyboard-operable disclosure controls. Do not mount the card into production until the dependent PRs are approved; Marco owns the candidate app integration.
+
+The input reducer uses the strongest relationship per company/asset, with the same ranking as incident fan-out. Candidate DNS rows do not establish shared credentials, and same-vendor-only customers are not promised a revoke. Every bounded scan uses an overflow sentinel: incomplete data is labelled partial and cannot reuse a confident cached summary. No relationships means evidence is needed, even when the recommendation list is empty. `assessed` never means every real-world relationship is known or that external accounts are verified.
+
+Company-name validation context stays internal; it is excluded from facts, public brief and readiness projections. Both generation and delivery recheck cached summaries against copy rules, other-company names, and dollar/account references present in the recorded facts. These deterministic checks are not a general truth guarantee. Changed recommendations invalidate affected old summaries; those entries correctly show standard text until Omar regenerates them with the updated facts. The shared `prompts/advice.ts` file is unchanged for #114 compatibility.
+
 ## Copy rules (tested)
 
 - `checkAdvice` in `prompts/advice.ts`: no "fraud", "block", "cancel", "contain the breach", "auto-mitigate", "stop the attack", "guarantee" or markdown; "validated" only next to "not tested"; no other company's name; no phone number except the one on file.
@@ -83,9 +95,16 @@ import { StopLossCard } from "../ai/stopLoss/StopLossCard";
 ## Regenerate the text (dev deployment only)
 
 ```
-ANTHROPIC_API_KEY=… node prompts/generateStopLoss.mjs   # pushes, reseeds dev (no incident), reuses matching entries
+ANTHROPIC_API_KEY=… node prompts/generateStopLoss.mjs   # reads existing own DEV; no push/reset; writes local cache
+ANTHROPIC_API_KEY=… node prompts/generateStopLoss.mjs --deployment <your-own-dev> --push --seed  # explicit destructive DEV opt-ins
 node --test prompts/stopLoss.test.mjs                   # rules + committed cache pass the copy rules
 npx vitest run convex/stopLoss.test.ts                  # the query: scoping, picks, cache hits, incident-stable
 ```
 
-The cache only hits while the facts match: each item's title, why and priority, and whether holds are on. After a seed change, rerun the generator and commit `data/ai_stop_loss.json`.
+The cache only hits while the facts match and its summary passes delivery checks. Generator safeguards require matching DEV selector/cloud URL; mutations additionally require the explicit expected deployment name. Production, Adrian DEV, deployment key/token aliases, self-hosted overrides and conflicting environment selectors are refused before any CLI call. Cache reuse needs no model key; stale summaries require `ANTHROPIC_API_KEY`, and a failed generation never overwrites the existing cache. Missing/partial evidence uses standard text instead of generated assurance.
+
+## Verification
+
+Pegasus's companion branch passes 129 app/backend tests and 80 prompt/generator/scorecard tests, both TypeScript checks, lint and build. The existing full live rehearsal passes on Pegasus DEV. `node scripts/readiness/rehearse.mjs --report docs/pegasus-readiness-rehearsal.json` adds seven live checks using real company/firm sessions and a Convex WebSocket subscription: scope, grounded advice, authorized hold-rule adoption, reactive gap closure and verified restoration. Run after the original rehearsal on your own clean DEV; it does not reset or deploy, but temporarily toggles Summit's synthetic hold policy and restores it in `finally` before bounded socket cleanup.
+
+The component was checked with returned synthetic DEV data at desktop and 375 px, including keyboard disclosure, with no horizontal overflow or browser console errors. It remains unmounted: this verifies the component, not the full app integration assigned to Marco. No AI cache was regenerated in this pass; invalidated summaries use the standard fallback.

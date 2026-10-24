@@ -1,20 +1,22 @@
 #!/usr/bin/env node
-// Role 4: pre-generate the stop-loss summaries into data/ai_stop_loss.json, off stage.
-// Reseeds a DEV deployment (stop-losses are read before any breach, so no incident is fired),
-// reads every company's rule inputs (ai:stopLossContexts), and for each summary either reuses
-// the cached one (same key, same facts, still passes checkAdvice) or asks the model, retrying up
-// to 3 times if the text breaks the copy rules. convex/ai.ts getStopLossAdvice reads the file
-// first and falls back to canned text, so the demo never needs the network.
+// Pre-generate stop-loss summaries from EXISTING records on your own matching cloud DEV.
+// Default behavior never deploys or resets. Valid cached summaries need no model/API key.
+// ANTHROPIC_API_KEY is needed only for summaries that must actually be generated.
 //
-//   ANTHROPIC_API_KEY=… node prompts/generateStopLoss.mjs               # push code, reseed, reuse + generate
-//   ANTHROPIC_API_KEY=… node prompts/generateStopLoss.mjs --no-push     # skip `npx convex dev --once`
-//   ANTHROPIC_API_KEY=… node prompts/generateStopLoss.mjs --regenerate  # rewrite every summary
+//   node prompts/generateStopLoss.mjs --deployment brainy-cassowary-804
+//   node prompts/generateStopLoss.mjs --deployment tangible-koala-842 --regenerate
+//   node prompts/generateStopLoss.mjs --deployment <your-dev-name> --push  # explicit code deployment
+//   node prompts/generateStopLoss.mjs --deployment <your-dev-name> --seed  # explicit destructive reseed
 //
-// After it runs: commit data/ai_stop_loss.json; the next deploy ships it.
+// Both opt-ins may be combined. They require the named DEV to match .env.local's
+// CONVEX_DEPLOYMENT and VITE_CONVEX_URL exactly; all deploy keys/tokens are refused.
+// Legacy --no-push is accepted and now also leaves data intact unless --seed is explicit.
+// Commit data/ai_stop_loss.json afterwards; a later reviewed deploy ships it.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { push, refuseProd, run } from "../scripts/scorecard/convex.mjs";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { createOwnedDev } from "../scripts/scorecard/ownedDev.mjs";
 import { MODEL, callClaude } from "./writing.ts";
-import { checkAdvice } from "./advice.ts";
 import {
   PORTFOLIO_KEY,
   companyFacts,
@@ -24,101 +26,78 @@ import {
   portfolioFacts,
   portfolioSummaryPrompt,
   stopLossRecommendations,
-  summaryProblems,
+  summaryForFactsProblems,
 } from "./stopLoss.ts";
 
-const apiKey = process.env.ANTHROPIC_API_KEY;
-if (!apiKey) {
-  console.error("Set ANTHROPIC_API_KEY.");
-  process.exit(1);
-}
-refuseProd();
-if (!process.argv.includes("--no-push")) push();
-const regenerate = process.argv.includes("--regenerate");
+// Exported for deterministic tests with a mocked CLI and model; imports do not run generation.
+export async function generateStopLoss({
+  argv = process.argv.slice(2), cwd = process.cwd(), env = process.env, spawn,
+  callModel = callClaude, now = Date.now, log = console,
+  cachePath = new URL("../data/ai_stop_loss.json", import.meta.url),
+} = {}) {
+  const dev = createOwnedDev({ argv, cwd, env, spawn });
+  const existing = existsSync(cachePath)
+    ? JSON.parse(readFileSync(cachePath, "utf8"))
+    : { generatedAt: null, model: null, entries: {} };
 
-const cachePath = new URL("../data/ai_stop_loss.json", import.meta.url);
-const existing = existsSync(cachePath)
-  ? JSON.parse(readFileSync(cachePath, "utf8"))
-  : { generatedAt: null, model: null, entries: {} };
-
-run("seed:run");
-console.error("Seeded (no incident fired).");
-const companies = run("ai:stopLossContexts", { asOf: Date.now() });
-const allNames = companies.map((c) => c.companyName);
-
-const jobs = [
-  // A company with nothing to set up keeps the canned "in place" line; no model call.
-  ...companies.filter((c) => stopLossRecommendations(c).length > 0).map((c) => ({
-    key: companyKey(c.companyName),
-    facts: companyFacts(c),
-    prompt: companySummaryPrompt(c),
-    check: (t) =>
-      checkAdvice(t, {
-        otherCompanies: allNames.filter((n) => n !== c.companyName),
-      }),
-  })),
-  {
-    key: PORTFOLIO_KEY,
-    facts: portfolioFacts(companies),
-    prompt: portfolioSummaryPrompt(companies),
-    // The firm view may name every company.
-    check: (t) => checkAdvice(t, { otherCompanies: [], maxChars: 1400 }),
-  },
-];
-
-for (const job of jobs) {
-  const base = job.check;
-  job.check = (t) => [...base(t), ...summaryProblems(t)];
-}
-
-async function generate(job) {
-  let last = [];
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    const text = await callClaude(apiKey, job.prompt);
-    last = job.check(text);
-    if (last.length === 0) return text;
-    console.error(`  retry ${job.key}: ${last.join("; ")}`);
+  // Guards run before either explicit mutation and again before every CLI invocation.
+  dev.prepare();
+  const companies = dev.contexts(now());
+  if (!Array.isArray(companies)) throw new Error("Stop-loss contexts did not return a company list.");
+  log.error(`Read existing records from DEV ${dev.deployment}${dev.options.seed ? " after the explicitly requested reseed" : ""}.`);
+  const allNames = companies.map((c) => c.companyName);
+  const complete = (c) => c.evidenceComplete !== false && c.links.length > 0;
+  const jobs = companies
+    .filter((c) => complete(c) && stopLossRecommendations(c).length > 0)
+    .map((c) => ({
+      key: companyKey(c.companyName), facts: companyFacts(c), prompt: companySummaryPrompt(c),
+      otherCompanies: allNames.filter((name) => name !== c.companyName), maxChars: 1100,
+    }));
+  // Partial or missing evidence uses the runtime's explicit canned explanation, not an AI claim.
+  if (companies.length > 0 && companies.every(complete)) {
+    jobs.push({ key: PORTFOLIO_KEY, facts: portfolioFacts(companies),
+      prompt: portfolioSummaryPrompt(companies), otherCompanies: [], maxChars: 1400 });
   }
-  throw new Error(`${job.key} failed the copy rules 3 times: ${last.join("; ")}`);
-}
+  const problems = (job, text) => summaryForFactsProblems(text, job.facts, job.otherCompanies, job.maxChars);
 
-let reused = 0;
-const texts = await Promise.all(
-  jobs.map((job) => {
+  async function generate(job) {
+    if (!env.ANTHROPIC_API_KEY)
+      throw new Error("Set ANTHROPIC_API_KEY to generate missing or stale summaries; cache reuse needs no key.");
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      let text;
+      try { text = await callModel(env.ANTHROPIC_API_KEY, job.prompt); }
+      catch { throw new Error("Model request failed; provider output withheld to protect credentials."); }
+      if (typeof text !== "string") throw new Error("Model did not return summary text.");
+      const issues = problems(job, text);
+      if (issues.length === 0) return text;
+      log.error(`Retrying ${job.key}: ${issues.length} summary validation problem(s).`);
+    }
+    throw new Error("A summary failed the copy and recorded-fact checks three times; cache was not overwritten.");
+  }
+
+  let reused = 0;
+  const texts = await Promise.all(jobs.map((job) => {
     const entry = existing.entries?.[job.key];
-    if (!regenerate && entry && entry.facts === factsKey(job.facts)) {
-      const problems = job.check(entry.body);
-      if (problems.length === 0) {
-        reused++;
-        return entry.body;
-      }
-      console.error(`  regenerating ${job.key}: ${problems.join("; ")}`);
+    if (!dev.options.regenerate && entry?.facts === factsKey(job.facts) &&
+        typeof entry.body === "string" && problems(job, entry.body).length === 0) {
+      reused++;
+      return entry.body;
     }
     return generate(job);
-  }),
-);
+  }));
+  const entries = Object.fromEntries(jobs
+    .map((job, index) => [job.key, { facts: factsKey(job.facts), body: texts[index] }])
+    .sort(([a], [b]) => a.localeCompare(b)));
+  const generated = jobs.length - reused;
+  writeFileSync(cachePath, `${JSON.stringify({
+    generatedAt: generated > 0 || !existing.generatedAt ? new Date(now()).toISOString() : existing.generatedAt,
+    model: MODEL, entries,
+  }, null, 2)}\n`);
+  log.log(`Wrote ${jobs.length} stop-loss summaries (${reused} reused, ${generated} generated).`);
+  return { deployment: dev.deployment, summaries: jobs.length, reused, generated };
+}
 
-const entries = Object.fromEntries(
-  jobs
-    .map((job, i) => [job.key, { facts: factsKey(job.facts), body: texts[i] }])
-    .sort(([a], [b]) => a.localeCompare(b)),
-);
-const generated = jobs.length - reused;
-writeFileSync(
-  cachePath,
-  JSON.stringify(
-    {
-      generatedAt:
-        generated > 0 || !existing.generatedAt
-          ? new Date().toISOString()
-          : existing.generatedAt,
-      model: MODEL,
-      entries,
-    },
-    null,
-    2,
-  ) + "\n",
-);
-console.log(
-  `Wrote ${jobs.length} summaries to data/ai_stop_loss.json (${reused} reused, ${generated} generated)`,
-);
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  try { await generateStopLoss(); }
+  catch (error) { console.error(error instanceof Error ? error.message : "Stop-loss generation failed."); process.exitCode = 1; }
+}

@@ -10,19 +10,21 @@
 // red-team finding, a sister company's alert carries the sister-safe path sentence and the
 // concrete check ("validated" only ever next to "not tested"), and the vendor letter names the
 // technique; the facts behind the three older scenarios are unchanged, so their cache still hits.
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { env, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import cacheFile from "../data/ai_cache.json";
 // Stop-loss advice (section at the bottom).
 import { internalQuery, query, type QueryCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { getViewer } from "./access";
 import { DAY_MS, MAX_FANOUT } from "./shared";
+import { responseFor } from "./scoring";
 import stopLossCacheFile from "../data/ai_stop_loss.json";
 import {
   BANK_CHANGE_WINDOW_DAYS,
   companyBrief,
+  companyReadiness,
   portfolioBrief,
   type StopLossCache,
   type StopLossCompany,
@@ -234,49 +236,87 @@ const stopLossCache = stopLossCacheFile as StopLossCache;
 
 type CompanyId = Id<"companies">;
 
+// Match the incident fan-out: the strongest relationship wins, with confirmed evidence
+// breaking ties. Insertion order must not hide a later shared-login relationship.
+function stopLossLinkRank(link: Doc<"links">): number {
+  const share = { shared_credential: 3, shared_admin_access: 2, same_vendor_only: 1 }[link.shareType];
+  return share * 2 + (link.source === "self_reported" ? 1 : 0);
+}
+
+function validateAdviceTime(asOf: number): void {
+  if (!Number.isSafeInteger(asOf) || asOf < 0)
+    throw new ConvexError("asOf must be a nonnegative safe integer timestamp.");
+}
+
 // What the rules read, for every company or only one. links has no company index, so links are
 // read per asset, which also gives how many sister companies sit on each asset.
 async function stopLossInputs(
   ctx: QueryCtx,
   asOf: number,
   onlyCompanyId: CompanyId | null,
-): Promise<StopLossCompany<CompanyId>[]> {
+): Promise<{ companies: StopLossCompany<CompanyId>[]; nextReviewAt: number | null }> {
+  validateAdviceTime(asOf);
+  // Names are internal validation context for generated copy; they are never returned in
+  // another company's brief. The sentinel also prevents partial rollups claiming completeness.
+  const companyRows = await ctx.db.query("companies").take(MAX_FANOUT + 1);
+  const companyNamesForValidation = companyRows.slice(0, MAX_FANOUT).map(c => c.name);
   const companies = onlyCompanyId
     ? [await ctx.db.get("companies", onlyCompanyId)].filter((c) => c !== null)
-    : await ctx.db.query("companies").take(MAX_FANOUT);
+    : companyRows.slice(0, MAX_FANOUT);
   const wanted = new Set(companies.map((c) => c._id));
   const linksOf = new Map<CompanyId, StopLossLink[]>();
+  const incomplete = new Set<CompanyId>();
+  let globallyComplete = companyRows.length <= MAX_FANOUT;
+  let nextReviewAt: number | null = null;
+  const assetRows = await ctx.db.query("assets").take(MAX_FANOUT + 1);
+  if (assetRows.length > MAX_FANOUT) globallyComplete = false;
 
-  for (const asset of await ctx.db.query("assets").take(MAX_FANOUT)) {
-    const links = await ctx.db
+  for (const asset of assetRows.slice(0, MAX_FANOUT)) {
+    const linkRows = await ctx.db
       .query("links")
       .withIndex("by_assetId", (q) => q.eq("assetId", asset._id))
-      .take(MAX_FANOUT);
+      .take(MAX_FANOUT + 1);
+    // An omitted link might belong to any selected company, including one absent from this page.
+    if (linkRows.length > MAX_FANOUT) globallyComplete = false;
+    const strongest = new Map<CompanyId, Doc<"links">>();
+    for (const link of linkRows.slice(0, MAX_FANOUT)) {
+      const prior = strongest.get(link.companyId);
+      if (!prior || stopLossLinkRank(link) > stopLossLinkRank(prior)) strongest.set(link.companyId, link);
+    }
+    const links = [...strongest.values()];
     if (!links.some((l) => wanted.has(l.companyId))) continue;
+    const markAssetIncomplete = () => {
+      for (const link of links) if (wanted.has(link.companyId)) incomplete.add(link.companyId);
+    };
     const onAsset = new Set(links.map((l) => l.companyId));
     // Unpaid = pending or held: a hold doesn't change what the stop-losses should be, so the
     // advice (and its cached summary) stays the same after an incident fires.
-    const pending = [];
+    const pending: Doc<"payments">[] = [];
     for (const status of ["pending", "held"] as const) {
-      pending.push(
-        ...(await ctx.db
-          .query("payments")
-          .withIndex("by_assetId_and_status", (q) =>
-            q.eq("assetId", asset._id).eq("status", status),
-          )
-          .take(MAX_FANOUT)),
-      );
+      const rows = await ctx.db.query("payments")
+        .withIndex("by_assetId_and_status", (q) => q.eq("assetId", asset._id).eq("status", status))
+        .take(MAX_FANOUT + 1);
+      if (rows.length > MAX_FANOUT) markAssetIncomplete();
+      pending.push(...rows.slice(0, MAX_FANOUT));
     }
-    const changes = await ctx.db
+    const changeRows = await ctx.db
       .query("bankDetailChanges")
       .withIndex("by_assetId_and_changedAt", (q) =>
         q
           .eq("assetId", asset._id)
-          .gte("changedAt", asOf - BANK_CHANGE_WINDOW_DAYS * DAY_MS)
-          .lte("changedAt", asOf),
+          .gte("changedAt", asOf - BANK_CHANGE_WINDOW_DAYS * DAY_MS),
       )
       .order("desc")
-      .take(MAX_FANOUT);
+      .take(MAX_FANOUT + 1);
+    if (changeRows.length > MAX_FANOUT) markAssetIncomplete();
+    const changes = changeRows.slice(0, MAX_FANOUT);
+    // asOf anchors the aging cutoff, not a frozen upper bound on live rows. New changes
+    // therefore appear on subscription updates; the client refreshes at the first expiry.
+    for (const change of changes) {
+      const expiresAt = change.changedAt + BANK_CHANGE_WINDOW_DAYS * DAY_MS + 1;
+      if (Number.isSafeInteger(expiresAt) && expiresAt > asOf)
+        nextReviewAt = nextReviewAt === null ? expiresAt : Math.min(nextReviewAt, expiresAt);
+    }
     const emailChanged = [
       ...new Set(
         changes
@@ -286,14 +326,12 @@ async function stopLossInputs(
     ];
     const sharing = new Set(
       links
-        .filter((l) => l.shareType !== "same_vendor_only")
+        .filter((l) => l.source === "self_reported" && l.shareType !== "same_vendor_only")
         .map((l) => l.companyId),
     );
 
-    const seen = new Set<CompanyId>();
     for (const link of links) {
-      if (!wanted.has(link.companyId) || seen.has(link.companyId)) continue;
-      seen.add(link.companyId);
+      if (!wanted.has(link.companyId)) continue;
       const own = pending.filter((p) => p.companyId === link.companyId);
       const toChanged = own.filter((p) => emailChanged.includes(p.accountLast4));
       const sum = (rows: typeof own) =>
@@ -306,9 +344,10 @@ async function stopLossInputs(
         phoneOnFile: asset.phoneOnFile,
         shareType: link.shareType,
         source: link.source,
+        responseCaps: responseFor(link, asset),
         otherCompaniesOnAsset: onAsset.size - 1,
         otherCompaniesSharingLogin:
-          link.shareType === "same_vendor_only"
+          link.source !== "self_reported" || link.shareType === "same_vendor_only"
             ? 0
             : sharing.size - (sharing.has(link.companyId) ? 1 : 0),
         pendingCents: sum(own),
@@ -325,7 +364,8 @@ async function stopLossInputs(
     const users = await ctx.db
       .query("users")
       .withIndex("by_companyId", (q) => q.eq("companyId", company._id))
-      .take(MAX_FANOUT);
+      .take(MAX_FANOUT + 1);
+    if (users.length > MAX_FANOUT) incomplete.add(company._id);
     const mode = async (action: "pause_shared_login" | "revoke_vendor_tokens") =>
       (
         await ctx.db
@@ -339,7 +379,9 @@ async function stopLossInputs(
       companyId: company._id,
       companyName: company.name,
       holdRuleEnabled: company.holdRuleEnabled,
-      hasItLead: users.some((u) => u.role === "it"),
+      hasItLead: users.slice(0, MAX_FANOUT).some((u) => u.role === "it"),
+      evidenceComplete: globallyComplete && !incomplete.has(company._id),
+      companyNamesForValidation,
       playbook: {
         pause_shared_login: await mode("pause_shared_login"),
         revoke_vendor_tokens: await mode("revoke_vendor_tokens"),
@@ -349,17 +391,17 @@ async function stopLossInputs(
       ),
     });
   }
-  return out.sort((a, b) => a.companyName.localeCompare(b.companyName));
+  return { companies: out.sort((a, b) => a.companyName.localeCompare(b.companyName)), nextReviewAt };
 }
 
 // The viewer's stop-loss advice. A company sees only its own brief; the PE firm sees the
-// portfolio rollup plus every company's. `asOf` is the client's clock rounded to the hour
-// (queries can't read the clock); it sets the 90-day window for bank-detail changes.
+// portfolio rollup plus every company's. `asOf` is the aging cutoff anchor; nextReviewAt
+// tells the client when to advance it. New database writes remain visible between expiries.
 export const getStopLossAdvice = query({
   args: { asOf: v.number() },
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
-    const inputs = await stopLossInputs(
+    const { companies: inputs, nextReviewAt } = await stopLossInputs(
       ctx,
       args.asOf,
       viewer.firm ? null : viewer.companyId,
@@ -367,6 +409,8 @@ export const getStopLossAdvice = query({
     return {
       portfolio: viewer.firm ? portfolioBrief(inputs, stopLossCache) : null,
       companies: inputs.map((c) => companyBrief(c, stopLossCache)),
+      readiness: inputs.map((c) => companyReadiness(c)),
+      nextReviewAt,
     };
   },
 });
@@ -374,5 +418,5 @@ export const getStopLossAdvice = query({
 // Every company's rule inputs, for prompts/generateStopLoss.mjs (npx convex run, dev only).
 export const stopLossContexts = internalQuery({
   args: { asOf: v.number() },
-  handler: async (ctx, args) => await stopLossInputs(ctx, args.asOf, null),
+  handler: async (ctx, args) => (await stopLossInputs(ctx, args.asOf, null)).companies,
 });

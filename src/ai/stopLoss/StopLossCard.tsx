@@ -5,10 +5,12 @@
 import type { Id } from "../../../convex/_generated/dataModel";
 import { Card, Chip, Skeleton, Tile } from "../../panels/ui";
 import { BUTTON_SECONDARY } from "../../panels/styles";
+import { money } from "../../panels/format";
 import {
   useStopLossAdvice,
   type StopLossBrief,
   type StopLossRecommendation,
+  type StopLossAdvice,
 } from "./useStopLossAdvice";
 
 type Priority = StopLossRecommendation["priority"];
@@ -28,6 +30,46 @@ const MODE_LABEL: Record<PlaybookMode, string> = {
   prepare: "One click",
   act: "Pre-approved",
 };
+type Readiness = StopLossAdvice["readiness"][number];
+const ACTION_LABEL = { pause_shared_login: "Pause shared login", revoke_vendor_tokens: "Revoke vendor tokens" };
+const READINESS_LABEL = { assessed: "Recorded evidence assessed", needs_evidence: "Relationship evidence needed", partial: "Partial assessment" };
+
+export function ReadinessPreview({ readiness }: { readiness: Readiness }) {
+  return (
+    <section className="mt-5 rounded-xl border border-line bg-graphite p-4" aria-label="Control eligibility preview">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-medium text-paper">What your controls currently allow</h3>
+        <Chip tone={readiness.status === "assessed" ? "muted" : "amber"}>{READINESS_LABEL[readiness.status]}</Chip>
+      </div>
+      <p className="mt-2 text-sm text-ash">Payment hold rule: {readiness.paymentHoldsEnabled ? "enabled" : "disabled"}. This preview does not change access, hold money or adopt a control.</p>
+      {readiness.status !== "assessed" && (
+        <p className="mt-2 text-sm text-amber">{readiness.status === "partial"
+          ? "Some records exceeded the assessment limit. Listed amounts and controls may be incomplete."
+          : "Record the company's vendor and access relationships before assessing coverage."}</p>
+      )}
+      <div className="mt-3 divide-y divide-line">
+        {readiness.assets.map(asset => (
+          <details key={asset.assetName} className="py-3">
+            <summary className="cursor-pointer text-sm font-medium text-paper">
+              {asset.assetName} <span className="ml-2 font-normal text-ash">{asset.source === "dns_inferred" ? "Candidate · DNS" : "Company-reported relationship"}</span>
+            </summary>
+            <p className="mt-2 text-xs text-ash">Recorded unpaid payments: {money(asset.unpaidCents)}.</p>
+            <ul className="mt-3 space-y-3">
+              {asset.actions.map(action => (
+                <li key={action.action} className="text-sm">
+                  <p className="text-paper">{ACTION_LABEL[action.action]}</p>
+                  <p className="mt-1 text-ash">Configured: {MODE_LABEL[action.configuredMode]} · Eligible: {action.eligibleMode ? MODE_LABEL[action.eligibleMode] : "No access step"}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-ash">{action.reason}</p>
+                </li>
+              ))}
+            </ul>
+          </details>
+        ))}
+      </div>
+      <p className="mt-3 text-xs leading-relaxed text-ash">{readiness.limits}</p>
+    </section>
+  );
+}
 
 export type StopLossCardProps = {
   // Firm view only: show this company's brief instead of the portfolio rollup. Ignored for a
@@ -54,13 +96,16 @@ export function StopLossCard({ companyId, onOpenPlaybookStep }: StopLossCardProp
     : advice.companies[0];
   if (!brief) return null;
   // The firm recommends but never changes a company's playbook, so it gets no button.
-  return <StopLossView brief={brief} onOpenPlaybookStep={advice.portfolio ? undefined : onOpenPlaybookStep} />;
+  return <StopLossView brief={brief}
+    readiness={advice.readiness.find(r => r.companyId === brief.companyId)}
+    onOpenPlaybookStep={advice.portfolio ? undefined : onOpenPlaybookStep} />;
 }
 
 export function StopLossView({
   brief,
   onOpenPlaybookStep,
-}: { brief: StopLossBrief } & Pick<StopLossCardProps, "onOpenPlaybookStep">) {
+  readiness,
+}: { brief: StopLossBrief; readiness?: Readiness } & Pick<StopLossCardProps, "onOpenPlaybookStep">) {
   const groups = (["now", "soon", "later"] as const)
     .map((p) => ({ priority: p, items: brief.recommendations.filter((r) => r.priority === p) }))
     .filter((g) => g.items.length > 0);
@@ -80,6 +125,7 @@ export function StopLossView({
       }
     >
       <p className="max-w-3xl text-sm leading-relaxed text-paper">{brief.summary}</p>
+      {readiness && <ReadinessPreview readiness={readiness} />}
       {groups.map((g) => (
         <section key={g.priority} className="mt-6">
           <h3 className="text-xs font-semibold tracking-wider text-ash uppercase">{PRIORITY[g.priority]}</h3>
