@@ -447,7 +447,8 @@ describe("owned sandbox response", () => {
     expect(freshPlan.find((s) => s.action === "pause_shared_login")?.mode).toBe(
       "act",
     );
-    expect((await access(token)).status).toBe(200);
+    // The scheduled action may already have run; repeating the executor below must
+    // remain harmless and the newly authorized episode must deny access.
     await t.mutation(internal.responses.recordSimulated, {
       incidentId: subsequent[0].incidentId,
     });

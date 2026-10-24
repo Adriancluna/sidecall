@@ -1,6 +1,6 @@
 # Pegasus implementation: Hyphenate + Armadin
 
-Author: Pegasus · 2026-10-24 · latest review fixes on `fix/pegasus-episode-depth` (PR review before merge)
+Author: Pegasus · 2026-10-24 · latest review fixes on `fix/pegasus-incident-lifecycle` (PR review before merge)
 
 ## What this changes
 
@@ -81,3 +81,9 @@ Keep two narratives over the same implementation: Hyphenate = evidence gathering
 - Owned sandbox rehearsal: Cedar access changed from HTTP 200 to 403; Summit's separate resource remained HTTP 200. Observed end-to-end duration was 1,223 ms, including CLI, network and scheduling overhead; this is not a production latency benchmark.
 - Signed-in browser check: the firm investigation produced a review-required packet for the synthetic changed-account example, displayed the trusted callback number and literal source quotes, and the safety panel displayed the correlated episodes. Live model extraction and external IdP actions remain unverified.
 - On a clean, separately seeded own DEV deployment with DEMO_MODE and RESPONSE_SANDBOX enabled, run `node scripts/sandbox/rehearse.mjs` for the HTTP access-before/access-after demonstration. It refuses production, generates fresh test tokens in memory, and never resets data or changes deployment configuration.
+
+## Lifecycle-only release after Adrian's #115 split request
+
+The lifecycle branch is based on main `62ce596`, including the 14-company portfolio. Automatic purchasing, its tables, component, dependency and Bills UI remain in draft PR #113 for Adrian's freeze review; they are not part of this release. The chatbot is unchanged.
+
+After the full rehearsal leaves your own DEV clean, `node scripts/episodes/rehearse.mjs --report <path>` checks concurrent report arrivals, durable replay, unchanged deadlines, coalesced notifications, company privacy, continued pending payment requests, reviewer authority, confirmation and post-containment episodes. It calls operator-only intake through the CLI and public queries/mutations through real HTTP sessions; it does not test webhook HMAC authentication. It refuses production, Adrian DEV, deployment keys and inconsistent deployment selectors. Saved results are in `docs/pegasus-episode-rehearsal.json`.
