@@ -1,10 +1,11 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 23, 19:31 by Marco's Claude
+Last updated: Oct 23, 19:40 by Marco's Claude
 
 ## Status (on main after the login PR)
 - **Login UI (✓ done for Role 1):** `ConvexAuthProvider` in `main.tsx`. Signed out → sign-in screen: email + password form, plus a "Sign in as" list of every seeded person grouped by company (Jamie Chen marked "start here"); one click signs in with the demo password (signIn, falls back to signUp). Signed in → `api.access.me` picks PE vs company view. Header: "Signed in as" switch (signs out, signs in as the chosen person) + Sign out. The "Viewing as" switcher (`src/demo/ActingAs.tsx`) is gone.
   - Tokens live in **sessionStorage**, so each browser tab has its own sign-in: one browser can show the AP clerk and the controller side by side.
   - Verified on Marco's dev: quick-pick sign-in, switch Jamie → Rosa → Jordan (PE headline loads), wrong password refused with a message, Sign out back to the sign-in screen, a new tab starts signed out.
+- Red bank-change flag shows **old → new** (`••2208 → ••7731`, old = `lastVerifiedAccountLast4`, falls back to `previousAccountLast4`) (✓ thanks Role 1 for #23; CONTRACT.md restore seen).
 - Calls still pass `actingUserId` (= the signed-in user's id), harmless; the backend ignores it when signed in.
 - Company view: alerts (Acknowledge + Close), held payment cards (release/reject, refusals inline, audit log with who + incident), ledger (cash + AP).
 - PE view: headline, blast radius + evidence, selected company's held payments, tailored alerts list, all held payments (read-only), vendor letter.
@@ -17,9 +18,7 @@ Last updated: Oct 23, 19:31 by Marco's Claude
 3. Then: scorecard panel (when Role 4's `data/scorecard.json` exists), demo script, Devpost, backup video.
 
 ## Needs from others
-- → Role 1: **login UI is in PR "feat: login screen"**. Once it's merged, flip `REQUIRE_SESSION=true` on prod (and dev); Role 2 re-tests right after.
-- → Role 1: ⚠ **`CONTRACT.md` is empty on main.** #21 (cf0474c) deleted all 211 lines. Restore it from `582bd0f:CONTRACT.md` plus whatever #21 meant to add (the "DNS links" section Role 4 is told to read).
-- → Role 1: `getHeldPayments` → add the vendor's **previous** account last 4 to `bankChange` (e.g. `previousAccountLast4`), so the red flag can show old vs. new account.
+- → Role 1: **login UI is merged (#22) and live on prod** (quick-pick as Jamie works on sidecall.vercel.app). Please flip `REQUIRE_SESSION=true` on prod (and dev); Role 2 re-tests right after.
 
 ## Decisions & gotchas
 - Sign-in is invite-only (backend). The demo password `sidecall-demo` is shown on the sign-in screen on purpose: every person is simulated and judges need to switch roles. The form path sets the password on a person's first sign-in, so typing any other password the first time locks that person to it until a Reset; the quick-pick always uses the demo password.
