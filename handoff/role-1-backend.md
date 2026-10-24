@@ -73,6 +73,9 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 - Rules held by tests: score/urgency/confidence identical to the plain credential report; credential findings skip `same_vendor_only` links; sisters never see Pinecrest, hop labels, finding/engagement ids, or "validated" without "not tested"; unsigned demo bodies can't inject their own finding or summary.
 - 55 tests (6 new), typecheck, lint, build, rehearsal 25/25. Verified on dev via the real webhook.
 
+## Prod test by Adrian (Oct 24, ~2:30am): all green
+Brightline (3 · 4,200 · $612K), replay, segregation of duties refusal, Rosa's release + ledger, Cedar/Alder scoping, race-safe acknowledge, Ironclad credential case, and the red-team finding (`demo-armadin-004`) on prod: Cedar's evidence shows `technique` + the `path` sentence, no reporter leak.
+
 ## In progress (Role 1)
 1. Watch for Omar's/Marco's asks on the finding shapes; add a rehearsal beat for `demo-armadin-004` once the button exists.
 2. (done) Part A backend: finding intake on `POST /incident` (our schema), storage, `sisterPath`, labels, query fields, the `demo-armadin-004` scenario, tests, CONTRACT (~4–5 h). Omar's UI follows.
@@ -92,6 +95,8 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
   3. **✓ B3 is done (renamed to `*_email_change`): now** rerun `node scripts/scorecard/run.mjs` and commit `data/scorecard.json`.
   Ask here if any shape doesn't fit the map; I'll adjust the backend, not you.
   4. **AI canned text drops the path today:** on dev, `ai.generateAlert` replaced my alert template (which includes the path sentence) with canned text from `reasons` only. Append `item.pathSummary` to the canned alert when it's non-null, and use `context.technique` in the vendor letter ("An authorized test validated use of T1078 Valid Accounts against <asset> held by a portfolio company…", spec §A4).
+  5. **From Adrian's prod test (judge-readability):** `EvidencePanel` prints raw keys and values ("link: shared_credential via …", "technique", "path" in mono). Use plain labels: "How you're connected", "Attack technique: Valid Accounts (T1078)", "What this means for you". And the map's edges don't show `edges[].path` yet: label Pinecrest's line "validated at Pinecrest" and exposed lines "reachable here · not tested".
+- → **Role 2 (Marco): after a release, Summit's alert still says "That payment is held until verified"** (alert text is written once at incident time). Consider showing the payment's current state under the alert, e.g. "Payment since released by Rosa Alvarez".
 - → **Role 2 (Marco): one stage button, when you get to it.** Add a 4th scenario to `src/demo/DemoControls.tsx` SCENARIOS: `{ externalId: "demo-armadin-004", assetName: "Ironclad shared admin account" }`, label e.g. "Red-team finding (Ironclad login)". The server ignores any other body fields for unsigned demo requests, so nothing else is needed. Pitch wording stays "accepts a validated finding from an autonomous red team *like* Armadin" (our schema, no integration).
 - → **Role 3+4 (Omar): optimize first, then build the map.** Details and order in `handoff/role-3-map.md`. `notify.ts` is no longer yours.
 - → **Role 2 (Marco): second opinion on `docs/specs/ui-audit-2026-10-24.md`** (review only; no code changed on my side; you decide):
