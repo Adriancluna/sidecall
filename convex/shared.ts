@@ -3,6 +3,22 @@
 export const HOUR_MS = 60 * 60 * 1000;
 export const DAY_MS = 24 * HOUR_MS;
 
+// Correlation ends on containment or 30 days without a report. Payment holds use createdAt
+// instead, so continued reports cannot extend the new-payment hold window.
+export function activeEpisode(
+  incident: {
+    containedAt?: number;
+    lastReportedAt?: number;
+    createdAt: number;
+  },
+  now: number,
+) {
+  return (
+    incident.containedAt === undefined &&
+    now - (incident.lastReportedAt ?? incident.createdAt) <= 30 * DAY_MS
+  );
+}
+
 // Fan-out reads are bounded: one incident reaches at most this many linked companies and
 // payments, everywhere that reads its rows. Far above a PE portfolio.
 export const MAX_FANOUT = 500;
@@ -16,7 +32,11 @@ export const toHex = (bytes: ArrayBuffer | Uint8Array) =>
 // Sign-in links a person by exact email, so the seed and the AP import must build it the same way.
 // "Jamie Chen" at summithomehealth.example → jamie.chen@summithomehealth.example
 export const demoEmail = (name: string, domain: string) =>
-  `${name.toLowerCase().replace(/[^a-z ]/g, "").trim().replace(/\s+/g, ".")}@${domain}`;
+  `${name
+    .toLowerCase()
+    .replace(/[^a-z ]/g, "")
+    .trim()
+    .replace(/\s+/g, ".")}@${domain}`;
 
 // Per-call cache for reads that repeat across rows (the same company, vendor or user on many
 // rows). Caches the promise, so lookups started in parallel share one read.

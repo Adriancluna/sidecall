@@ -58,7 +58,7 @@ export function CompanyView({ companyId, meId, role }: Props) {
   const openExposures = (exposures ?? []).filter((e) => e.status !== "closed");
   // Urgent first, then newest (the query returns newest first).
   const leadExposure = [...openExposures].sort(
-    (a, b) => Number(b.urgency === "urgent") - Number(a.urgency === "urgent"),
+    (a, b) => Number(!!a.observation) - Number(!!b.observation) || Number(b.urgency === "urgent") - Number(a.urgency === "urgent"),
   )[0];
   const latestIncident = incidents?.[0];
   const unpaidBills = (bills ?? []).filter((b) => b.payment === null).length;
@@ -292,6 +292,7 @@ function AlertItem({
     <article className="grid gap-6 rounded-tile border border-line bg-panel p-5 md:p-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:gap-10">
       <div>
         <div className="mb-3 flex flex-wrap items-center gap-2">
+          {exposure.observation && <span className="text-sm text-amber">Unconfirmed report</span>}
           <UrgencyChip urgency={exposure.urgency} resolved={exposure.status === "closed"} />
           <AcknowledgedBy userId={exposure.acknowledgedBy} />
         </div>

@@ -157,7 +157,7 @@ http.route({
         : demo!,
     );
     if (!result.ok) return json(404, { error: result.error });
-    return json(200, { incidentId: result.incidentId, duplicate: result.duplicate });
+    return json(200, { incidentId: result.incidentId, duplicate: result.duplicate, correlated: result.correlated });
   }),
 });
 

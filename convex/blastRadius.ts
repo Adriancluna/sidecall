@@ -36,13 +36,14 @@ export const listIncidents = query({
       ).filter((i): i is Doc<"incidents"> => i !== null);
     }
     return await Promise.all(
-      incidents.filter((incident) => incident.responseClass !== "observation").map(async (incident) => {
+      incidents.map(async (incident) => {
         const asset = await ctx.db.get("assets", incident.assetId);
         return {
           _id: incident._id,
           externalId: incident.externalId,
           assetId: incident.assetId,
           createdAt: incident.createdAt,
+          responseClass: incident.responseClass ?? "vendor",
           containedAt: incident.containedAt ?? null,
           reportedByCompanyId: viewer.firm ? (incident.reportedByCompanyId ?? null) : null,
           summary: viewer.firm ? (incident.summary ?? null) : null,
@@ -61,7 +62,8 @@ export const getBlastRadius = query({
     const viewer = await getViewer(ctx);
     if (!viewer.firm) return null; // portfolio-wide map is for the PE firm only
     const incident = await ctx.db.get("incidents", args.incidentId);
-    if (!incident || incident.responseClass === "observation") return null;
+    if (!incident) return null;
+    const observation = incident.responseClass === "observation";
     const asset = await ctx.db.get("assets", incident.assetId);
     if (!asset) return null;
 
@@ -113,7 +115,7 @@ export const getBlastRadius = query({
       const relation: NodeRelation =
         c._id === incident.reportedByCompanyId
           ? "reporter"
-          : exposure
+          : exposure && !observation
             ? "exposed"
             : linkedCompanies.has(c._id)
               ? "linked_not_exposed"
@@ -124,7 +126,7 @@ export const getBlastRadius = query({
         companyId: c._id,
         name: c.name,
         headcount: c.headcount,
-        exposed: exposure !== undefined,
+        exposed: exposure !== undefined && !observation,
         relation,
         exposureId: exposure?._id ?? null,
         urgency: exposure?.urgency ?? null,
@@ -152,12 +154,13 @@ export const getBlastRadius = query({
         assetId: l.assetId,
         shareType: l.shareType,
         source: l.source,
-        compromised: l.assetId === asset._id,
-        path: edgePath(incident, l, asset._id, exposureByCompany.has(l.companyId)),
+        compromised: !observation && l.assetId === asset._id,
+        path: observation ? null : edgePath(incident, l, asset._id, exposureByCompany.has(l.companyId)),
       })),
       totals: {
-        companiesExposed: exposures.length,
-        peopleExposed: exposures.reduce((sum, e) => sum + (headcountById.get(e.companyId) ?? 0), 0),
+        companiesNotified: exposures.length,
+        companiesExposed: observation ? 0 : exposures.length,
+        peopleExposed: observation ? 0 : exposures.reduce((sum, e) => sum + (headcountById.get(e.companyId) ?? 0), 0),
         heldCents: heldPayments.reduce((sum, p) => sum + p.amountCents, 0),
         paymentsHeld: heldPayments.length,
       },
@@ -341,7 +344,7 @@ export const getIncidentTimeline = query({
       {
         at: incident.createdAt,
         kind: "reported",
-        label: `Incident received: ${asset?.vendorName ?? "vendor"} (${asset?.name ?? ""})`,
+        label: `${incident.responseClass === "observation" ? "Unconfirmed report" : "Incident"} received: ${asset?.vendorName ?? "vendor"} (${asset?.name ?? ""})`,
         companyName: null,
       },
     ];

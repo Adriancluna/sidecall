@@ -91,7 +91,7 @@ describe("incident intake", () => {
       }));
     const before = await counts();
     const replay = await fire();
-    expect(replay).toEqual({ ok: true, incidentId: first.incidentId, duplicate: true });
+    expect(replay).toEqual({ ok: true, incidentId: first.incidentId, duplicate: true, correlated: false });
     expect(await counts()).toEqual(before);
   });
 
@@ -101,6 +101,7 @@ describe("incident intake", () => {
     const blast = await (await as(PE)).query(api.blastRadius.getBlastRadius, { incidentId });
     expect(blast?.totals).toEqual({
       companiesExposed: 3,
+      companiesNotified: 3,
       peopleExposed: 4200,
       heldCents: 61_200_000,
       paymentsHeld: 4,
@@ -368,6 +369,7 @@ describe("scale", () => {
     const blast = await (await as(PE)).query(api.blastRadius.getBlastRadius, { incidentId });
     expect(blast!.totals).toEqual({
       companiesExposed: 303,
+      companiesNotified: 303,
       peopleExposed: 4200 + 300 * 100,
       heldCents: 61_200_000 + 300 * 1_000_000,
       paymentsHeld: 304,
