@@ -20,6 +20,14 @@ Rules for every agent:
 - Small PRs into `main`. `git pull --rebase origin main` before each push.
 - Feature freeze ~6 hours before the deadline. After that: bug fixes, recording, Devpost.
 
+## Brand (read before any UI work)
+
+All branding lives in `brand/`. **Read `brand/README.md` before building or styling any UI.** It covers the logo files, colour and type tokens (`brand/tokens.css` for Tailwind v4), the favicon set, and the UI do's and don'ts.
+- Dark-first: graphite background, paper text, Signal Amber `#F5A524` as the brand/advisory colour. No navy/electric blue.
+- Use the logo SVGs in `brand/logo/`; never retype "Sidecall" as a logo. Ignore `brand/concepts/` (rejected drafts).
+- No shield, padlock, radar, siren or warning-triangle icons. Sidecall warns; it doesn't defend.
+- `brand/` is read-only for agents. Ask Adrian before changing it.
+
 ## What we are building
 
 Companies owned by the same private equity (PE) firm quietly share IT contractors, payroll providers, login systems and other vendors. When one of them, or a shared vendor, is compromised, the others are exposed and nobody connects the dots.
