@@ -1,5 +1,5 @@
 # Pegasus: response resilience + payment investigation
-Last updated: 2026-10-24 15:14 America/Los_Angeles by Pegasus
+Last updated: 2026-10-24 15:17 America/Los_Angeles by Pegasus
 
 ## Status
 - Ashwa requested implementation while keeping Hyphenate and Armadin, including resistance to repeated reports causing business disruption.
@@ -48,3 +48,5 @@ Last updated: 2026-10-24 15:14 America/Los_Angeles by Pegasus
 - Vercel install exited with EIDLETIMEOUT fetching TypeScript metadata; npm registry HEAD responds 200, so reachability alone does not establish reliable full downloads. Ashwa plans to retry on another connection. Updated the resume helper to 120-second fetch timeout and two retries, retaining cached downloads/visible progress; syntax passes. GitHub/Convex logins stay saved, Vercel remains unverified, and remote handoffs remain unchanged. — Pegasus
 
 - Ashwa reports a reliable Wi-Fi connection is now available; resume helper syntax checked and ready to rerun. Vercel login/link completion still pending. — Pegasus
+
+- Vercel CLI 65.2.0 now runs and displays Adrian's team `adriancluna23-3084s-projects` in the project-link selector. Directed Ashwa to select that team; Sidecall linkage and deploy permissions remain unverified. Optional Claude/Codex plugin installation warnings do not block the active CLI linking prompt. — Pegasus
