@@ -49,7 +49,8 @@ describe("Pegasus response-abuse controls", () => {
       expect(result).toEqual({
         ok: true,
         incidentId: first.incidentId,
-        duplicate: true,
+        duplicate: false,
+        correlated: true,
       });
     }
     const after = await t.run(async (ctx) => ({
@@ -82,7 +83,12 @@ describe("Pegasus response-abuse controls", () => {
     }));
     expect(state.holds.filter((p) => p.status === "held")).toHaveLength(0);
     expect(state.steps).toHaveLength(0);
-    expect(state.exposures).toHaveLength(0);
+    expect(state.exposures.length).toBeGreaterThan(0);
+    expect(
+      state.exposures.every(
+        (e) => e.observation && e.urgency === "advisory" && !e.path,
+      ),
+    ).toBe(true);
   });
   test("a low-grade report cannot hide an existing compromise from a new payment request", async () => {
     const { t, as } = await fixture();
@@ -147,7 +153,7 @@ describe("Pegasus response-abuse controls", () => {
     ).toHaveLength(1);
     expect(state.held.every((p) => p.status === "held")).toBe(true);
   });
-  test("contained incident cannot be reopened by another sender ID", async () => {
+  test("a new confirmed report after containment creates a fresh response episode", async () => {
     const { t, as } = await fixture();
     const first = await t.mutation(internal.incidents.recordIncident, event);
     if (!first.ok) throw new Error(first.error);
@@ -162,16 +168,18 @@ describe("Pegasus response-abuse controls", () => {
       ...event,
       externalId: "reopen-attempt",
     });
-    expect(repeat).toMatchObject({
-      duplicate: true,
-      incidentId: first.incidentId,
-    });
+    expect(repeat).toMatchObject({ duplicate: false, correlated: false });
+    if (!repeat.ok) throw new Error(repeat.error);
+    expect(repeat.incidentId).not.toBe(first.incidentId);
+    expect(
+      await t.mutation(internal.incidents.recordIncident, event),
+    ).toMatchObject({ duplicate: true, incidentId: first.incidentId });
     const bills = await as("Jamie Chen").query(api.payments.getMyBills, {});
     expect(
       await as("Jamie Chen").mutation(api.payments.requestPayment, {
         billId: bills.find((b) => !b.payment)!.bill._id,
       }),
-    ).toMatchObject({ held: false });
+    ).toMatchObject({ held: true });
   });
   test("only the firm may confirm an observation and it cannot restart an already active episode", async () => {
     const { t, as } = await fixture();
@@ -390,6 +398,11 @@ describe("owned sandbox response", () => {
     );
     const pause = plan.find((p) => p.action === "pause_shared_login")!;
     expect(pause.executionMode).toBe("sandbox");
+    expect(pause.verification).toMatchObject({
+      method: "owned_resource_state",
+      accessBefore: true,
+      accessAfter: false,
+    });
     expect(
       await as("Sam Kowalski").mutation(api.responses.undoStep, {
         stepId: pause.stepId!,
@@ -427,8 +440,19 @@ describe("owned sandbox response", () => {
         s.incidentId !== first.incidentId && s.action === "pause_shared_login",
     );
     expect(subsequent.length).toBeGreaterThan(0);
-    expect(subsequent.every((s) => s.mode === "prepare")).toBe(true);
+    const freshPlan = await as("Sam Kowalski").query(
+      api.responses.getMyResponsePlan,
+      { incidentId: subsequent[0].incidentId },
+    );
+    expect(freshPlan.find((s) => s.action === "pause_shared_login")?.mode).toBe(
+      "act",
+    );
     expect((await access(token)).status).toBe(200);
+    await t.mutation(internal.responses.recordSimulated, {
+      incidentId: subsequent[0].incidentId,
+    });
+    expect((await access(token)).status).toBe(403);
+    expect((await access(other)).status).toBe(200);
   });
 });
 
@@ -626,7 +650,11 @@ test("pre-upgrade episodes are adopted without resetting their original clock", 
       ...event,
       externalId: "post-upgrade-id",
     }),
-  ).toMatchObject({ incidentId: first.incidentId, duplicate: true });
+  ).toMatchObject({
+    incidentId: first.incidentId,
+    duplicate: false,
+    correlated: true,
+  });
   expect(
     await t.run((ctx) => ctx.db.get("incidents", first.incidentId)),
   ).toMatchObject({
@@ -643,12 +671,22 @@ test("observations remain in the review queue and never appear as confirmed map 
   });
   if (!report.ok) throw new Error(report.error);
   const firm = as("Jordan Ames (Northpass Capital)");
-  expect(await firm.query(api.blastRadius.listIncidents, {})).toEqual([]);
-  expect(
-    await firm.query(api.blastRadius.getBlastRadius, {
-      incidentId: report.incidentId,
-    }),
-  ).toBeNull();
+  expect(await firm.query(api.blastRadius.listIncidents, {})).toMatchObject([
+    { responseClass: "observation" },
+  ]);
+  const blast = await firm.query(api.blastRadius.getBlastRadius, {
+    incidentId: report.incidentId,
+  });
+  expect(blast?.totals).toMatchObject({
+    companiesExposed: 0,
+    peopleExposed: 0,
+    heldCents: 0,
+  });
+  expect(blast?.totals.companiesNotified).toBeGreaterThan(0);
+  expect(blast?.edges.every((e) => !e.compromised && e.path === null)).toBe(
+    true,
+  );
+  expect(blast?.nodes.every((n) => !n.exposed)).toBe(true);
   expect(await firm.query(api.incidents.getResponseSafety, {})).toHaveLength(1);
 });
 

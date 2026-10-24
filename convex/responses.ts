@@ -4,14 +4,25 @@
 // External effects are SIMULATED: no live identity-provider connector exists. Every step says
 // which real call it stands for.
 import { ConvexError, v } from "convex/values";
-import { internalAction, internalMutation, mutation, query } from "./_generated/server";
+import {
+  internalAction,
+  internalMutation,
+  mutation,
+  query,
+} from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { getViewer, type Viewer } from "./access";
 import { playbookAction, responseMode } from "./schema";
-import { lowerMode, raisesMode, responseFor, type ResponseAction, type ResponseMode } from "./scoring";
-import { MAX_FANOUT, memo } from "./shared";
+import {
+  lowerMode,
+  raisesMode,
+  responseFor,
+  type ResponseAction,
+  type ResponseMode,
+} from "./scoring";
+import { activeEpisode, MAX_FANOUT, memo } from "./shared";
 import { applySandboxResponse, undoSandboxResponse } from "./sandbox";
 
 // At most this many companies get steps that run without a click from one report, so a forged or
@@ -54,7 +65,10 @@ export const RECOMMENDED: Record<PlaybookAction, ResponseMode> = {
   revoke_vendor_tokens: "prepare",
 };
 
-const RESPONSE_ACTIONS: ResponseAction[] = ["pause_shared_login", "revoke_vendor_tokens"];
+const RESPONSE_ACTIONS: ResponseAction[] = [
+  "pause_shared_login",
+  "revoke_vendor_tokens",
+];
 
 // ---- planning (inside the incident's own transaction) ----
 
@@ -65,23 +79,62 @@ export const newActBudget = (): ActBudget => ({ companies: new Set() });
 // Only "prepare" and "act" steps are stored; "notify" ones are worked out when read.
 export async function planResponses(
   ctx: MutationCtx,
-  args: { incidentId: Id<"incidents">; exposureId: Id<"exposures">; link: Doc<"links">; asset: Doc<"assets">; budget: ActBudget },
+  args: {
+    incidentId: Id<"incidents">;
+    exposureId: Id<"exposures">;
+    link: Doc<"links">;
+    asset: Doc<"assets">;
+    budget: ActBudget;
+  },
 ): Promise<void> {
   const { incidentId, exposureId, link, asset, budget } = args;
   const now = Date.now();
+  const episode = await ctx.db.get("incidents", incidentId);
+  if (
+    !episode ||
+    episode.responseClass === "observation" ||
+    !activeEpisode(episode, now)
+  )
+    return;
   for (const rule of responseFor(link, asset)) {
     const policy = await policyFor(ctx, link.companyId, rule.action);
     if (!policy || policy.mode === "notify") continue;
     let mode = lowerMode(policy.mode, rule.cap);
     let capNote = mode !== policy.mode ? rule.capNote : undefined;
-    const prior = await ctx.db.query("responseSteps")
-      .withIndex("by_companyId_and_action_and_target", (q) => q.eq("companyId", link.companyId).eq("action", rule.action).eq("target", asset.name))
-      .order("desc").first();
-    if (mode === "act" && prior && prior.incidentId !== incidentId) {
+    const priorSteps = await ctx.db
+      .query("responseSteps")
+      .withIndex("by_companyId_and_action_and_target", (q) =>
+        q
+          .eq("companyId", link.companyId)
+          .eq("action", rule.action)
+          .eq("target", asset.name),
+      )
+      .order("desc")
+      .take(100);
+    const priorEpisodes = await Promise.all(
+      priorSteps
+        .filter((step) => step.incidentId !== incidentId)
+        .map((step) => ctx.db.get("incidents", step.incidentId)),
+    );
+    if (
+      mode === "act" &&
+      priorEpisodes.some(
+        (prior) =>
+          prior &&
+          activeEpisode(prior, now) &&
+          prior.correlationKey === episode.correlationKey &&
+          episode.correlationKey !== undefined,
+      )
+    ) {
       mode = "prepare";
-      capNote = "This target already had a response episode. A new report cannot repeat an automatic action or reverse an undo; a company approver must review it.";
+      capNote =
+        "This target already has a response in the same active episode; a company approver must review any repeat action.";
     }
-    if (mode === "act" && !budget.companies.has(link.companyId) && budget.companies.size >= MAX_ACT_COMPANIES) {
+    if (
+      mode === "act" &&
+      !budget.companies.has(link.companyId) &&
+      budget.companies.size >= MAX_ACT_COMPANIES
+    ) {
       mode = "prepare";
       capNote = `One click this time: no more than ${MAX_ACT_COMPANIES} companies run steps without a click from one report.`;
     }
@@ -90,7 +143,10 @@ export async function planResponses(
     const existing = await ctx.db
       .query("responseSteps")
       .withIndex("by_incidentId_and_companyId_and_action", (q) =>
-        q.eq("incidentId", incidentId).eq("companyId", link.companyId).eq("action", rule.action),
+        q
+          .eq("incidentId", incidentId)
+          .eq("companyId", link.companyId)
+          .eq("action", rule.action),
       )
       .unique();
     if (existing) continue; // one step per (incident, company, action), e.g. an AP import reopening
@@ -121,7 +177,9 @@ async function policyFor(ctx: QueryCtx, companyId: Id<"companies">, action: Resp
 export const execute = internalAction({
   args: { incidentId: v.id("incidents") },
   handler: async (ctx, args) => {
-    await ctx.runMutation(internal.responses.recordSimulated, { incidentId: args.incidentId });
+    await ctx.runMutation(internal.responses.recordSimulated, {
+      incidentId: args.incidentId,
+    });
     return null;
   },
 });
@@ -131,19 +189,41 @@ export const recordSimulated = internalMutation({
   handler: async (ctx, args) => {
     const queued = await ctx.db
       .query("responseSteps")
-      .withIndex("by_incidentId_and_status", (q) => q.eq("incidentId", args.incidentId).eq("status", "queued"))
+      .withIndex("by_incidentId_and_status", (q) =>
+        q.eq("incidentId", args.incidentId).eq("status", "queued"),
+      )
       .take(MAX_FANOUT);
     const now = Date.now();
-    const userName = memo(async (id: Id<"users">) => (await ctx.db.get("users", id))?.name ?? "a teammate");
+    const userName = memo(
+      async (id: Id<"users">) =>
+        (await ctx.db.get("users", id))?.name ?? "a teammate",
+    );
     for (const step of queued) {
       const incident = await ctx.db.get("incidents", step.incidentId);
       const policy = await policyFor(ctx, step.companyId, step.action);
-      if (!incident || incident.containedAt !== undefined || incident.responseClass === "observation" || !policy || policy.mode === "notify" || (!step.approvedBy && policy.mode !== "act")) {
+      if (
+        !incident ||
+        !activeEpisode(incident, now) ||
+        incident.responseClass === "observation" ||
+        !policy ||
+        policy.mode === "notify" ||
+        (!step.approvedBy && policy.mode !== "act")
+      ) {
         await ctx.db.patch("responseSteps", step._id, { status: "expired" });
         continue;
       }
-      const sandbox = await applySandboxResponse(ctx, step.companyId, incident.assetId, step.action);
-      await ctx.db.patch("responseSteps", step._id, { status: "done", executedAt: now, executionMode: sandbox ? "sandbox" : "simulated" });
+      const sandbox = await applySandboxResponse(
+        ctx,
+        step.companyId,
+        incident.assetId,
+        step.action,
+      );
+      await ctx.db.patch("responseSteps", step._id, {
+        status: "done",
+        executedAt: now,
+        executionMode: sandbox ? "sandbox" : "simulated",
+        verification: sandbox || undefined,
+      });
       const how = step.approvedBy
         ? `approved by ${await userName(step.approvedBy)}`
         : `pre-approved in the company's playbook (${step.policyRule.split(":").pop()})`;
@@ -168,11 +248,18 @@ export const recordSimulated = internalMutation({
 async function loadOwnStep(
   ctx: MutationCtx,
   stepId: Id<"responseSteps">,
-): Promise<{ refused: "not_found" | "not_allowed" } | { step: Doc<"responseSteps">; viewer: Viewer & { firm: false } }> {
+): Promise<
+  | { refused: "not_found" | "not_allowed" }
+  | { step: Doc<"responseSteps">; viewer: Viewer & { firm: false } }
+> {
   const viewer = await getViewer(ctx);
   const step = await ctx.db.get("responseSteps", stepId);
   if (!step) return { refused: "not_found" as const };
-  if (viewer.firm || viewer.companyId !== step.companyId || !canDecideSteps(viewer)) {
+  if (
+    viewer.firm ||
+    viewer.companyId !== step.companyId ||
+    !canDecideSteps(viewer)
+  ) {
     await ctx.db.insert("auditLog", {
       at: Date.now(),
       actor: viewer.user._id,
@@ -187,7 +274,9 @@ async function loadOwnStep(
   return { step, viewer };
 }
 
-const canDecideSteps = (viewer: Viewer) => !viewer.firm && (viewer.user.role === "it" || viewer.user.role === "controller");
+const canDecideSteps = (viewer: Viewer) =>
+  !viewer.firm &&
+  (viewer.user.role === "it" || viewer.user.role === "controller");
 
 const stepResult = v.union(v.object({ ok: v.literal(true) }), v.object({ ok: v.literal(false), reason: v.string() }));
 
@@ -199,9 +288,14 @@ export const approveStep = mutation({
     const own = await loadOwnStep(ctx, args.stepId);
     if ("refused" in own) return { ok: false as const, reason: own.refused };
     const { step, viewer } = own;
-    if (step.status !== "awaiting_approval") return { ok: false as const, reason: `already_${step.status}` };
+    if (step.status !== "awaiting_approval")
+      return { ok: false as const, reason: `already_${step.status}` };
     const now = Date.now();
-    await ctx.db.patch("responseSteps", step._id, { status: "queued", approvedBy: viewer.user._id, approvedAt: now });
+    await ctx.db.patch("responseSteps", step._id, {
+      status: "queued",
+      approvedBy: viewer.user._id,
+      approvedAt: now,
+    });
     await ctx.db.insert("auditLog", {
       at: now,
       actor: viewer.user._id,
@@ -211,7 +305,9 @@ export const approveStep = mutation({
       rule: step.policyRule,
       reason: `${viewer.user.name} ran "${STEP_INFO[step.action].label}" for ${step.target}.`,
     });
-    await ctx.scheduler.runAfter(0, internal.responses.execute, { incidentId: step.incidentId });
+    await ctx.scheduler.runAfter(0, internal.responses.execute, {
+      incidentId: step.incidentId,
+    });
     return { ok: true as const };
   },
 });
@@ -223,20 +319,52 @@ export const undoStep = mutation({
     const own = await loadOwnStep(ctx, args.stepId);
     if ("refused" in own) return { ok: false as const, reason: own.refused };
     const { step, viewer } = own;
-    if (step.status !== "done") return { ok: false as const, reason: step.status === "undone" ? "already_undone" : `not_done_yet` };
+    if (step.status !== "done")
+      return {
+        ok: false as const,
+        reason: step.status === "undone" ? "already_undone" : `not_done_yet`,
+      };
     if (step.executionMode === "sandbox") {
-      if (step.action === "revoke_vendor_tokens") return { ok: false as const, reason: "Revoked sandbox tokens cannot be resurrected; provision a new test token." };
-      const latest = await ctx.db.query("responseSteps")
-        .withIndex("by_companyId_and_action_and_target", (q) => q.eq("companyId", step.companyId).eq("action", step.action).eq("target", step.target))
-        .order("desc").take(20);
-      if (latest.some((s) => s._id !== step._id && s.plannedAt >= step.plannedAt && (s.status === "done" || s.status === "queued"))) {
-        return { ok: false as const, reason: "A newer response controls this sandbox target; review that response instead." };
+      if (step.action === "revoke_vendor_tokens")
+        return {
+          ok: false as const,
+          reason:
+            "Revoked sandbox tokens cannot be resurrected; provision a new test token.",
+        };
+      const latest = await ctx.db
+        .query("responseSteps")
+        .withIndex("by_companyId_and_action_and_target", (q) =>
+          q
+            .eq("companyId", step.companyId)
+            .eq("action", step.action)
+            .eq("target", step.target),
+        )
+        .order("desc")
+        .take(20);
+      if (
+        latest.some(
+          (s) =>
+            s._id !== step._id &&
+            s.plannedAt >= step.plannedAt &&
+            (s.status === "done" || s.status === "queued"),
+        )
+      ) {
+        return {
+          ok: false as const,
+          reason:
+            "A newer response controls this sandbox target; review that response instead.",
+        };
       }
       const incident = await ctx.db.get("incidents", step.incidentId);
-      if (incident) await undoSandboxResponse(ctx, step.companyId, incident.assetId);
+      if (incident)
+        await undoSandboxResponse(ctx, step.companyId, incident.assetId);
     }
     const now = Date.now();
-    await ctx.db.patch("responseSteps", step._id, { status: "undone", undoneBy: viewer.user._id, undoneAt: now });
+    await ctx.db.patch("responseSteps", step._id, {
+      status: "undone",
+      undoneBy: viewer.user._id,
+      undoneAt: now,
+    });
     await ctx.db.insert("auditLog", {
       at: now,
       actor: viewer.user._id,
@@ -280,7 +408,11 @@ export async function expireWaitingSteps(ctx: MutationCtx, incidentId: Id<"incid
 export const setPlaybookMode = mutation({
   args: { action: playbookAction, mode: responseMode },
   returns: v.union(
-    v.object({ ok: v.literal(true), applied: v.boolean(), awaitingSecondPerson: v.boolean() }),
+    v.object({
+      ok: v.literal(true),
+      applied: v.boolean(),
+      awaitingSecondPerson: v.boolean(),
+    }),
     v.object({ ok: v.literal(false), reason: v.string() }),
   ),
   handler: async (ctx, args) => {
@@ -296,17 +428,40 @@ export const setPlaybookMode = mutation({
       });
       return { ok: false as const, reason };
     };
-    if (viewer.firm) return await refuse("The PE firm can recommend a playbook but only the company can set it.");
-    if (!canDecideSteps(viewer)) return await refuse(`${viewer.user.name} can't change the playbook: only the IT lead or controller can.`);
+    if (viewer.firm)
+      return await refuse(
+        "The PE firm can recommend a playbook but only the company can set it.",
+      );
+    if (!canDecideSteps(viewer))
+      return await refuse(
+        `${viewer.user.name} can't change the playbook: only the IT lead or controller can.`,
+      );
     const now = Date.now();
     const log = (reason: string, rule: string) =>
-      ctx.db.insert("auditLog", { at: now, actor: viewer.user._id, action: "policy", companyId: viewer.companyId, rule, reason });
+      ctx.db.insert("auditLog", {
+        at: now,
+        actor: viewer.user._id,
+        action: "policy",
+        companyId: viewer.companyId,
+        rule,
+        reason,
+      });
 
     if (args.action === "hold_payments") {
-      if (viewer.user.role !== "controller") return await refuse("Only a controller switches payment holds.");
-      if (args.mode === "prepare") return { ok: false as const, reason: "Holds are either on (pre-approved) or off (notify only)." };
-      await ctx.db.patch("companies", viewer.companyId, { holdRuleEnabled: args.mode === "act" });
-      await log(`${viewer.user.name} set payment holds ${args.mode === "act" ? "on" : "off"}.`, `playbook:hold_payments:${args.mode}`);
+      if (viewer.user.role !== "controller")
+        return await refuse("Only a controller switches payment holds.");
+      if (args.mode === "prepare")
+        return {
+          ok: false as const,
+          reason: "Holds are either on (pre-approved) or off (notify only).",
+        };
+      await ctx.db.patch("companies", viewer.companyId, {
+        holdRuleEnabled: args.mode === "act",
+      });
+      await log(
+        `${viewer.user.name} set payment holds ${args.mode === "act" ? "on" : "off"}.`,
+        `playbook:hold_payments:${args.mode}`,
+      );
       return { ok: true as const, applied: true, awaitingSecondPerson: false };
     }
 
@@ -326,17 +481,34 @@ export const setPlaybookMode = mutation({
         proposedAt: undefined,
       };
       if (policy) await ctx.db.patch("responsePolicies", policy._id, fields);
-      else await ctx.db.insert("responsePolicies", { companyId: viewer.companyId, action, ...fields });
+      else
+        await ctx.db.insert("responsePolicies", {
+          companyId: viewer.companyId,
+          action,
+          ...fields,
+        });
     };
 
     if (!raisesMode(current, args.mode)) {
-      if (args.mode === current && !policy?.proposedMode) return { ok: true as const, applied: false, awaitingSecondPerson: false };
+      if (args.mode === current && !policy?.proposedMode)
+        return {
+          ok: true as const,
+          applied: false,
+          awaitingSecondPerson: false,
+        };
       await apply(viewer.user._id);
-      await log(`${viewer.user.name} set "${STEP_INFO[action].label}" to ${args.mode} (v${version}).`, `playbook:${action}:${args.mode}:v${version}`);
+      await log(
+        `${viewer.user.name} set "${STEP_INFO[action].label}" to ${args.mode} (v${version}).`,
+        `playbook:${action}:${args.mode}:v${version}`,
+      );
       return { ok: true as const, applied: true, awaitingSecondPerson: false };
     }
     // Raising: confirm someone else's matching proposal, or propose.
-    if (policy?.proposedMode === args.mode && policy.proposedBy && policy.proposedBy !== viewer.user._id) {
+    if (
+      policy?.proposedMode === args.mode &&
+      policy.proposedBy &&
+      policy.proposedBy !== viewer.user._id
+    ) {
       const proposer = await ctx.db.get("users", policy.proposedBy);
       await apply(policy.proposedBy, viewer.user._id);
       await log(
@@ -345,7 +517,12 @@ export const setPlaybookMode = mutation({
       );
       return { ok: true as const, applied: true, awaitingSecondPerson: false };
     }
-    if (policy) await ctx.db.patch("responsePolicies", policy._id, { proposedMode: args.mode, proposedBy: viewer.user._id, proposedAt: now });
+    if (policy)
+      await ctx.db.patch("responsePolicies", policy._id, {
+        proposedMode: args.mode,
+        proposedBy: viewer.user._id,
+        proposedAt: now,
+      });
     else
       await ctx.db.insert("responsePolicies", {
         companyId: viewer.companyId,
@@ -439,10 +616,12 @@ export const getMyResponsePlan = query({
     const viewer = await getViewer(ctx);
     if (viewer.firm) return [];
     const incident = await ctx.db.get("incidents", args.incidentId);
-    if (!incident) return [];
+    if (!incident || incident.responseClass === "observation") return [];
     const exposure = await ctx.db
       .query("exposures")
-      .withIndex("by_incidentId_and_companyId", (q) => q.eq("incidentId", incident._id).eq("companyId", viewer.companyId))
+      .withIndex("by_incidentId_and_companyId", (q) =>
+        q.eq("incidentId", incident._id).eq("companyId", viewer.companyId),
+      )
       .first();
     if (!exposure) return [];
     const asset = await ctx.db.get("assets", incident.assetId);
@@ -463,7 +642,10 @@ export const getMyResponsePlan = query({
       const step = await ctx.db
         .query("responseSteps")
         .withIndex("by_incidentId_and_companyId_and_action", (q) =>
-          q.eq("incidentId", incident._id).eq("companyId", viewer.companyId).eq("action", rule.action),
+          q
+            .eq("incidentId", incident._id)
+            .eq("companyId", viewer.companyId)
+            .eq("action", rule.action),
         )
         .unique();
       const info = STEP_INFO[rule.action];
@@ -475,16 +657,28 @@ export const getMyResponsePlan = query({
         undo: info.undo,
         wouldCall: info.wouldCall,
         executionMode: step?.executionMode ?? "simulated",
-        mode: (step?.mode ?? "notify"),
+        verification: step?.verification ?? null,
+        mode: step?.mode ?? "notify",
         status: step?.status ?? ("recommended" as const),
-        capNote: step?.capNote ?? (rule.cap === "notify" ? (rule.capNote ?? null) : null),
+        capNote:
+          step?.capNote ??
+          (rule.cap === "notify" ? (rule.capNote ?? null) : null),
         policyRule: step?.policyRule ?? null,
         approvedByName: step?.approvedBy ? await name(step.approvedBy) : null,
         undoneByName: step?.undoneBy ? await name(step.undoneBy) : null,
         executedAt: step?.executedAt ?? null,
-        msAfterReport: step?.executedAt !== undefined ? step.executedAt - incident.createdAt : null,
+        msAfterReport:
+          step?.executedAt !== undefined
+            ? step.executedAt - incident.createdAt
+            : null,
         canApprove: decider && step?.status === "awaiting_approval",
-        canUndo: decider && step?.status === "done" && !(step.executionMode === "sandbox" && step.action === "revoke_vendor_tokens"),
+        canUndo:
+          decider &&
+          step?.status === "done" &&
+          !(
+            step.executionMode === "sandbox" &&
+            step.action === "revoke_vendor_tokens"
+          ),
       });
     }
     return plan;
@@ -492,7 +686,11 @@ export const getMyResponsePlan = query({
 });
 
 function linkRank(link: Doc<"links">): number {
-  const share = { shared_credential: 3, shared_admin_access: 2, same_vendor_only: 1 }[link.shareType];
+  const share = {
+    shared_credential: 3,
+    shared_admin_access: 2,
+    same_vendor_only: 1,
+  }[link.shareType];
   return share * 2 + (link.source === "self_reported" ? 1 : 0);
 }
 
@@ -501,30 +699,42 @@ export const getResponseTracker = query({
   args: { incidentId: v.id("incidents") },
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
-    if (!viewer.firm) throw new ConvexError("Only the PE firm sees the portfolio tracker.");
+    if (!viewer.firm)
+      throw new ConvexError("Only the PE firm sees the portfolio tracker.");
     const incident = await ctx.db.get("incidents", args.incidentId);
     if (!incident) return null;
     const [exposures, steps] = await Promise.all([
       ctx.db
         .query("exposures")
-        .withIndex("by_incidentId_and_companyId", (q) => q.eq("incidentId", incident._id))
+        .withIndex("by_incidentId_and_companyId", (q) =>
+          q.eq("incidentId", incident._id),
+        )
         .take(MAX_FANOUT),
       ctx.db
         .query("responseSteps")
-        .withIndex("by_incidentId_and_companyId_and_action", (q) => q.eq("incidentId", incident._id))
+        .withIndex("by_incidentId_and_companyId_and_action", (q) =>
+          q.eq("incidentId", incident._id),
+        )
         .take(MAX_FANOUT * 2),
     ]);
     const companies = exposures.map((e) => {
       const mine = steps.filter((s) => s.companyId === e.companyId);
-      const done = mine.filter((s) => s.status === "done" || s.status === "undone");
+      const done = mine.filter(
+        (s) => s.status === "done" || s.status === "undone",
+      );
       const first = done.reduce<number | null>(
-        (min, s) => (s.executedAt !== undefined && (min === null || s.executedAt < min) ? s.executedAt : min),
+        (min, s) =>
+          s.executedAt !== undefined && (min === null || s.executedAt < min)
+            ? s.executedAt
+            : min,
         null,
       );
       return {
         companyId: e.companyId,
         done: done.length,
-        ready: mine.filter((s) => s.status === "awaiting_approval" || s.status === "queued").length,
+        ready: mine.filter(
+          (s) => s.status === "awaiting_approval" || s.status === "queued",
+        ).length,
         firstStepMs: first === null ? null : first - incident.createdAt,
         notifyOnly: mine.length === 0,
         lowered: mine.filter((s) => s.capNote).map((s) => s.capNote!),

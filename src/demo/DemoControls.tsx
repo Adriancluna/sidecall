@@ -83,6 +83,7 @@ function saveKey(key: string) {
 async function postIncident(scenario: Scenario, presenterKey: string): Promise<{
   incidentId: string;
   duplicate: boolean;
+  correlated: boolean;
 }> {
   if (!SITE_URL) throw new Error("VITE_CONVEX_URL is not set");
   const res = await fetch(`${SITE_URL}/incident`, {
@@ -96,6 +97,7 @@ async function postIncident(scenario: Scenario, presenterKey: string): Promise<{
   const body = (await res.json()) as {
     incidentId?: string;
     duplicate?: boolean;
+    correlated?: boolean;
     error?: string;
   };
   if (!res.ok || !body.incidentId) {
@@ -104,7 +106,7 @@ async function postIncident(scenario: Scenario, presenterKey: string): Promise<{
     }
     throw new Error(body.error ?? `HTTP ${res.status}`);
   }
-  return { incidentId: body.incidentId, duplicate: body.duplicate === true };
+  return { incidentId: body.incidentId, duplicate: body.duplicate === true, correlated: body.correlated === true };
 }
 
 type Action = "fire" | "replay" | "reset";
@@ -133,7 +135,7 @@ export function DemoControls() {
 
   const send = async () => {
     const res = await postIncident(scenario, presenterKey);
-    return res.duplicate ? "duplicate, nothing new written." : "incident recorded.";
+    return res.duplicate ? "duplicate, nothing new written." : res.correlated ? "new report added to the active episode; actions not restarted." : "incident recorded.";
   };
 
   const button = (action: Action, label: string) => (busy === action ? BUSY[action] : label);

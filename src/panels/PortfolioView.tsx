@@ -23,13 +23,25 @@ import { TimelinePanel } from "./TimelinePanel";
 import type { BlastRadius } from "./types";
 import { VendorLetterActions } from "./VendorLetterActions";
 import { FirstStepCell } from "./ResponsePlaybook";
-import { Card, Chip, Empty, HeroSkeleton, LookChip, StatusLine, Tile, UrgencyChip } from "./ui";
+import {
+  Card,
+  Chip,
+  Empty,
+  HeroSkeleton,
+  LookChip,
+  StatusLine,
+  Tile,
+  UrgencyChip,
+} from "./ui";
 import { FIELD } from "./styles";
 
 const PIN_KEY = "sidecall-pe-incident";
 function loadPinned(): Id<"incidents"> | undefined {
   try {
-    return (window.sessionStorage.getItem(PIN_KEY) as Id<"incidents"> | null) ?? undefined;
+    return (
+      (window.sessionStorage.getItem(PIN_KEY) as Id<"incidents"> | null) ??
+      undefined
+    );
   } catch {
     return undefined;
   }
@@ -44,7 +56,14 @@ function savePinned(id: Id<"incidents">) {
 
 // Six tabs so every one fits on a projected laptop screen; related panels share a tab
 // (payment investigation sits under Payments, response safety under Timeline & close-out).
-const TAB_IDS = ["map", "alerts", "payments", "timeline", "onboard", "proof"] as const;
+const TAB_IDS = [
+  "map",
+  "alerts",
+  "payments",
+  "timeline",
+  "onboard",
+  "proof",
+] as const;
 
 export function PortfolioView() {
   const incidents = useQuery(api.blastRadius.listIncidents, {});
@@ -66,10 +85,22 @@ export function PortfolioView() {
 
   if (!incidentId) {
     const tabs: TabDef[] = [
-      { id: "payments", label: "Payments", content: () => <InvestigationPanel firm /> },
-      { id: "timeline", label: "Response safety", content: () => <ResponseSafetyPanel /> },
+      {
+        id: "payments",
+        label: "Payments",
+        content: () => <InvestigationPanel firm />,
+      },
+      {
+        id: "timeline",
+        label: "Response safety",
+        content: () => <ResponseSafetyPanel />,
+      },
       { id: "onboard", label: "Onboard", content: () => <ApImportPanel /> },
-      { id: "alerts", label: "Slack & alerts out", content: () => <NotificationsPanel scope="firm" canManage /> },
+      {
+        id: "alerts",
+        label: "Slack & alerts out",
+        content: () => <NotificationsPanel scope="firm" canManage />,
+      },
       { id: "proof", label: "Proof", content: () => <ProofPanel /> },
     ];
     return (
@@ -80,8 +111,9 @@ export function PortfolioView() {
             No open incidents across the portfolio
           </h1>
           <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ash">
-            When a shared vendor or login is compromised, this page shows which companies genuinely share it, what each
-            was told to do, and which payments are held.
+            When a shared vendor or login is compromised, this page shows which
+            companies genuinely share it, what each was told to do, and which
+            payments are held.
           </p>
         </section>
         <Tabs
@@ -94,6 +126,99 @@ export function PortfolioView() {
     );
   }
   if (!blast) return <HeroSkeleton />;
+
+  if (blast.incident.responseClass === "observation")
+    return (
+      <div className="space-y-8">
+        <section aria-labelledby="hero-title">
+          <StatusLine tone="amber" state="Unconfirmed report" />
+          <h1 id="hero-title" className="mt-5 text-headline font-semibold">
+            Review the report involving {blast.asset.vendorName}
+          </h1>
+          <p className="mt-4 max-w-3xl text-lg text-ash">
+            {blast.totals.companiesNotified} linked companies notified.
+            Compromise is not yet confirmed; this report has not held payments
+            or changed access.
+          </p>
+          <label className="mt-5 block text-sm">
+            Choose a report
+            <select
+              className={`${FIELD} mt-2 block max-w-full`}
+              value={incidentId}
+              onChange={(e) => setChosen(e.target.value as Id<"incidents">)}
+            >
+              {incidents.map((i) => (
+                <option key={i._id} value={i._id}>
+                  {i.vendorName} —{" "}
+                  {i.responseClass === "observation"
+                    ? "unconfirmed"
+                    : "confirmed"}{" "}
+                  — {dateTime(i.createdAt)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </section>
+        <Tabs
+          active={active}
+          onSelect={(t) => select(t)}
+          label="Report details"
+          tabs={[
+            {
+              id: "map",
+              label: "Review & notified companies",
+              content: () => (
+                <div className="space-y-8">
+                  <Card title="Companies notified for review">
+                    <ul className="space-y-3">
+                      {blast.nodes
+                        .filter((n) => n.exposureId)
+                        .map((n) => (
+                          <li key={n.companyId}>
+                            {n.name}
+                            <span className="ml-3 text-sm text-ash">
+                              {n.status === "closed"
+                                ? "Review closed"
+                                : "Notify only"}
+                            </span>
+                          </li>
+                        ))}
+                    </ul>
+                  </Card>
+                  <ResponseSafetyPanel />
+                </div>
+              ),
+            },
+            {
+              id: "alerts",
+              label: "Notifications",
+              content: () => <NotificationsPanel scope="firm" canManage />,
+            },
+            {
+              id: "payments",
+              label: "Payments",
+              content: () => <InvestigationPanel firm />,
+            },
+            {
+              id: "timeline",
+              label: "Timeline & review",
+              content: () => (
+                <div className="space-y-8">
+                  <TimelinePanel incidentId={incidentId} />
+                  <ResponseSafetyPanel />
+                </div>
+              ),
+            },
+            {
+              id: "onboard",
+              label: "Onboard",
+              content: () => <ApImportPanel />,
+            },
+            { id: "proof", label: "Proof", content: () => <ProofPanel /> },
+          ]}
+        />
+      </div>
+    );
 
   const { incident, totals } = blast;
   const nodeById = new Map(blast.nodes.map((n) => [n.companyId, n]));
@@ -115,7 +240,10 @@ export function PortfolioView() {
   const acknowledged = exposed.filter((n) => n.status !== "open").length;
   const companyAlerts = (alerts ?? [])
     .filter((a) => a.kind === "company_alert")
-    .map((alert) => ({ alert, node: alert.companyId ? nodeById.get(alert.companyId) : undefined }))
+    .map((alert) => ({
+      alert,
+      node: alert.companyId ? nodeById.get(alert.companyId) : undefined,
+    }))
     .sort((a, b) => (b.node?.score ?? 0) - (a.node?.score ?? 0));
 
   const openCompany = (id: Id<"companies">) => {
@@ -129,7 +257,11 @@ export function PortfolioView() {
       label: "Map & evidence",
       content: () => (
         <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_400px] lg:grid-cols-[minmax(0,1fr)_360px]">
-          <BlastRadiusMap blast={blast} selected={selected} onSelect={setSelected} />
+          <BlastRadiusMap
+            blast={blast}
+            selected={selected}
+            onSelect={setSelected}
+          />
           <div className="space-y-6">
             <EvidencePanel exposureId={selectedNode?.exposureId ?? undefined} companyName={selectedNode?.name} />
             {selectedNode && (
@@ -140,9 +272,13 @@ export function PortfolioView() {
                   <ul className="space-y-2 text-sm">
                     {selectedHeld.map((r) => (
                       <li key={r.payment._id} className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-semibold tabular-nums">{money(r.payment.amountCents)}</span>
+                        <span className="font-semibold tabular-nums">
+                          {money(r.payment.amountCents)}
+                        </span>
                         <span className="flex gap-1">
-                          {r.bankChange && <Chip tone="danger">Bank details changed</Chip>}
+                          {r.bankChange && (
+                            <Chip tone="danger">Bank details changed</Chip>
+                          )}
                           <LookChip look={paymentLook(r.payment)} />
                         </span>
                       </li>
@@ -169,15 +305,28 @@ export function PortfolioView() {
               {companyAlerts.map(({ alert, node }) => (
                 <article key={alert._id} className="rounded-tile border border-line bg-panel p-5 md:p-6">
                   <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-                    <span className="text-lg font-semibold tracking-tight">{node?.name}</span>
-                    {node?.urgency && <UrgencyChip urgency={node.urgency} resolved={node.status === "closed"} />}
+                    <span className="text-lg font-semibold tracking-tight">
+                      {node?.name}
+                    </span>
+                    {node?.urgency && (
+                      <UrgencyChip
+                        urgency={node.urgency}
+                        resolved={node.status === "closed"}
+                      />
+                    )}
                     {node?.status === "open" ? (
-                      <span className="text-sm text-ash">Not acknowledged yet</span>
+                      <span className="text-sm text-ash">
+                        Not acknowledged yet
+                      </span>
                     ) : (
-                      alert.exposureId && <ExposureAcknowledgedBy exposureId={alert.exposureId} />
+                      alert.exposureId && (
+                        <ExposureAcknowledgedBy exposureId={alert.exposureId} />
+                      )
                     )}
                   </div>
-                  <p className="max-w-prose leading-relaxed">{alert.status === "ready" ? alert.body : "Writing alert…"}</p>
+                  <p className="max-w-prose leading-relaxed">
+                    {alert.status === "ready" ? alert.body : "Writing alert…"}
+                  </p>
                 </article>
               ))}
             </div>
@@ -193,14 +342,20 @@ export function PortfolioView() {
                 )
               }
             >
-              <p className="max-w-3xl leading-relaxed whitespace-pre-wrap">{letter.body}</p>
+              <p className="max-w-3xl leading-relaxed whitespace-pre-wrap">
+                {letter.body}
+              </p>
             </Card>
           ) : (
             <Card>
               <Empty>No vendor letter for this incident.</Empty>
             </Card>
           )}
-          <NotificationsPanel scope="firm" canManage incidentId={incident._id} />
+          <NotificationsPanel
+            scope="firm"
+            canManage
+            incidentId={incident._id}
+          />
         </div>
       ),
     },
@@ -238,6 +393,16 @@ export function PortfolioView() {
 
   return (
     <div className="space-y-12">
+      {incidents.some(
+        (i) => i.responseClass === "observation" && !i.containedAt,
+      ) && (
+        <button
+          className="text-left text-amber underline underline-offset-4"
+          onClick={() => select("timeline", true)}
+        >
+          Unconfirmed reports also need review — open Response safety
+        </button>
+      )}
       <PortfolioHero
         blast={blast}
         incidents={incidents}
@@ -276,7 +441,9 @@ function PortfolioHero({
 }) {
   const { incident, totals, asset } = blast;
   const finding = incident.finding;
-  const tracker = useQuery(api.responses.getResponseTracker, { incidentId: incident._id });
+  const tracker = useQuery(api.responses.getResponseTracker, {
+    incidentId: incident._id,
+  });
   const stepFor = new Map((tracker?.companies ?? []).map((c) => [c.companyId, c]));
   const contained = incident.containedAt !== undefined;
   const resolved = exposed.filter((n) => n.status === "closed").length;
@@ -294,11 +461,15 @@ function PortfolioHero({
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="min-w-0 flex-1 basis-96">
           <StatusLine tone={contained ? "ok" : "danger"} state={contained ? "Contained" : "Active incident"}>
-            <span className="font-semibold text-paper">{assetTitle(asset.vendorName, asset.name)}</span>
+            <span className="font-semibold text-paper">
+              {assetTitle(asset.vendorName, asset.name)}
+            </span>
             <span className="tabular-nums">{dateTime(incident.createdAt)}</span>
             {incident.reportedByName && (
               <span>
-                Reported by <span className="text-paper">{incident.reportedByName}</span>, visible to the firm only
+                Reported by{" "}
+                <span className="text-paper">{incident.reportedByName}</span>,
+                visible to the firm only
               </span>
             )}
           </StatusLine>
@@ -323,19 +494,34 @@ function PortfolioHero({
       </div>
 
       <h1 id="hero-title" className="sr-only">
-        {totals.companiesExposed} {totals.companiesExposed === 1 ? "company" : "companies"} exposed,{" "}
-        {totals.peopleExposed.toLocaleString()} people, {totals.heldCents > 0 ? `${money(totals.heldCents)} held` : "no payments held"}
+        {totals.companiesExposed}{" "}
+        {totals.companiesExposed === 1 ? "company" : "companies"} exposed,{" "}
+        {totals.peopleExposed.toLocaleString()} people,{" "}
+        {totals.heldCents > 0
+          ? `${money(totals.heldCents)} held`
+          : "no payments held"}
       </h1>
 
       <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-12">
         <div className="min-w-0">
           {/* The zoom-out line as three figures, each beside what it counts. Never wraps mid-number. */}
           <div aria-hidden className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-4 gap-y-3">
-            <Stat value={String(totals.companiesExposed)} label={totals.companiesExposed === 1 ? "company exposed" : "companies exposed"} />
+            <Stat
+              value={String(totals.companiesExposed)}
+              label={
+                totals.companiesExposed === 1
+                  ? "company exposed"
+                  : "companies exposed"
+              }
+            />
             <Stat value={totals.peopleExposed.toLocaleString()} label="people behind them" />
             <Stat
               value={totals.heldCents > 0 ? money(totals.heldCents) : "$0"}
-              label={totals.heldCents > 0 ? "held until verified" : "no payments held"}
+              label={
+                totals.heldCents > 0
+                  ? "held until verified"
+                  : "no payments held"
+              }
               tone={totals.heldCents > 0 ? "text-amber" : "text-ash"}
             />
           </div>
@@ -347,16 +533,20 @@ function PortfolioHero({
           )}
           {/* A red-team finding's own paragraph says what happened; the summary would repeat it. */}
           {incident.summary && !finding && (
-            <p className="mt-5 max-w-[52ch] leading-relaxed text-ash">{incident.summary}</p>
+            <p className="mt-5 max-w-[52ch] leading-relaxed text-ash">
+              {incident.summary}
+            </p>
           )}
           {finding && (
             <div className="mt-5 max-w-[56ch] space-y-2">
               <Chip tone="amber">Red-team finding</Chip>
               <p className="leading-relaxed">
                 Path proven at {incident.reportedByName ?? "the tested company"}
-                {finding.technique.name && ` using ${finding.technique.name} (${finding.technique.id})`}. Sister
-                companies that share it are <strong className="font-semibold">reachable, not tested</strong>. Nobody
-                touched their systems.
+                {finding.technique.name &&
+                  ` using ${finding.technique.name} (${finding.technique.id})`}
+                . Sister companies that share it are{" "}
+                <strong className="font-semibold">reachable, not tested</strong>
+                . Nobody touched their systems.
               </p>
             </div>
           )}
@@ -367,11 +557,15 @@ function PortfolioHero({
             <h2 className="text-lg font-semibold">Response by company</h2>
             <p className="flex items-center gap-3 text-sm text-ash tabular-nums">
               <AckTiles nodes={exposed} />
-              <span>{progressText.charAt(0).toUpperCase() + progressText.slice(1)}</span>
+              <span>
+                {progressText.charAt(0).toUpperCase() + progressText.slice(1)}
+              </span>
             </p>
           </div>
           {exposed.length === 0 ? (
-            <p className="mt-3 text-ash">No company shares what was compromised. No alerts were sent.</p>
+            <p className="mt-3 text-ash">
+              No company shares what was compromised. No alerts were sent.
+            </p>
           ) : (
             <div className="mt-3 overflow-hidden rounded-tile border border-line">
               <div
@@ -395,14 +589,25 @@ function PortfolioHero({
                       <span className="min-w-0 font-semibold text-balance underline-offset-4 group-hover:underline">
                         {n.name}
                       </span>
-                      <span>{n.urgency && <UrgencyChip urgency={n.urgency} resolved={n.status === "closed"} />}</span>
+                      <span>
+                        {n.urgency && (
+                          <UrgencyChip
+                            urgency={n.urgency}
+                            resolved={n.status === "closed"}
+                          />
+                        )}
+                      </span>
                       {/* Phones: these three share a line under the name; wider: one column each. */}
                       <span className="col-span-2 flex flex-wrap gap-x-4 gap-y-1 text-sm md:contents">
                         <span className="text-ash">
                           {n.status === "open" ? (
-                            <span className="text-amber">Not acknowledged yet</span>
+                            <span className="text-amber">
+                              Not acknowledged yet
+                            </span>
                           ) : (
-                            n.exposureId && <AckCell exposureId={n.exposureId} />
+                            n.exposureId && (
+                              <AckCell exposureId={n.exposureId} />
+                            )
                           )}
                         </span>
                         <span>
@@ -419,7 +624,9 @@ function PortfolioHero({
                           )}
                         </span>
                       </span>
-                      <span className="sr-only">. Open its evidence on the map.</span>
+                      <span className="sr-only">
+                        . Open its evidence on the map.
+                      </span>
                     </button>
                   </li>
                 ))}
@@ -437,7 +644,9 @@ const ROW_GRID = "md:grid-cols-[minmax(0,1.4fr)_6.5rem_minmax(0,1.3fr)_minmax(0,
 // Who acknowledged. A row resolved without anyone acknowledging says so quietly; its urgency
 // chip already reads "Resolved", so the word isn't repeated here.
 function AckCell({ exposureId }: { exposureId: Id<"exposures"> }) {
-  const evidence = useQuery(api.blastRadius.getExposureEvidence, { exposureId });
+  const evidence = useQuery(api.blastRadius.getExposureEvidence, {
+    exposureId,
+  });
   if (evidence === undefined) return null;
   if (evidence?.acknowledgedBy) return <AcknowledgedBy userId={evidence.acknowledgedBy} />;
   return <span className="text-ash">No acknowledgement</span>;
@@ -452,7 +661,11 @@ function AckTiles({ nodes }: { nodes: Node[] }) {
         <span
           key={n.companyId}
           className={`size-3 rounded-[4px] border ${
-            n.status === "closed" ? "border-ok bg-ok" : n.status === "acknowledged" ? "border-ok bg-ok/30" : "border-ash/50"
+            n.status === "closed"
+              ? "border-ok bg-ok"
+              : n.status === "acknowledged"
+                ? "border-ok bg-ok/30"
+                : "border-ash/50"
           }`}
         />
       ))}
@@ -460,7 +673,15 @@ function AckTiles({ nodes }: { nodes: Node[] }) {
   );
 }
 
-function Stat({ value, label, tone = "text-paper" }: { value: string; label: string; tone?: string }) {
+function Stat({
+  value,
+  label,
+  tone = "text-paper",
+}: {
+  value: string;
+  label: string;
+  tone?: string;
+}) {
   return (
     <>
       <span
@@ -468,7 +689,9 @@ function Stat({ value, label, tone = "text-paper" }: { value: string; label: str
       >
         {value}
       </span>
-      <span className="text-base leading-snug text-ash md:text-lg">{label}</span>
+      <span className="text-base leading-snug text-ash md:text-lg">
+        {label}
+      </span>
     </>
   );
 }

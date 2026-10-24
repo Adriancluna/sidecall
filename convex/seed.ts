@@ -23,6 +23,7 @@ const cents = (dollars: number) => Math.round(dollars * 100); // dollars → int
 
 // Auth tables are cleared too: their rows point at users that a reseed replaces.
 const TABLES: TableNames[] = [
+  "incidentReports",
   "investigations",
   "sandboxResources",
   "notifications",

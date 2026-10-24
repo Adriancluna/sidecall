@@ -77,6 +77,7 @@ export function PlanSteps({ incidentId }: { incidentId: Id<"incidents"> }) {
               </p>
               {p.capNote && <p className="mt-0.5 text-xs text-amber">{p.capNote}</p>}
               <p className="mt-0.5 text-xs text-ash/80">{p.executionMode === "sandbox" ? "Applied to an owned sandbox resource; external identity providers are not connected." : `Simulated · stands for: ${p.wouldCall}`}</p>
+              {p.verification && <p className="mt-1 text-sm text-ash">Recorded access check: {p.verification.accessBefore ? "allowed" : "denied"} → {p.verification.accessAfter ? "allowed" : "denied"}{p.status === "undone" ? " (before undo)" : ""}.</p>}
             </div>
             <div className="flex shrink-0 gap-2">
               {p.canApprove && p.stepId && (
