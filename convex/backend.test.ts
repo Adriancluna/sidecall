@@ -322,6 +322,27 @@ describe("containment", () => {
   });
 });
 
+describe("scale", () => {
+  test("one report fans out to 303 companies in a single transaction, totals stay right", async () => {
+    const { t, as, fire } = await seeded();
+    process.env.DEMO_MODE = "true"; // eslint-disable-line @convex-dev/no-process-env
+    await t.mutation(internal.ops.addScalePortfolio, { count: 300 });
+    delete process.env.DEMO_MODE; // eslint-disable-line @convex-dev/no-process-env
+    const { incidentId } = await fire();
+
+    const blast = await (await as(PE)).query(api.blastRadius.getBlastRadius, { incidentId });
+    expect(blast!.totals).toEqual({
+      companiesExposed: 303,
+      peopleExposed: 4200 + 300 * 100,
+      heldCents: 61_200_000 + 300 * 1_000_000,
+      paymentsHeld: 304,
+    });
+    const context = await t.query(internal.alerts.getWritingContext, { incidentId });
+    expect(context!.companyAlerts).toHaveLength(303); // the AI writer sees every company
+    expect(context!.heldPayments).toHaveLength(304);
+  });
+});
+
 describe("demo readiness", () => {
   test("fresh seed is ready; after firing it says to Reset", async () => {
     const { t, fire } = await seeded();

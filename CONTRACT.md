@@ -7,6 +7,7 @@ The data shapes and function signatures every role builds against. Owned by Role
 
 ## Changelog
 
+- **Oct 23, ~9:45pm.** Scale: `getBlastRadius` totals now come from the incident's exposures and payments (were capped by reading only 100 companies); fan-out reads bounded at 500 everywhere. New `internal.alerts.saveAlerts({ alerts: [...] })` (batch upsert, same fields as `saveAlert`). Dev/test-only `internal.ops.addScalePortfolio({ count })` (DEMO_MODE only).
 - **Oct 23, ~9:25pm.** Containment: `incidents.containIncident({ incidentId, note })` (PE partner only; note ≥ 15 chars). Incidents gained `containedAt?`, `containedBy?`, `containmentNote?`; `listIncidents` rows gained `containedAt | null`; audit action `contain`; timeline event `contain` + `stats.msToContained`. After containment new requests to that vendor are not held; existing holds stay held. `scoring:exportOutcomes` may list payments with `seedRef: null` (created by `requestPayment`): scorecard scripts should skip them.
 - **Oct 23, ~9:15pm.** New `payments.requestPayment({ billId })` (AP clerk; pays the vendor's latest bank details; held + flagged on creation if the vendor had an incident in the last 30 days) and `payments.getMyBills()`. Seed adds one unpaid Summit → Brightline bill ($38K). Summit's AP no longer reaches $0 after releasing the $480K (the $38K bill is still owed).
 - **Oct 23, ~8:35pm.** Escalation: held payments due within 24h get one `escalation` alert to the company's controllers + an `escalate` audit row (at hold time, and by a 15-min cron). Payments gained `dueDate`, `escalatedAt`; alerts `readyAt`; exposures `acknowledgedAt`. New `blastRadius.getIncidentTimeline`. Alert kind `escalation` and audit action `escalate` added (handle unknown kinds gracefully).
@@ -197,6 +198,7 @@ Identity for every mutation is the signed-in session.
 
 ```ts
 internal.alerts.saveAlert({ incidentId, exposureId?, companyId?, paymentId?, kind, body })
+internal.alerts.saveAlerts({ alerts: [ /* same objects as saveAlert */ ] })   // batch: use when looping over many companies
 
 // Everything a writer needs for one incident. Never contains the reporting company.
 internal.alerts.getWritingContext({ incidentId }) -> null | {

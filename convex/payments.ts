@@ -455,7 +455,7 @@ export const getHeldPayments = query({
         .withIndex("by_heldByIncidentId", (q) =>
           q.eq("heldByIncidentId", args.incidentId),
         )
-        .take(200);
+        .take(500);
       if (args.companyId) {
         payments = payments.filter((p) => p.companyId === args.companyId);
       }

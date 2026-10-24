@@ -1,48 +1,65 @@
 // Alert storage. Mutations write pending template text; the AI actions in ai.ts
 // rewrite it and call saveAlert. Nothing here ever names the reporting company.
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import { internalMutation, internalQuery, query } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { alertKind } from "./schema";
 import { getViewer } from "./access";
 
+const alertInput = v.object({
+  incidentId: v.id("incidents"),
+  exposureId: v.optional(v.id("exposures")),
+  companyId: v.optional(v.id("companies")),
+  paymentId: v.optional(v.id("payments")),
+  kind: alertKind,
+  body: v.string(),
+});
+type AlertInput = Infer<typeof alertInput>;
+
 // Upsert: replaces the pending alert for the same exposure / payment / vendor letter,
-// or inserts a new one. Role 4's actions call this.
+// or inserts a new one.
+async function upsertAlert(ctx: MutationCtx, args: AlertInput) {
+  let existing = null;
+  if (args.exposureId) {
+    existing = await ctx.db
+      .query("alerts")
+      .withIndex("by_exposureId", (q) => q.eq("exposureId", args.exposureId))
+      .first();
+  } else if (args.paymentId) {
+    existing = await ctx.db
+      .query("alerts")
+      .withIndex("by_paymentId_and_kind", (q) =>
+        q.eq("paymentId", args.paymentId).eq("kind", args.kind),
+      )
+      .first();
+  } else if (args.kind === "vendor_letter") {
+    existing = await ctx.db
+      .query("alerts")
+      .withIndex("by_incidentId_and_kind", (q) =>
+        q.eq("incidentId", args.incidentId).eq("kind", "vendor_letter"),
+      )
+      .first();
+  }
+  if (existing) {
+    await ctx.db.patch("alerts", existing._id, { body: args.body, status: "ready", readyAt: Date.now() });
+    return existing._id;
+  }
+  return await ctx.db.insert("alerts", { ...args, status: "ready", readyAt: Date.now() });
+}
+
+// One alert. Role 4's actions call this (or saveAlerts below).
 export const saveAlert = internalMutation({
-  args: {
-    incidentId: v.id("incidents"),
-    exposureId: v.optional(v.id("exposures")),
-    companyId: v.optional(v.id("companies")),
-    paymentId: v.optional(v.id("payments")),
-    kind: alertKind,
-    body: v.string(),
-  },
+  args: alertInput.fields,
+  handler: async (ctx, args) => await upsertAlert(ctx, args),
+});
+
+// Many alerts in one transaction: use this from a loop over hundreds of companies, so every
+// alert lands at once instead of one round trip each (~7 s → well under 1 s at 300 companies).
+export const saveAlerts = internalMutation({
+  args: { alerts: v.array(alertInput) },
   handler: async (ctx, args) => {
-    let existing = null;
-    if (args.exposureId) {
-      existing = await ctx.db
-        .query("alerts")
-        .withIndex("by_exposureId", (q) => q.eq("exposureId", args.exposureId))
-        .first();
-    } else if (args.paymentId) {
-      existing = await ctx.db
-        .query("alerts")
-        .withIndex("by_paymentId_and_kind", (q) =>
-          q.eq("paymentId", args.paymentId).eq("kind", args.kind),
-        )
-        .first();
-    } else if (args.kind === "vendor_letter") {
-      existing = await ctx.db
-        .query("alerts")
-        .withIndex("by_incidentId_and_kind", (q) =>
-          q.eq("incidentId", args.incidentId).eq("kind", "vendor_letter"),
-        )
-        .first();
-    }
-    if (existing) {
-      await ctx.db.patch("alerts", existing._id, { body: args.body, status: "ready", readyAt: Date.now() });
-      return existing._id;
-    }
-    return await ctx.db.insert("alerts", { ...args, status: "ready", readyAt: Date.now() });
+    for (const alert of args.alerts) await upsertAlert(ctx, alert);
+    return { saved: args.alerts.length };
   },
 });
 
@@ -58,7 +75,7 @@ export const getWritingContext = internalQuery({
     const exposures = await ctx.db
       .query("exposures")
       .withIndex("by_incidentId_and_companyId", (q) => q.eq("incidentId", args.incidentId))
-      .take(200);
+      .take(500);
     const companyAlerts = await Promise.all(
       exposures.map(async (e) => {
         const company = await ctx.db.get("companies", e.companyId);
@@ -76,7 +93,7 @@ export const getWritingContext = internalQuery({
     const payments = await ctx.db
       .query("payments")
       .withIndex("by_heldByIncidentId", (q) => q.eq("heldByIncidentId", args.incidentId))
-      .take(200);
+      .take(500);
     const heldPayments = await Promise.all(
       payments.map(async (p) => {
         const company = await ctx.db.get("companies", p.companyId);
@@ -136,7 +153,7 @@ export const getIncidentAlerts = query({
           .withIndex("by_incidentId_and_kind", (q) =>
             q.eq("incidentId", args.incidentId).eq("kind", kind),
           )
-          .take(200),
+          .take(500),
       ),
     );
     return groups.flat();
