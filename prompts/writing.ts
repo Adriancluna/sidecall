@@ -122,7 +122,7 @@ export function companyAlertPrompt(
 Facts (JSON):
 ${JSON.stringify(companyAlertFacts(ctx, item), null, 2)}
 
-"reasons" are the backend's reasons this company is exposed; keep their meaning. If candidateLink is true, the link is a candidate from public DNS records, so say the team should first confirm whether they still use this vendor.
+"reasons" are the backend's reasons this company is exposed; keep their meaning. Say a payment is held only if the reasons say so; otherwise ask them to check pending payments before paying them, without saying any are held. If candidateLink is true, the link is a candidate from public DNS records, so say the team should first confirm whether they still use this vendor.
 
 Write 60 to 110 words. Start with exactly "${opener}" and then say what happened in one sentence. Then the reason in plain words, then two or three concrete steps for this kind of vendor (${ctx.asset.kind}), such as rotating credentials shared with the vendor, reviewing recent admin or payroll changes, and checking any pending payments to the vendor. ${item.urgency === "urgent" ? "Ask them to act today." : "Ask them to review this week."} Address the reader's team directly ("your team"). Return only the alert text.`;
 }
@@ -145,7 +145,7 @@ export function vendorLetterPrompt(ctx: WritingContext): string {
 Facts (JSON):
 ${JSON.stringify(vendorLetterFacts(ctx), null, 2)}
 
-Write 140 to 230 words, starting "To the security team at ${ctx.asset.vendorName}," and ending "Portfolio security, Northpass Capital". Do not name any portfolio company. Ask them to: confirm the scope and timeline of the incident affecting ${ctx.asset.name}; say whether accounts or credentials used by our companies were accessed; rotate every shared and admin credential across all of our accounts in one coordinated step; and confirm their remittance bank details by phone.${vendorLetterFacts(ctx).paymentsToRecentlyChangedBankDetails > 0 ? " Mention that bank-detail changes recently requested by email are being treated as unverified." : ""} Say pending payments to them are held until verified, and that we will call the number on file (${ctx.asset.phoneOnFile}) rather than any number in an email. Ask for one named contact for the portfolio. Return only the letter text.`;
+Write 140 to 230 words, starting "To the security team at ${ctx.asset.vendorName}," and ending "Portfolio security, Northpass Capital". Do not name any portfolio company. Ask them to: confirm the scope and timeline of the incident affecting ${ctx.asset.name}; say whether accounts or credentials used by our companies were accessed; rotate every shared and admin credential across all of our accounts in one coordinated step; and confirm their remittance bank details by phone.${vendorLetterFacts(ctx).paymentsToRecentlyChangedBankDetails > 0 ? " Mention that bank-detail changes recently requested by email are being treated as unverified." : ""} ${vendorLetterFacts(ctx).paymentsHeld > 0 ? `Say pending payments to them are held until verified, and that we will call the number on file (${ctx.asset.phoneOnFile}) rather than any number in an email.` : `No payments to them are held for this incident, so do not say any are. Say that before paying them, our companies will confirm remittance details by calling the number on file (${ctx.asset.phoneOnFile}) rather than any number in an email.`} Ask for one named contact for the portfolio. Return only the letter text.`;
 }
 
 // Copy rules as code. Returns the problems found; empty means the text may be shown.
