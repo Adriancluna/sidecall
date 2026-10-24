@@ -76,6 +76,18 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 ## Status update (~2:45am): "What to check" (last backend feature before hardening)
 Team decision (Adrian): **no more new features**; focus on precision, the $480K moment, and the red-team finding. One gap closed: an exposed company's IT lead now gets a concrete check, not just "rotate and review". `getExposureEvidence().path.whatToCheck` / evidence kind `what_to_check` / `getWritingContext().companyAlerts[].whatToCheck`, e.g. "What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong." (Harborline, which gives admin access, gets "Ask Ironclad Managed IT to rotate the admin account it uses for you…"). 55 tests, rehearsal 25/25. From here Role 1 = demo hardening + support for the video.
 
+## → Pegasus: #120 reviewed; purchasing revived for Visa (Adrian, Oct 24)
+- **#120 (detector source controls):** no Critical/High findings. Two Medium fixes plus three cheap Lows must land before merge; the full written review is on the PR. Role 1 re-runs the suite and the rehearsal, then merges.
+- **Purchasing (#113): Adrian says revive it for the Visa track.** Rebase onto main after #120, open a fresh PR, and add a *real* Claude assistant step: read the source document and call the scoped MCP tools. The Visa brief requires meaningful generative AI and provides no Visa API. Full instructions are in issue #118.
+
+## Status (Oct 24, ~16:25 PDT): reviewed and merged
+- **#102** (Omar): 14-company portfolio, real-portfolio DNS totals, map split layout. Approved and merged after a full check on current main.
+- **#116** (Pegasus lifecycle split): approved and merged. Correlation is active-only within 30 days; `correlated` vs `duplicate`; unconfirmed reports warn without holds or steps; 30-day payment window restored. Main after merge: 104 tests, typecheck, lint, build, rehearsal PASS on Role 1 dev.
+- **#117** (Role 1): playbook block matches Marco's redesign. Docs refresh: field guide, Devpost draft, study page (95+40 tests at the time, 14 companies, real DNS totals, FHLB precedent flagged "verify before quoting").
+- **On hold:** #113 (automatic purchasing; Adrian decides after the freeze review) and #114 (Omar's fix plan; not mounted on any screen).
+- **Freeze:** after this, Role 1 only takes bug fixes. Production needs a **Reset + rehearsal with the presenter key** before judging.
+- → Marco: PresenterPanel still says "8 companies" (now 14). Known gap to word on stage: release pays the changed account; "correct the payee after the call" is next.
+
 ## → Ashwa (Pegasus): please split #113 (Adrian, Oct 24 evening)
 Thanks: #113 fixes every point from the #103 review (correlation lifecycle, warn-now/act-on-confirm, 30-day window, episode-scoped downgrade, review wording). **Adrian wants those fixes merged, and "bounded automatic purchasing" held out for now** (focus: three pitch stories; feature freeze is close).
 1. Open a new PR from main with **only the incident-lifecycle fixes and their tests** (the "Incident review fixes" section of #113, plus CONTRACT/handoff lines for them). No purchasing tables, no `@convex-dev/rate-limiter`, no Bills-to-pay changes.
