@@ -5,6 +5,10 @@ import { query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { canSeeCompany, getViewer } from "./access";
 
+// Fan-out reads are bounded: one incident reaches at most this many linked companies and
+// payments (incidents.ts and payments.ts read the same bound). Far above a PE portfolio.
+const MAX_FANOUT = 500;
+
 // Why a company appears on the map. Exported so the frontend can switch on it exhaustively.
 export type NodeRelation =
   | "reporter"
@@ -62,15 +66,15 @@ export const getBlastRadius = query({
     if (!asset) return null;
 
     const [companies, exposures, links, siblingAssets, payments] = await Promise.all([
-      ctx.db.query("companies").take(100),
+      ctx.db.query("companies").take(MAX_FANOUT),
       ctx.db
         .query("exposures")
         .withIndex("by_incidentId_and_companyId", (q) => q.eq("incidentId", incident._id))
-        .take(200),
+        .take(MAX_FANOUT),
       ctx.db
         .query("links")
         .withIndex("by_assetId", (q) => q.eq("assetId", asset._id))
-        .take(500),
+        .take(MAX_FANOUT),
       ctx.db
         .query("assets")
         .withIndex("by_vendorName", (q) => q.eq("vendorName", asset.vendorName))
@@ -78,7 +82,7 @@ export const getBlastRadius = query({
       ctx.db
         .query("payments")
         .withIndex("by_heldByIncidentId", (q) => q.eq("heldByIncidentId", incident._id))
-        .take(500),
+        .take(MAX_FANOUT),
     ]);
 
     // Same vendor, different asset (e.g. a separate login): shown, but deliberately not exposed.
@@ -131,7 +135,10 @@ export const getBlastRadius = query({
       };
     });
 
-    const exposedNodes = nodes.filter((n) => n.exposed);
+    // Totals come from the incident's own rows, not from the node list, so they stay right
+    // however many companies the portfolio has.
+    const headcountById = new Map(companies.map((c) => [c._id, c.headcount]));
+    const heldPayments = payments.filter((p) => p.status === "held");
     const reporter = incident.reportedByCompanyId
       ? await ctx.db.get("companies", incident.reportedByCompanyId)
       : null;
@@ -148,10 +155,10 @@ export const getBlastRadius = query({
         compromised: l.assetId === asset._id,
       })),
       totals: {
-        companiesExposed: exposedNodes.length,
-        peopleExposed: exposedNodes.reduce((sum, n) => sum + n.headcount, 0),
-        heldCents: nodes.reduce((sum, n) => sum + n.heldCents, 0),
-        paymentsHeld: payments.filter((p) => p.status === "held").length,
+        companiesExposed: exposures.length,
+        peopleExposed: exposures.reduce((sum, e) => sum + (headcountById.get(e.companyId) ?? 0), 0),
+        heldCents: heldPayments.reduce((sum, p) => sum + p.amountCents, 0),
+        paymentsHeld: heldPayments.length,
       },
     };
   },
@@ -260,7 +267,7 @@ export const getIncidentTimeline = query({
       ctx.db
         .query("exposures")
         .withIndex("by_incidentId_and_companyId", (q) => q.eq("incidentId", incident._id))
-        .take(200),
+        .take(500),
       Promise.all(
         (["company_alert", "hold_notice", "vendor_letter"] as const).map((kind) =>
           ctx.db
@@ -268,7 +275,7 @@ export const getIncidentTimeline = query({
             .withIndex("by_incidentId_and_kind", (q) =>
               q.eq("incidentId", incident._id).eq("kind", kind),
             )
-            .take(200),
+            .take(500),
         ),
       ),
     ]);

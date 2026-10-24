@@ -1,5 +1,5 @@
 # Role 1: Backend (Adrian)
-Last updated: Oct 23, 21:40 by Adrian's Claude
+Last updated: Oct 23, 21:50 by Adrian's Claude
 
 ## Status (on main)
 - **Production:** https://sidecall.vercel.app → Convex prod `judicious-tiger-712`. Seeded, `DEMO_MODE=true`, login keys set. Presenter: https://sidecall.vercel.app/?stage
@@ -22,7 +22,8 @@ Last updated: Oct 23, 21:40 by Adrian's Claude
 - **New: payment requests close the "after the incident" gap.** `payments.requestPayment({ billId })` (AP clerk only) pays the vendor's current bank details; if the vendor had an incident in the last 30 days it's **held and flagged on creation** (audit rule `hold_payments_requested_during_incident`, hold notice written, escalation if due soon). `payments.getMyBills()` lists the company's bills + payment status. Seed: Summit has an unpaid $38K Brightline bill ("November payroll processing").
 - **New: containment.** `incidents.containIncident({ incidentId, note })`, PE partner only. Afterwards new payment requests to that vendor aren't held; payments already held stay held until a controller decides ("held, never cancelled"). Logged (`contain`) and on the timeline (company view gets a neutral label, never the reporter).
 - **Fixed: production had stopped deploying since #44.** The `ignoreCommand` used `$VERCEL_ENV`, which isn't set during Vercel's ignore step, so every build (production too) was skipped ("Canceled by Ignored Build Step"). Now `[ "$VERCEL_GIT_COMMIT_REF" != "main" ]`: only `main` builds. Everything from #44–#50 ships with this. After it deploys, Reset once on `/?stage`.
-- `npm test`: 24 tests green (they sign in as each person; added: client can't pass a user id, controls log scoping).
+- **Scale benchmark (real dev backend, via the webhook):** 8 seed + 300 extra companies sharing a credential with Brightline. One report → **303 companies exposed, 304 payments held, $3.61M, in one transaction (~1.4 s server time)**; holds still land in the report's own transaction. Found and fixed: the PE headline only counted the first 100 companies (said 68 exposed); totals now come from the incident's rows; fan-out reads bounded at 500 (above any PE portfolio). Test pins it (303 / 304 / AI context sees all 303).
+- `npm test`: 25 tests green (they sign in as each person; added: client can't pass a user id, controls log scoping).
 - ✓ done for Role 2: reviewed and merged #26. Earlier: #20, #22, #24.
 
 ## In progress
@@ -43,6 +44,8 @@ Last updated: Oct 23, 21:40 by Adrian's Claude
   8. **Pitch material** (new folder `docs/`, Role 2 owns it): `docs/demo-script.md` (opens on the $480K money moment, ≤ 3 min, who clicks what), `docs/devpost.md` draft (what it does, how we built it on Convex, real vs simulated, the one-line seat: "AP payment controls across a PE portfolio"), and a shot list for the backup video.
 - → **Role 2, do first (bug from Adrian's prod test):** on a decided payment card (`row.decision` set), show "Released by Rosa Alvarez · <note> · <time>" (or "Rejected by …") instead of hold wording; label `holdReasons` as "Why it was held"; hide the note box. Short notes like "480000" now come back refused with guidance (shown inline already). Also: the PE headline's "$ held" drops after a release (counts still-held only, by design); add a second line "released after verification: $X" from `getHeldPayments` rows with `decision.status === "paid"`.
 - → **Role 2, round 6 — containment (demo ending):** PE view, per incident: "Mark contained" button + note box → `api.incidents.containIncident({ incidentId, note })` (refusal `reason` inline; note must say what was fixed and how it was confirmed). Show a "Contained" badge from `listIncidents` → `containedAt`. Timeline already returns the `contain` event. Optional beat: after containing, Jamie's next request goes through un-held.
+- → **Role 4:** use **`internal.alerts.saveAlerts({ alerts: [...] })`** (one call per action) instead of one `saveAlert` per company: at 300 companies the per-alert loop took ~7 s for all alerts to land; a batch is one transaction. Same object shape as `saveAlert`.
+- → **Role 2 (pitch / Devpost / demo script):** scale line you can use: "One report fanned out to 303 companies and held 304 payments in a single atomic transaction, about 1.4 s on Convex. The demo shows 8." Test: `convex/backend.test.ts` → "scale".
 - → **Role 4:** `scoring:exportOutcomes` can now include payments with `seedRef: null` (made in-app by `requestPayment`). Skip them in the scorecard.
 - → **Role 2, round 5 — "Bills to pay" (company view, AP clerk):** list `api.payments.getMyBills()`; for bills with `payment: null`, a **Request payment** button → `api.payments.requestPayment({ billId })`. Show the result inline: held → "Held until verified: Brightline is under an active incident" (+ "goes to an account changed by email" when `flagged`); refusals show `reason`. Demo beat after the money moment: Jamie requests the $38K November bill → held and flagged instantly ("we don't just catch what was in flight"). Ledger: AP stays at $38K after releasing the $480K, by design.
 - → **Role 2, round 4 — scenario picker on `/?stage`** (backend ready, no changes needed):

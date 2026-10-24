@@ -2,8 +2,9 @@
 //   npx convex run ops:demoReadiness            (dev)
 //   npx convex run ops:demoReadiness --prod     (before going on stage)
 import { v } from "convex/values";
-import { env, internalAction, internalQuery } from "./_generated/server";
+import { env, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { ConvexError } from "convex/values";
 import { SCENARIOS } from "./seed";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -104,5 +105,65 @@ export const demoReadiness = internalAction({
   args: {},
   handler: async (ctx): Promise<{ ready: boolean; checks: Check[] }> => {
     return await ctx.runQuery(internal.ops.readinessChecks, { now: Date.now() });
+  },
+});
+
+// Scale benchmark (dev and tests only): adds `count` extra portfolio companies, each sharing a
+// credential with Brightline and with one pending $10K payment to it. Then
+//   npx convex run seed:fireDemoIncident '{"scenario":"brightline"}'
+// shows one report fanning out to every one of them in a single transaction.
+// Refuses unless DEMO_MODE=true; Reset or seed:run removes the extra companies.
+export const addScalePortfolio = internalMutation({
+  args: { count: v.number() },
+  handler: async (ctx, { count }) => {
+    if (env.DEMO_MODE !== "true") throw new ConvexError("Scale benchmark only runs where DEMO_MODE=true.");
+    if (count < 1 || count > 450) throw new ConvexError("count must be 1–450 (fan-out reads up to 500 links).");
+    const brightline = await ctx.db
+      .query("assets")
+      .withIndex("by_name", (q) => q.eq("name", "Brightline Payroll"))
+      .first();
+    if (!brightline) throw new ConvexError("Seed first: npx convex run seed:run");
+    const [latest] = await ctx.db
+      .query("bankDetailChanges")
+      .withIndex("by_assetId_and_changedAt", (q) => q.eq("assetId", brightline._id))
+      .order("asc")
+      .take(1); // the oldest, verified account: these payments are held but not flagged
+
+    const now = Date.now();
+    for (let i = 1; i <= count; i++) {
+      const companyId = await ctx.db.insert("companies", {
+        name: `Scale Portfolio Co ${i}`,
+        domain: `scale-${i}.example`,
+        sector: "Benchmark",
+        headcount: 100,
+        holdRuleEnabled: true,
+      });
+      const clerk = await ctx.db.insert("users", { companyId, name: `Scale Clerk ${i}`, role: "ap_clerk" });
+      await ctx.db.insert("links", {
+        companyId,
+        assetId: brightline._id,
+        shareType: "shared_credential",
+        source: "self_reported",
+      });
+      const dueDate = now + 72 * 60 * 60 * 1000;
+      const billId = await ctx.db.insert("bills", {
+        companyId,
+        assetId: brightline._id,
+        amountCents: 1_000_000,
+        dueDate,
+        description: "Benchmark payroll run",
+      });
+      await ctx.db.insert("payments", {
+        billId,
+        companyId,
+        assetId: brightline._id,
+        amountCents: 1_000_000,
+        accountLast4: latest?.accountLast4 ?? "0000",
+        status: "pending",
+        requestedBy: clerk,
+        dueDate,
+      });
+    }
+    return { added: count };
   },
 });
