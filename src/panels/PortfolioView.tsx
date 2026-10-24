@@ -1,6 +1,7 @@
 // PE firm dashboard: the only view allowed to name the reporting company. The hero answers
 // "how bad, and is every company handling it?" with the three numbers beside the response table,
 // so both, the tab bar and the top of the map fit on one projected screen.
+import { InvestigationPanel, ResponseSafetyPanel } from "./InvestigationPanel";
 import { useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
@@ -41,7 +42,8 @@ function savePinned(id: Id<"incidents">) {
   }
 }
 
-// Six tabs so every one fits on a projected laptop screen; related panels share a tab.
+// Six tabs so every one fits on a projected laptop screen; related panels share a tab
+// (payment investigation sits under Payments, response safety under Timeline & close-out).
 const TAB_IDS = ["map", "alerts", "payments", "timeline", "onboard", "proof"] as const;
 
 export function PortfolioView() {
@@ -64,6 +66,8 @@ export function PortfolioView() {
 
   if (!incidentId) {
     const tabs: TabDef[] = [
+      { id: "payments", label: "Payments", content: () => <InvestigationPanel firm /> },
+      { id: "timeline", label: "Response safety", content: () => <ResponseSafetyPanel /> },
       { id: "onboard", label: "Onboard", content: () => <ApImportPanel /> },
       { id: "alerts", label: "Slack & alerts out", content: () => <NotificationsPanel scope="firm" canManage /> },
       { id: "proof", label: "Proof", content: () => <ProofPanel /> },
@@ -212,6 +216,7 @@ export function PortfolioView() {
             intro="The firm sees every hold. Only a controller at the portfolio company can release or reject."
           />
           <ControlsLogPanel incidentId={incident._id} fileLabel={incident.externalId} />
+          <InvestigationPanel firm />
         </div>
       ),
     },
@@ -223,6 +228,7 @@ export function PortfolioView() {
         <div className="space-y-6">
           <TimelinePanel incidentId={incident._id} />
           <ContainPanel key={incident._id} incidentId={incident._id} containedAt={incident.containedAt ?? null} />
+          <ResponseSafetyPanel />
         </div>
       ),
     },

@@ -1,6 +1,7 @@
 // A portfolio company's dashboard. The hero is the one thing this person must do now (finance:
 // the held payment; IT and everyone else: the incident steps). Everything else is a tab.
 // The backend never sends which company reported the incident.
+import { InvestigationPanel } from "./InvestigationPanel";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
@@ -96,13 +97,17 @@ export function CompanyView({ companyId, meId, role }: Props) {
       id: "payments",
       label: "Held payments",
       count: stillHeld.length,
+      // Payment investigation (Pegasus, #103) lives under the held payments, not as its own tab.
       content: () => (
-        <HeldPaymentsPanel
-          title="Held payments"
-          rows={held}
-          escalations={handlesPayments ? escalations : undefined}
-          viewer={viewer}
-        />
+        <div className="space-y-8">
+          <HeldPaymentsPanel
+            title="Held payments"
+            rows={held}
+            escalations={handlesPayments ? escalations : undefined}
+            viewer={viewer}
+          />
+          <InvestigationPanel />
+        </div>
       ),
     },
     { id: "bills", label: "Bills to pay", count: unpaidBills, content: () => <BillsPanel /> },

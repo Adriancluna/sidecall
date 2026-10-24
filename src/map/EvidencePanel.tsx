@@ -6,15 +6,9 @@ import { readableEvidence } from "../panels/exposureCopy";
 import { Card, Chip, Empty } from "../panels/ui";
 
 // Why one company was flagged, for the PE firm: what its IT lead should check first, what a
-// red-team finding means for it, how sure the link is (in words, never a percentage), the
+// red-team finding means for it, where the link comes from (never a probability), the
 // reasons, and the evidence with plain labels. Inferred links are only ever a "candidate";
 // a sister company is "reachable, not tested", never validated itself.
-
-// How sure the link is, in words. Self-reported links are 0.9, DNS candidates 0.5.
-function confidenceWords(confidence: number, candidate: boolean) {
-  if (candidate) return "Medium · candidate link from public DNS";
-  return confidence >= 0.75 ? "High · self-reported link" : "Medium · self-reported link";
-}
 
 // The firm reads about a company, not as it: "for this company", not "for you".
 const FIRM_LABEL: Record<string, string> = {
@@ -43,7 +37,6 @@ export function EvidencePanel({
   const candidate = evidence.evidence.some(
     (e) => e.kind === "source" && e.detail.includes("DNS"),
   );
-  const confidence = confidenceWords(evidence.confidence, candidate);
   const { path } = evidence;
   // Shown in their own blocks above, so not repeated in the evidence list.
   const shownAbove = new Set(path ? ["what_to_check", "path", "technique"] : []);
@@ -84,6 +77,7 @@ export function EvidencePanel({
         </section>
       )}
 
+
       {path && (
         <section className="mb-4 space-y-1 text-sm">
           <h3 className="text-xs font-semibold tracking-wider text-ash uppercase">
@@ -98,30 +92,16 @@ export function EvidencePanel({
         </section>
       )}
 
-      <div className="mb-4">
-        <div className="mb-1 flex justify-between gap-3 text-xs text-ash">
-          <span>How sure the link is</span>
-          <span>{confidence}</span>
-        </div>
-        <div
-          className="h-1.5 rounded-full bg-graphite"
-          role="meter"
-          aria-label="How sure the link is"
-          aria-valuemin={0}
-          aria-valuemax={1}
-          aria-valuenow={evidence.confidence}
-          aria-valuetext={confidence}
-        >
-          <div
-            className={`h-full rounded-full ${candidate ? "bg-ash" : "bg-paper"}`}
-            style={{ width: `${evidence.confidence * 100}%` }}
-          />
-        </div>
-      </div>
+      <p className="mb-4 text-sm text-ash">
+        {candidate
+          ? "Candidate link · inferred from public DNS, not confirmed"
+          : "Self-reported link · supplied during onboarding"}
+      </p>
 
       <h3 className="mb-1 text-xs font-semibold tracking-wider text-ash uppercase">
         Reasons
       </h3>
+
       <ul className="mb-4 list-disc space-y-1 pl-5 text-sm">
         {evidence.reasons.map((r) => (
           <li key={r}>{r}</li>

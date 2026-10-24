@@ -7,8 +7,10 @@ import { mcpHandler, mcpMethodNotAllowed } from "./mcp";
 import { toHex } from "./shared";
 import { parseFinding } from "./findings";
 import { isPresenter } from "./access";
+import { sandboxAccess } from "./sandbox";
 
 const http = httpRouter();
+http.route({ path: "/sandbox/resource", method: "GET", handler: sandboxAccess });
 
 // Convex Auth sign-in endpoints (JWT issuance, JWKS).
 auth.addHttpRoutes(http);
@@ -91,6 +93,13 @@ http.route({
       return json(400, { error: "body must be an object" });
     }
     const raw = body as Record<string, unknown>;
+    if (raw.assessment !== undefined && raw.assessment !== "observation" && raw.assessment !== "confirmed") {
+      return json(400, { error: "assessment must be observation or confirmed" });
+    }
+    const evidenceRefs = raw.evidenceRefs ?? [];
+    if (!Array.isArray(evidenceRefs) || evidenceRefs.length > 20 || evidenceRefs.some((ref) => typeof ref !== "string" || !ref.trim() || ref.length > 300)) {
+      return json(400, { error: "evidenceRefs must contain at most 20 nonempty reference strings of at most 300 characters" });
+    }
 
     // Optional validated red-team finding (our schema, convex/findings.ts). It fills in the
     // incident fields the sender left out and must agree with any it gave.
@@ -139,6 +148,11 @@ http.route({
             reportedByDomain: fields.reportedByDomain || parsed?.organizationDomain,
             summary: fields.summary || undefined,
             finding: parsed?.finding,
+            // HMAC authenticates a sender, not its conclusions. The operator must separately
+            // enroll a detector for automatic response; generic signed signals stay observations.
+            assessment: env.INCIDENT_AUTO_RESPONSE === "true" && raw.assessment === "confirmed" && evidenceRefs.length > 0
+              ? "confirmed" : "observation",
+            evidenceRefs,
           }
         : demo!,
     );

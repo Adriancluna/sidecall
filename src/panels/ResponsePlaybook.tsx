@@ -50,7 +50,7 @@ export function PlanSteps({ incidentId }: { incidentId: Id<"incidents"> }) {
     <div className="mt-6 rounded-xl border border-line bg-graphite p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-xs font-semibold tracking-wider text-ash uppercase">Your pre-approved steps</h2>
-        <span className="text-xs text-ash">From your response playbook · connector simulated in this demo</span>
+        <span className="text-xs text-ash">From your response playbook · execution type shown per step</span>
       </div>
       <ul className="mt-3 space-y-3">
         {plan.map((p) => (
@@ -76,7 +76,7 @@ export function PlanSteps({ incidentId }: { incidentId: Id<"incidents"> }) {
                   (p.approvedByName ? ` Run by ${p.approvedByName}.` : " Your company pre-approved this.")}
               </p>
               {p.capNote && <p className="mt-0.5 text-xs text-amber">{p.capNote}</p>}
-              <p className="mt-0.5 text-xs text-ash/80">Stands for: {p.wouldCall}</p>
+              <p className="mt-0.5 text-xs text-ash/80">{p.executionMode === "sandbox" ? "Applied to an owned sandbox resource; external identity providers are not connected." : `Simulated · stands for: ${p.wouldCall}`}</p>
             </div>
             <div className="flex shrink-0 gap-2">
               {p.canApprove && p.stepId && (
