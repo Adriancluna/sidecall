@@ -76,6 +76,13 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 ## Status update (~2:45am): "What to check" (last backend feature before hardening)
 Team decision (Adrian): **no more new features**; focus on precision, the $480K moment, and the red-team finding. One gap closed: an exposed company's IT lead now gets a concrete check, not just "rotate and review". `getExposureEvidence().path.whatToCheck` / evidence kind `what_to_check` / `getWritingContext().companyAlerts[].whatToCheck`, e.g. "What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong." (Harborline, which gives admin access, gets "Ask Ironclad Managed IT to rotate the admin account it uses for you…"). 55 tests, rehearsal 25/25. From here Role 1 = demo hardening + support for the video.
 
+## Site password gate (Adrian asked, Oct 24)
+New `src/auth/SiteGate.tsx` wraps the whole app in `src/App.tsx` (one wrapper change; **Marco, it's your file, FYI**).
+- Password: **`sidecall-password`**. Only its SHA-256 is in the bundle, and it's remembered per browser in localStorage.
+- It's a door sign for the demo, not security. Convex auth and the presenter key are unchanged.
+- The rehearsal script talks to Convex directly, so it's unaffected.
+- Put the password in the Devpost "Try it" line with the link.
+
 ## → Pegasus: #120 reviewed; purchasing revived for Visa (Adrian, Oct 24)
 - **#120 (detector source controls):** no Critical/High findings. Two Medium fixes plus three cheap Lows must land before merge; the full written review is on the PR. Role 1 re-runs the suite and the rehearsal, then merges.
 - **Purchasing (#113): Adrian says revive it for the Visa track.** Rebase onto main after #120, open a fresh PR, and add a *real* Claude assistant step: read the source document and call the scoped MCP tools. The Visa brief requires meaningful generative AI and provides no Visa API. Full instructions are in issue #118.

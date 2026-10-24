@@ -8,6 +8,7 @@ import {
 import { useEffect } from "react";
 import { api } from "../convex/_generated/api";
 import { SignInScreen } from "./auth/SignInScreen";
+import { SiteGate } from "./auth/SiteGate";
 import { PresenterPanel } from "./demo/PresenterPanel";
 import { IS_STAGE } from "./demo/stage";
 import { AppShell } from "./layout/AppShell";
@@ -56,7 +57,7 @@ function SignedIn() {
 
 export default function App() {
   return (
-    <>
+    <SiteGate>
       <AuthLoading>
         <PageLoading />
       </AuthLoading>
@@ -69,6 +70,6 @@ export default function App() {
         </ErrorBoundary>
       </Authenticated>
       {IS_STAGE && <PresenterPanel />}
-    </>
+    </SiteGate>
   );
 }
