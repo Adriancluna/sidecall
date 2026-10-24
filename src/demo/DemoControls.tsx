@@ -20,6 +20,10 @@ const SITE_URL =
     ".convex.site",
   );
 
+// Reset wipes the portfolio, so it only shows for the presenter (open the app with ?stage).
+// The real guard is DEMO_MODE on the deployment; this just keeps judges from hitting it.
+const IS_STAGE = new URLSearchParams(window.location.search).has("stage");
+
 const BUTTON =
   "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50";
 
@@ -87,19 +91,21 @@ export function DemoControls() {
       >
         Replay webhook
       </button>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() =>
-          void run("Reset", async () => {
-            await resetDemo({});
-            return "portfolio reseeded.";
-          })
-        }
-        className={`${BUTTON} border-transparent text-ash hover:text-paper`}
-      >
-        Reset
-      </button>
+      {IS_STAGE && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() =>
+            void run("Reset", async () => {
+              await resetDemo({});
+              return "portfolio reseeded.";
+            })
+          }
+          className={`${BUTTON} border-transparent text-ash hover:text-paper`}
+        >
+          Reset
+        </button>
+      )}
       {status && (
         <span role="status" className="text-xs text-ash">
           {status}
