@@ -8,6 +8,7 @@ import { AcknowledgedBy } from "./AcknowledgedBy";
 import { BillsPanel } from "./BillsPanel";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
+import { EXPOSURE_STATUS, URGENCY } from "./labels";
 import { LedgerPanel } from "./LedgerPanel";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { TimelinePanel } from "./TimelinePanel";
@@ -16,10 +17,11 @@ import { Card, Chip, Empty } from "./ui";
 type Props = {
   companyId: Id<"companies">;
   meId: Id<"users">;
-  isController: boolean;
+  role: Doc<"users">["role"];
 };
 
-export function CompanyView({ companyId, meId, isController }: Props) {
+export function CompanyView({ companyId, meId, role }: Props) {
+  const isController = role === "controller";
   const company = useQuery(api.blastRadius.listCompanies, {})?.find(
     (c) => c._id === companyId,
   );
@@ -35,6 +37,18 @@ export function CompanyView({ companyId, meId, isController }: Props) {
   );
   const held = useQuery(api.payments.getHeldPayments, {});
   const latestIncident = useQuery(api.blastRadius.listIncidents, {})?.[0];
+  // Clerks and controllers act on payments, so the decision leads (it's the money moment);
+  // IT acts on alerts, so Acknowledge stays on top and "Decision needed" isn't theirs.
+  const handlesPayments = role === "ap_clerk" || isController;
+  const heldPanel = held && held.length > 0 && (
+    <HeldPaymentsPanel
+      title="Payments held until verified"
+      rows={held}
+      escalations={handlesPayments ? escalations : undefined}
+      canDecide
+      viewer={{ id: meId, isController }}
+    />
+  );
 
   return (
     <div className="space-y-6">
@@ -50,16 +64,7 @@ export function CompanyView({ companyId, meId, isController }: Props) {
         )}
       </header>
 
-      {/* The decision comes first: it's the money moment and needs no scrolling. */}
-      {held && held.length > 0 && (
-        <HeldPaymentsPanel
-          title="Payments held until verified"
-          rows={held}
-          escalations={escalations}
-          canDecide
-          viewer={{ id: meId, isController }}
-        />
-      )}
+      {handlesPayments && heldPanel}
 
       <Card title="Alerts">
         {exposures === undefined ? (
@@ -81,6 +86,8 @@ export function CompanyView({ companyId, meId, isController }: Props) {
           </div>
         )}
       </Card>
+
+      {!handlesPayments && heldPanel}
 
       <BillsPanel />
 
@@ -135,13 +142,13 @@ function AlertItem({ exposure, alert }: AlertItemProps) {
   return (
     <article className="rounded-lg border border-line bg-graphite p-4">
       <div className="mb-2 flex items-center gap-2">
-        <Chip tone={exposure.urgency === "urgent" ? "danger" : "amber"}>
-          {exposure.urgency}
+        <Chip tone={URGENCY[exposure.urgency].tone}>
+          {URGENCY[exposure.urgency].label}
         </Chip>
-        <Chip tone="muted">{exposure.status}</Chip>
+        <Chip tone="muted">{EXPOSURE_STATUS[exposure.status]}</Chip>
         <AcknowledgedBy userId={exposure.acknowledgedBy} />
       </div>
-      <p className="text-sm leading-relaxed">
+      <p className="max-w-prose text-sm leading-relaxed">
         {alert?.status === "ready" ? alert.body : "Writing your alert…"}
       </p>
       {exposure.status !== "closed" && (

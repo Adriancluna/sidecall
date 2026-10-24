@@ -6,15 +6,8 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { friendlyError } from "../layout/errors";
 import { money } from "./format";
+import { PAYMENT_STATUS } from "./labels";
 import { Card, Chip, Empty } from "./ui";
-
-const STATUS = {
-  pending: { tone: "muted", label: "Pending" },
-  held: { tone: "amber", label: "Held until verified" },
-  paid: { tone: "ok", label: "Paid" },
-  released: { tone: "ok", label: "Released" },
-  rejected: { tone: "danger", label: "Rejected" },
-} as const;
 
 const shortDate = (ms: number) =>
   new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -52,7 +45,7 @@ type RowProps = {
   vendorName: string;
   amountCents: number;
   dueDate: number;
-  status?: keyof typeof STATUS;
+  status?: keyof typeof PAYMENT_STATUS;
 };
 
 function BillRow({
@@ -115,7 +108,9 @@ function BillRow({
             {money(amountCents)}
           </span>
           {status ? (
-            <Chip tone={STATUS[status].tone}>{STATUS[status].label}</Chip>
+            <Chip tone={PAYMENT_STATUS[status].tone}>
+              {PAYMENT_STATUS[status].label}
+            </Chip>
           ) : (
             <button
               type="button"

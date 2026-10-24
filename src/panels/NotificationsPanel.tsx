@@ -18,12 +18,12 @@ const EVENTS: Record<Scope, Event[]> = {
   firm: ["incident", "contained"],
 };
 
-const STATUS_TONE = {
-  queued: "muted",
-  sending: "muted",
-  simulated: "amber",
-  sent: "ok",
-  failed: "danger",
+const STATUS = {
+  queued: { tone: "muted", label: "Queued" },
+  sending: { tone: "muted", label: "Sending" },
+  simulated: { tone: "amber", label: "Simulated" },
+  sent: { tone: "ok", label: "Sent" },
+  failed: { tone: "danger", label: "Failed" },
 } as const;
 
 type Props = {
@@ -261,9 +261,13 @@ function Outbox({ incidentId }: { incidentId?: Id<"incidents"> }) {
                 </span>
                 <span className="font-medium">{r.channelLabel}</span>
                 <span className="font-mono text-xs">{r.event}</span>
-                <Chip tone={STATUS_TONE[r.status]}>{r.status}</Chip>
+                <Chip tone={STATUS[r.status].tone}>
+                  {STATUS[r.status].label}
+                </Chip>
               </div>
-              <p className="mt-0.5 line-clamp-2 whitespace-pre-line text-ash">{r.text}</p>
+              <p className="mt-0.5 line-clamp-2 whitespace-pre-line text-ash">
+                {r.text}
+              </p>
               {r.error && <p className="text-xs text-danger">{r.error}</p>}
             </li>
           ))}

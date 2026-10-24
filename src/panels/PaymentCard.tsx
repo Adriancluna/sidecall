@@ -7,24 +7,9 @@ import { api } from "../../convex/_generated/api";
 import { friendlyError } from "../layout/errors";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { dateTime, money } from "./format";
+import { PAYMENT_STATUS } from "./labels";
 import type { HeldPaymentRow } from "./types";
 import { Chip } from "./ui";
-
-const STATUS_TONE = {
-  held: "amber",
-  paid: "ok",
-  rejected: "danger",
-  pending: "muted",
-  released: "ok",
-} as const;
-
-const STATUS_LABEL = {
-  held: "Held until verified",
-  paid: "Released",
-  rejected: "Rejected",
-  pending: "Pending",
-  released: "Released",
-} as const;
 
 // Who is looking, so the instructions address the right person (the backend enforces the rules).
 export type Viewer = { id: Id<"users">; isController: boolean };
@@ -54,7 +39,7 @@ export function PaymentCard({ row, canDecide, escalation, viewer }: Props) {
   // Captured once: "due in about N hours" doesn't need to tick.
   const [now] = useState(() => Date.now());
   const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"release" | "reject">();
   const [refusal, setRefusal] = useState<string>();
 
   const decide = async (action: "release" | "reject") => {
@@ -66,8 +51,12 @@ export function PaymentCard({ row, canDecide, escalation, viewer }: Props) {
       action === "release"
         ? `Release ${money(payment.amountCents)} to ${row.vendorName} account ••${payment.accountLast4}${changed}?`
         : `Reject the ${money(payment.amountCents)} payment to ${row.vendorName}? This is final.`;
-    if (!window.confirm(question)) return;
-    setBusy(true);
+    // Only a controller who didn't request it can decide; everyone else goes straight to the
+    // backend's refusal (demo beat 3), without a dialog in the way.
+    const canActuallyDecide =
+      viewer?.isController === true && viewer.id !== payment.requestedBy;
+    if (canActuallyDecide && !window.confirm(question)) return;
+    setBusy(action);
     setRefusal(undefined);
     try {
       const args = { paymentId: payment._id };
@@ -80,7 +69,7 @@ export function PaymentCard({ row, canDecide, escalation, viewer }: Props) {
     } catch (err) {
       setRefusal(friendlyError(err));
     } finally {
-      setBusy(false);
+      setBusy(undefined);
     }
   };
 
@@ -111,31 +100,39 @@ export function PaymentCard({ row, canDecide, escalation, viewer }: Props) {
       releases or rejects.
     </>
   );
-  const hoursLeft =
-    payment.dueDate === undefined
-      ? undefined
-      : Math.max(0, Math.round((payment.dueDate - now) / HOUR));
+  const msLeft =
+    payment.dueDate === undefined ? undefined : payment.dueDate - now;
+  const dueIn =
+    msLeft === undefined
+      ? ""
+      : msLeft < HOUR
+        ? " · due within the hour"
+        : ` · due in about ${Math.round(msLeft / HOUR)} ${Math.round(msLeft / HOUR) === 1 ? "hour" : "hours"}`;
   return (
     <article className="rounded-lg border border-line bg-graphite p-4">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <p className="text-4xl font-semibold tracking-tight tabular-nums md:text-5xl">
+          {/* Big for the person deciding; smaller in the firm's grid so the headline leads. */}
+          <p
+            className={`font-semibold tracking-tight tabular-nums ${viewer ? "text-4xl md:text-5xl" : "text-2xl"}`}
+          >
             {money(payment.amountCents)}
           </p>
           <p className="text-sm text-ash">
-            {row.companyName} → {row.vendorName} · account ••
-            {payment.accountLast4}
+            {row.companyName} → {row.vendorName}
+            {/* With a bank change, the block below already shows the account. */}
+            {!row.bankChange && ` · account ••${payment.accountLast4}`}
           </p>
         </div>
-        <Chip tone={STATUS_TONE[payment.status]}>
-          {STATUS_LABEL[payment.status]}
+        <Chip tone={PAYMENT_STATUS[payment.status].tone}>
+          {PAYMENT_STATUS[payment.status].label}
         </Chip>
       </header>
 
       {escalation && isHeld && (
         <p role="status" className="mt-3 text-sm font-semibold text-amber">
           Decision needed
-          {hoursLeft !== undefined && ` · due in about ${hoursLeft} hours`}
+          {dueIn}
         </p>
       )}
 
@@ -158,10 +155,12 @@ export function PaymentCard({ row, canDecide, escalation, viewer }: Props) {
         <div className="mt-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">
           <p className="font-mono text-base">
             {/* "Old" = last account confirmed by phone; fall back to the change before this one. */}
-            ••
-            {row.bankChange.lastVerifiedAccountLast4 ??
-              row.bankChange.previousAccountLast4 ??
-              "????"}{" "}
+            <span className="text-ash">
+              ••
+              {row.bankChange.lastVerifiedAccountLast4 ??
+                row.bankChange.previousAccountLast4 ??
+                "????"}
+            </span>{" "}
             → ••{row.bankChange.accountLast4}
           </p>
           <p className="mt-1">
@@ -218,19 +217,19 @@ export function PaymentCard({ row, canDecide, escalation, viewer }: Props) {
           <div className="flex gap-2">
             <button
               type="button"
-              disabled={busy || note.trim() === ""}
+              disabled={busy !== undefined || note.trim() === ""}
               onClick={() => void decide("release")}
               className="rounded-md bg-amber px-3 py-1.5 text-sm font-semibold text-graphite disabled:opacity-50"
             >
-              Release payment
+              {busy === "release" ? "Releasing…" : "Release payment"}
             </button>
             <button
               type="button"
-              disabled={busy}
+              disabled={busy !== undefined}
               onClick={() => void decide("reject")}
               className="rounded-md border border-line px-3 py-1.5 text-sm hover:border-ash disabled:opacity-50"
             >
-              Reject
+              {busy === "reject" ? "Rejecting…" : "Reject"}
             </button>
           </div>
         </div>

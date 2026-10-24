@@ -11,6 +11,7 @@ import { ApImportPanel } from "./ApImportPanel";
 import { ContainPanel } from "./ContainPanel";
 import { ControlsLogPanel } from "./ControlsLogPanel";
 import { HeldPaymentsPanel } from "./HeldPaymentsPanel";
+import { EXPOSURE_STATUS, PAYMENT_STATUS, URGENCY } from "./labels";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { ProofPanel } from "./ProofPanel";
 import { TimelinePanel } from "./TimelinePanel";
@@ -150,10 +151,8 @@ export function PortfolioView() {
                       </span>
                       <span className="flex gap-1">
                         {r.bankChange && <Chip tone="danger">bank change</Chip>}
-                        <Chip
-                          tone={r.payment.status === "held" ? "amber" : "muted"}
-                        >
-                          {r.payment.status}
+                        <Chip tone={PAYMENT_STATUS[r.payment.status].tone}>
+                          {PAYMENT_STATUS[r.payment.status].label}
                         </Chip>
                       </span>
                     </li>
@@ -176,16 +175,18 @@ export function PortfolioView() {
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span className="font-medium">{node?.name}</span>
                   {node?.urgency && (
-                    <Chip tone={node.urgency === "urgent" ? "danger" : "amber"}>
-                      {node.urgency}
+                    <Chip tone={URGENCY[node.urgency].tone}>
+                      {URGENCY[node.urgency].label}
                     </Chip>
                   )}
-                  {node?.status && <Chip tone="muted">{node.status}</Chip>}
+                  {node?.status && (
+                    <Chip tone="muted">{EXPOSURE_STATUS[node.status]}</Chip>
+                  )}
                   {alert.exposureId && (
                     <ExposureAcknowledgedBy exposureId={alert.exposureId} />
                   )}
                 </div>
-                <p className="text-sm leading-relaxed">
+                <p className="max-w-prose text-sm leading-relaxed">
                   {alert.status === "ready" ? alert.body : "Writing alert…"}
                 </p>
               </li>
