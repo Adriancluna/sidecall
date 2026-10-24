@@ -7,6 +7,7 @@ The data shapes and function signatures every role builds against. Owned by Role
 
 ## Changelog
 
+- **Oct 23, ~8pm.** **`actingUserId` removed from every function** (identity = signed-in session only; `REQUIRE_SESSION` is gone, always on). Sign-up only accepts the demo password. New `payments.getIncidentAudit` (controls log). `data/scorecard.json` format defined (see "Scorecard").
 - **Oct 23, ~7:45pm.** `getHeldPayments` `bankChange` gained `previousAccountLast4` and `lastVerifiedAccountLast4` (for Role 2's old-vs-new flag).
 - **Oct 23, ~7:30pm.** `REQUIRE_SESSION=true` (deployment env) turns off the `actingUserId` fallback: only signed-in users get data. `links.detail?` holds the DNS record behind a `dns_inferred` link and shows up in exposure evidence. `data/dns_links.json` is imported by the seed (see "DNS links").
 - **Oct 23, ~7:20pm.** Login (Convex Auth, email + password) on the backend. `actingUserId` is now **optional** everywhere: a signed-in session always wins and the arg is ignored; without a session the arg is the fallback. New query `api.access.me`. Users have `email`. See "Sign-in" below.
@@ -94,10 +95,10 @@ All money is integer cents. All times are ms since epoch.
 
 Module prefix in brackets: `api.blastRadius.listIncidents`, etc. `null` means "none" (Convex has no `undefined`).
 
-**Every query and mutation takes `actingUserId`** (the demo user switcher's current user; pick from `listUsers`). The backend scopes to that viewer:
+**Identity comes only from the signed-in session.** No function takes a user id. The backend scopes every call to the signed-in person:
 - `pe_partner` (Jordan Ames, Northpass Capital) = PE firm view: sees every company, the map and who reported. Cannot acknowledge or release.
 - Anyone else sees only their own company. Passing another company's id returns your own data (or nothing), never theirs.
-- **When signed in, the session decides who you are and `actingUserId` is ignored** (a spoofed id can't act as someone else). `actingUserId` stays optional only until the UI signs everyone in; then it's removed.
+- Signed out: every scoped function throws "Not signed in". Public (no sign-in needed): `listCompanies`, `listUsers`, `listAssets`, `access.me` (returns null).
 
 ## Sign-in (Convex Auth, Password provider)
 
@@ -106,16 +107,16 @@ Module prefix in brackets: `api.blastRadius.listIncidents`, etc. `null` means "n
 - Client: wrap the app in `ConvexAuthProvider` from `@convex-dev/auth/react` (instead of `ConvexProvider`), then `const { signIn, signOut } = useAuthActions()`.
   - First time for an email: `signIn("password", { email, password, flow: "signUp" })`. Afterwards: `flow: "signIn"`. A "Sign in as" quick-pick can try `signIn` and fall back to `signUp`.
 - `api.access.me` → `null | { _id, name, email, role, companyId, companyName }`. Use it to choose PE vs company view.
-- `REQUIRE_SESSION=true` on a deployment turns the `actingUserId` fallback off entirely.
+- Sign-up only accepts the demo password, so a first sign-in with any other password can't lock a person out of the quick-pick.
 - `seed.resetDemo` also wipes sign-ins (users are recreated), so everyone is signed out after a reset.
 
 ```ts
-[blastRadius] listIncidents({ actingUserId }) -> { _id, externalId, assetId, createdAt, assetName, vendorName,
+[blastRadius] listIncidents() -> { _id, externalId, assetId, createdAt, assetName, vendorName,
                                                   reportedByCompanyId | null, summary | null }[]
                                                 // firm: all, newest first. company: only incidents that touch it,
                                                 // reportedByCompanyId and summary always null
 
-[blastRadius] getBlastRadius({ incidentId, actingUserId }) -> null | {   // PE firm only; null for company users
+[blastRadius] getBlastRadius({ incidentId }) -> null | {   // PE firm only; null for company users
   incident: Incident & { reportedByName: string | null },
   asset,
   nodes: { companyId, name, headcount, exposed,
@@ -126,13 +127,13 @@ Module prefix in brackets: `api.blastRadius.listIncidents`, etc. `null` means "n
   totals: { companiesExposed, peopleExposed, heldCents, paymentsHeld }
 }
 
-[blastRadius] getExposureEvidence({ exposureId, actingUserId }) -> null | { exposureId, incidentId, companyId,
+[blastRadius] getExposureEvidence({ exposureId }) -> null | { exposureId, incidentId, companyId,
                                        reasons, confidence, evidence, urgency, score, status, acknowledgedBy | null }
-[blastRadius] getMyExposures({ actingUserId }) -> Exposure[]       // company user's home screen; [] for the firm
-[blastRadius] listCompanies() · listUsers({ companyId? }) · listAssets()   // pickers / demo user switcher (no actingUserId)
+[blastRadius] getMyExposures() -> Exposure[]       // company user's home screen; [] for the firm
+[blastRadius] listCompanies() · listUsers({ companyId? }) · listAssets()   // sign-in quick-pick directory (public)
 [access]      me() -> null | { _id, name, email, role, companyId, companyName }
 
-[payments] getHeldPayments({ actingUserId, incidentId?, companyId? }) -> {   // every payment the incident held, incl. later paid/rejected
+[payments] getHeldPayments({ incidentId?, companyId? }) -> {   // every payment the incident held, incl. later paid/rejected
                                                                          // companyId is a firm-only filter
   payment, companyName, vendorName, phoneOnFile,
   bankChange: null | { changedAt, accountLast4, requestChannel, daysBeforeIncident,
@@ -141,31 +142,35 @@ Module prefix in brackets: `api.blastRadius.listIncidents`, etc. `null` means "n
   holdReasons, notice: string | null
 }[]
 
-[payments] getPaymentAudit({ paymentId, actingUserId }) -> AuditLog[]
+[payments] getPaymentAudit({ paymentId }) -> AuditLog[]
 
-[payments] getLedger({ actingUserId, companyId? }) -> null | {      // company users: own ledger; firm: pass companyId
+[payments] getLedger({ companyId? }) -> null | {      // company users: own ledger; firm: pass companyId
   entries: LedgerEntry[],                                    // newest first
   balances: { cash, accounts_payable, expense, equity }      // cents, natural sign
 }
 
-[alerts] getMyAlerts({ actingUserId }) -> Alert[]            // only that user's company
-[alerts] getIncidentAlerts({ incidentId, actingUserId }) -> Alert[]   // PE firm only, includes vendor_letter
+[payments] getIncidentAudit({ incidentId }) -> { _id, at, action, rule, reason, paymentId | null,
+                                                 actorName ("System" or a person), companyName | null }[]
+                                             // controls log, newest first: firm = whole portfolio, company = own rows
+
+[alerts] getMyAlerts() -> Alert[]            // only that user's company
+[alerts] getIncidentAlerts({ incidentId }) -> Alert[]   // PE firm only, includes vendor_letter
 ```
 
 ## Mutations (UI)
 
 ```ts
-[incidents] acknowledgeExposure({ exposureId, actingUserId }) -> { ok: true } | { ok: false, reason: "not_found" | "not_your_company" | "already_acknowledged" | "closed" }
-[incidents] closeExposure({ exposureId, actingUserId })       -> same shape
+[incidents] acknowledgeExposure({ exposureId }) -> { ok: true } | { ok: false, reason: "not_found" | "not_your_company" | "already_acknowledged" | "closed" }
+[incidents] closeExposure({ exposureId })       -> same shape
 [seed]      resetDemo({}) -> counts                          // "Reset demo" button; throws unless DEMO_MODE=true on the deployment
 
-[payments] releasePayment({ paymentId, actingUserId, verificationNote }) -> { ok: true } | { ok: false, reason: string }
-[payments] rejectPayment({ paymentId, actingUserId, note? })             -> same shape
+[payments] releasePayment({ paymentId, verificationNote }) -> { ok: true } | { ok: false, reason: string }
+[payments] rejectPayment({ paymentId, note? })             -> same shape
 ```
 
 `reason` is human-readable; show it as-is (e.g. "The person who requested a payment cannot also approve it.").
 
-`actingUserId` is temporary. Once login lands it is removed and identity comes from `ctx.auth`.
+Identity for every mutation is the signed-in session.
 
 ## Internal (Role 4 calls)
 
@@ -200,6 +205,26 @@ internal.scoring.exportOutcomes({ externalId }) -> { incidentId, payments: { see
 - `companyDomain` must equal a seed company's `domain`, `assetName` a seed asset's `name`. Unmatched entries and pairs that already have a self-reported link are skipped; `seed:run` returns `dnsImported` and `dnsSkipped`.
 - Every entry becomes `shareType: "same_vendor_only"`, `source: "dns_inferred"` (lower score and confidence; shown as "candidate").
 - ⚠ A DNS link to **Brightline Payroll** adds an exposed company to the main demo and changes the headline (3 / 4,200 / $612K) and the answer key. Don't, unless Role 1 updates both.
+
+## Scorecard (Role 4 → UI)
+
+`data/scorecard.json` (Role 4 owns it; placeholder `{ "generatedAt": null, "scenarios": [] }` until then). The UI imports it directly:
+
+```ts
+{
+  generatedAt: string | null,              // ISO time the script ran
+  scenarios: {
+    externalId: string,                    // e.g. "demo-brightline-001"
+    caught: number,                        // expected hold/flag and the system did it
+    missed: number,                        // expected hold/flag, system didn't
+    falseHolds: number,                    // expected no_action, system held or flagged
+    correctNoAction: number,               // expected no_action, system left it alone
+    cases: { ref: string, type: "payment" | "bankChange", expected: "hold_and_flag" | "hold_no_flag" | "no_action",
+             actual: "hold_and_flag" | "hold_no_flag" | "no_action",
+             result: "caught" | "missed" | "false_hold" | "correct_no_action", why: string }[]
+  }[]
+}
+```
 
 ## Demo data commands
 

@@ -5,8 +5,21 @@ import { Password } from "@convex-dev/auth/providers/Password";
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
 
+// Every person is simulated, so demo accounts share one password, shown on the sign-in screen.
+// Enforcing it at sign-up stops a first sign-in with another password from locking that
+// person to it (which would break the stage quick-pick until a Reset).
+export const DEMO_PASSWORD = "sidecall-demo";
+
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
-  providers: [Password],
+  providers: [
+    Password({
+      validatePasswordRequirements(password: string) {
+        if (password !== DEMO_PASSWORD) {
+          throw new ConvexError("Demo accounts use the shared demo password shown on the sign-in screen.");
+        }
+      },
+    }),
+  ],
   callbacks: {
     async createOrUpdateUser(genericCtx, args) {
       if (args.existingUserId) return args.existingUserId;

@@ -1,9 +1,8 @@
-// Who is looking, and what they may see. The signed-in session (Convex Auth) always wins.
-// actingUserId is the pre-login demo switcher, accepted only when there is no session and
-// REQUIRE_SESSION is not "true". Flip REQUIRE_SESSION on once the UI signs everyone in.
+// Who is looking, and what they may see. Identity comes only from the signed-in Convex Auth
+// session; no function accepts a user id from the client.
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError } from "convex/values";
-import { env, query } from "./_generated/server";
+import { query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 
@@ -13,11 +12,8 @@ export type Viewer =
 
 export async function getViewer(
   ctx: Pick<QueryCtx, "db" | "auth">,
-  actingUserId?: Id<"users">,
 ): Promise<Viewer> {
-  const sessionUserId = await getAuthUserId(ctx);
-  const userId =
-    sessionUserId ?? (env.REQUIRE_SESSION === "true" ? null : actingUserId);
+  const userId = await getAuthUserId(ctx);
   if (!userId) throw new ConvexError("Not signed in");
   const user = await ctx.db.get("users", userId);
   if (!user) throw new ConvexError("Unknown user");

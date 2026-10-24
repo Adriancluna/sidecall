@@ -146,9 +146,8 @@ type StatusChange =
 async function loadOwnExposure(
   ctx: MutationCtx,
   exposureId: Id<"exposures">,
-  actingUserId: Id<"users"> | undefined,
 ): Promise<Doc<"exposures"> | "not_found" | "not_your_company"> {
-  const viewer = await getViewer(ctx, actingUserId);
+  const viewer = await getViewer(ctx);
   const exposure = await ctx.db.get("exposures", exposureId);
   if (!exposure) return "not_found";
   if (viewer.firm || viewer.companyId !== exposure.companyId) return "not_your_company";
@@ -158,13 +157,13 @@ async function loadOwnExposure(
 // Two browsers clicking at once: Convex serializes the transactions, the second
 // one re-reads "acknowledged" and returns ok: false. Exactly one wins.
 export const acknowledgeExposure = mutation({
-  args: { exposureId: v.id("exposures"), actingUserId: v.optional(v.id("users")) },
+  args: { exposureId: v.id("exposures") },
   handler: async (ctx, args): Promise<StatusChange> => {
-    const exposure = await loadOwnExposure(ctx, args.exposureId, args.actingUserId);
+    const exposure = await loadOwnExposure(ctx, args.exposureId);
     if (typeof exposure === "string") return { ok: false, reason: exposure };
     if (exposure.status === "acknowledged") return { ok: false, reason: "already_acknowledged" };
     if (exposure.status === "closed") return { ok: false, reason: "closed" };
-    const viewer = await getViewer(ctx, args.actingUserId);
+    const viewer = await getViewer(ctx);
     await ctx.db.patch("exposures", exposure._id, {
       status: "acknowledged",
       acknowledgedBy: viewer.user._id,
@@ -174,9 +173,9 @@ export const acknowledgeExposure = mutation({
 });
 
 export const closeExposure = mutation({
-  args: { exposureId: v.id("exposures"), actingUserId: v.optional(v.id("users")) },
+  args: { exposureId: v.id("exposures") },
   handler: async (ctx, args): Promise<StatusChange> => {
-    const exposure = await loadOwnExposure(ctx, args.exposureId, args.actingUserId);
+    const exposure = await loadOwnExposure(ctx, args.exposureId);
     if (typeof exposure === "string") return { ok: false, reason: exposure };
     if (exposure.status === "closed") return { ok: false, reason: "closed" };
     await ctx.db.patch("exposures", exposure._id, { status: "closed" });

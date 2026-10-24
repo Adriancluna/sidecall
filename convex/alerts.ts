@@ -107,9 +107,9 @@ export const getWritingContext = internalQuery({
 
 // A company's own alerts.
 export const getMyAlerts = query({
-  args: { actingUserId: v.optional(v.id("users")) },
-  handler: async (ctx, args) => {
-    const viewer = await getViewer(ctx, args.actingUserId);
+  args: {},
+  handler: async (ctx) => {
+    const viewer = await getViewer(ctx);
     if (viewer.firm) return [];
     return await ctx.db
       .query("alerts")
@@ -121,9 +121,9 @@ export const getMyAlerts = query({
 
 // PE firm view: every alert for an incident, including the vendor letter.
 export const getIncidentAlerts = query({
-  args: { incidentId: v.id("incidents"), actingUserId: v.optional(v.id("users")) },
+  args: { incidentId: v.id("incidents") },
   handler: async (ctx, args) => {
-    const viewer = await getViewer(ctx, args.actingUserId);
+    const viewer = await getViewer(ctx);
     if (!viewer.firm) return [];
     const kinds = ["company_alert", "vendor_letter", "hold_notice"] as const;
     const groups = await Promise.all(
