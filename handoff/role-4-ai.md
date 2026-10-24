@@ -1,17 +1,32 @@
 # Role 4: AI + scorecard + DNS (Waterloo #2, Omar)
-Last updated: Oct 24, 13:30 by Omar's Claude
 
-## Status (this PR: red-team finding text + scorecard)
+Last updated: Oct 24, 20:15 by Omar's Claude
+
+## Status (this PR: real-world anchors for the pitch)
+
+- **Precedent for the money moment (wording for Role 2, below).** A real public filing matches our hold beat: the Federal Home Loan Bank of New York's 8-K (Item 1.05, filed Mar 1, 2024) says a _fourth-party vendor_ (a vendor of one of its vendors) was compromised, unknown persons tried to fraudulently obtain funds, its operational controls detected it on Feb 21, 2024, and no money was transferred. Not a PE firm and not several companies, so never present it as a portfolio cascade. IC3 2025 (FBI) puts reported business email compromise losses at $3,046,598,558 (top-five table in the annual report).
+- **New `scripts/dns/portfolio.mjs`:** the same detector over one real PE firm's public portfolio list (`scripts/dns/portfolio_domains.json`: `{ source, retrieved, domains }`) → `scripts/dns/portfolio_report.json`, **totals only**: companies per vendor, how many siblings share at least one vendor, and unrecognized MX / SPF include / TXT verification hosts that two or more siblings share (that list is where a shared MSP or remote-access tool would show up). The report names no company or domain. DNS lookups moved into `scripts/dns/resolve.mjs` (shared with `scan.mjs`; `scan.mjs` output unchanged).
+- **DNS works from the cloud container now:** `dns.google` is reachable (only `cloudflare-dns.com` is blocked), so `node scripts/dns/scan.mjs` runs here.
+
+### For Role 2 (Marco): wording, take it or leave it
+
+- **Script, one sentence after the hold (or in the close):** "This has happened for real. In 2024 the Federal Home Loan Bank of New York told the SEC a vendor of one of its vendors was hacked and someone tried to pull money out. Its controls caught it. Sidecall gives every company in a portfolio that check the moment a shared vendor is hit."
+- **Devpost, "Why this matters":** "Precedent: in an 8-K filed March 1, 2024 (Item 1.05), the Federal Home Loan Bank of New York reported that a fourth-party vendor had been compromised and that unknown persons attempted to fraudulently obtain funds; its operational controls detected it and no monies were transferred ([filing](https://www.sec.gov/Archives/edgar/data/1329842/000165495424002505/fhlbny_8k.htm)). Business email compromise cost US businesses about $3.0B in reported losses in 2025 ([FBI IC3 2025 report](https://www.ic3.gov/AnnualReport/Reports/2025_IC3Report.pdf))."
+- Don't say it was a PE portfolio, that several companies were hit, or that Sidecall would have "stopped" it.
+
+## Status (earlier PR: red-team finding text + scorecard)
+
 - ✓ done for Role 1 (asks #4 and #6): **`convex/ai.ts` canned alert** now appends the sister-safe `pathSummary` and then `whatToCheck` (each when non-null; the check replaces the generic "rotate and review" line because it already says what to do). **Canned vendor letter** names the technique with a finding ("An authorized test validated use of T1078 Valid Accounts against Ironclad shared admin account held by a Northpass portfolio company", then tenant-wide rotation, isolation, 30 days of admin-console logs). Latent bug fixed: the canned letter said payments were held even for the credential scenarios, which hold none.
 - **Prompts (`prompts/writing.ts`):** `WritingContext` carries `technique`, `pathSummary`, `whatToCheck`. With a path, the alert prompt tells the model that "validated" always travels with "not tested", never to say the reader was tested, and to keep the `whatToCheck` instruction (asset name + time stamp) as the first step; the letter prompt asks for the spec A4 content. SYSTEM_PROMPT has the finding rule; nothing ever sees `summary` (it names the reporter).
-- **`checkCopy` is kind-aware about "validated":** hold notices never; company alerts only when the incident carries a finding (`finding: true`) *and* the text says "not tested"; vendor letters only with a finding. New: "Armadin" banned in every kind; an alert may not claim the reader was tested ("tested at your company", "validated at <reader>", "validated here", negations allowed). Signature: `checkCopy(kind, text, { phoneOnFile, otherCompanies, urgency?, finding?, readerName? })`.
+- **`checkCopy` is kind-aware about "validated":** hold notices never; company alerts only when the incident carries a finding (`finding: true`) _and_ the text says "not tested"; vendor letters only with a finding. New: "Armadin" banned in every kind; an alert may not claim the reader was tested ("tested at your company", "validated at <reader>", "validated here", negations allowed). Signature: `checkCopy(kind, text, { phoneOnFile, otherCompanies, urgency?, finding?, readerName? })`.
 - **Cache keys unchanged for the 19 existing texts:** the new facts fields are added only when non-null and only after the old keys, so `data/ai_cache.json` entries for the three older scenarios match byte for byte (pinned by tests). `prompts/generate.mjs` now **reuses** a cached body when key + facts match and it still passes today's rules, and only calls the model for the rest (`--regenerate` rewrites everything); fires all four scenarios (`scripts/scorecard/convex.mjs` SCENARIOS, `armadinFinding` last).
 - ✓ **`data/ai_cache.json`: `demo-armadin-004` entries generated** (see the cache's `generatedAt`): 3 company alerts (Cedar Ridge, Granite Peak, Harborline) + 1 vendor letter, no hold notices; the 19 older texts are byte-identical.
 - ✓ done for Role 1 (B3): **`data/scorecard.json` regenerated** against dev after the `*_email_change` rename: Brightline 6/0/0/4 · Ironclad credential 0/0/0/3 · Ironclad MSP 4/0/0/1 (same numbers as before, refs now match the key).
-- **Scorer no longer passes by default (`scripts/scorecard/score.mjs`):** a planted ref that *no* fired scenario exported (renamed/missing seedRef) makes `buildScorecard` throw and `run.mjs` exit 1 without writing the file. A ref another scenario exports but this incident did not touch still scores "left alone" (`exportOutcomes` only returns rows on the incident's own asset: cred-002's planted payments live on Ironclad IT Services).
+- **Scorer no longer passes by default (`scripts/scorecard/score.mjs`):** a planted ref that _no_ fired scenario exported (renamed/missing seedRef) makes `buildScorecard` throw and `run.mjs` exit 1 without writing the file. A ref another scenario exports but this incident did not touch still scores "left alone" (`exportOutcomes` only returns rows on the incident's own asset: cred-002's planted payments live on Ironclad IT Services).
 - **Tests (node:test, outside `npm test` because `vitest.config.ts` only runs `convex/`):** `node --test prompts/writing.test.mjs scripts/scorecard/score.test.mjs` → 16 + 24 green. `npm run lint`, `npm test` (55) green.
 
 ## Status (earlier PRs, still true)
+
 - ✓ **`data/ai_cache.json` generated** (05:17Z, Claude Opus 5.5, dev deployment brainy-cassowary-804): 19 texts. Brightline 8 (3 alerts, 4 hold notices, 1 letter), Ironclad credential 4 (3 alerts, 1 letter, no holds), Ironclad MSP 7 (3 alerts, 3 hold notices, 1 letter). All pass `checkCopy` first try. Checked by hand against CLAUDE.md copy rules: no reporter named, no "fraud"/"block"/"cancel"/"validated", only the phone on file, Bayview's DNS link called a candidate. Re-fired all three on dev after pushing: all 19 AI rows in `alerts` match the cache (the 20th row is Role 1's escalation, not AI).
 - **Prompt fix (`prompts/writing.ts`):** the first run's Ironclad-credential vendor letter said payments were held when that incident holds none, and the credential alerts said "keep them held". The vendor letter now only mentions holds when `paymentsHeld > 0`, and alerts say a payment is held only when the backend's reasons say so. Facts keys unchanged; `npm test` 31 green.
 - **AI writing (`convex/ai.ts`):** same three exports and args; writes each batch with one `saveAlerts` call (✓ done for Role 1), live calls 5 at a time. Text comes from `data/ai_cache.json` first (used only if the facts it was written from still match: urgency, reasons, amount, account, flag), then a live call only when `AI_LIVE=true` + `ANTHROPIC_API_KEY`, then the old canned text. Live text that breaks the copy rules falls back to canned. `npm test` 25 green.
@@ -23,9 +38,11 @@ Last updated: Oct 24, 13:30 by Omar's Claude
 - **`data/dns_links.json` (13 entries):** seed imports 4 new candidate links (Alder → Ledgerly, Summit → Ledgerly, Harborline → Keystone, Pinecrest → Relay); the other 9 pairs already exist in `seed.ts` and are skipped. Checked in convex-test: headlines unchanged (Brightline 3 · 4,200 · $612K; credential 3 · 3,950 · $0; MSP 3 · 4,600 · $116K).
 
 ## In progress
+
 1. Nothing running for Role 4. The UI remake (Marco's handoff in `role-2-frontend.md`, all of `src/`) is on branch `feat/ui-remake`, tracked in `handoff/role-3-map.md`.
 
 ## How to run (dev deployment only)
+
 ```
 npx convex dev --once                       # or set CONVEX_DEPLOY_KEY=dev:… (never prod:)
 ANTHROPIC_API_KEY=… node prompts/generate.mjs   # → data/ai_cache.json (reuses matching texts; --regenerate rewrites all)
@@ -33,15 +50,20 @@ node scripts/scorecard/run.mjs              # → data/scorecard.json (exit 1 an
 node --test prompts/writing.test.mjs scripts/scorecard/score.test.mjs   # Role 4 unit tests
 node scripts/dns/scan.mjs                   # → data/dns_links.json + data/dns_findings.json
 node scripts/dns/scan.mjs --seed-only       # dns_links.json only, no network
+node scripts/dns/portfolio.mjs              # portfolio_domains.json → portfolio_report.json (totals only)
 ```
+
 Each Convex script runs `npx convex dev --once` first (`--no-push` skips it) and reseeds.
 
 ## Needs from others
+
 - → **Role 1 (Adrian), optional:** `internal.alerts.getWritingContext` could return `portfolioCompanyNames: string[]` (every company, reporter included). The live AI path's "names another company" check builds its list from the exposed companies only, so the reporter's name is not on it (the prompts never carry it, so a leak would need a hallucination; `prompts/generate.mjs` already uses `listCompanies`). Must not go into any facts object or the cache keys change.
 - → **Role 1 (Adrian), optional:** add `prompts/**/*.test.mjs` and `scripts/scorecard/*.test.mjs` to a test script if you want them under `npm test` (they are node:test files; `vitest.config.ts` is yours).
 - Nothing else open. Thanks: Role 1's `pathSummary` / `whatToCheck` / `technique` shapes fit as-is.
 
 ## Decisions & gotchas
+
+- Real-company DNS: passive public lookups only (MX, TXT, 11 fixed CNAME names via dns.google). No port scans, subdomain enumeration, crt.sh or anything that touches the companies' own servers. Never name a real company as exposed; real companies never go into the seed, the UI or the video.
 - No new npm packages: the model is called with plain `fetch` (`prompts/writing.ts` → `callClaude`).
 - Day counts are left out of AI text on purpose (they shift if the demo fires a day after seeding); the payment card shows the exact days.
 - `scripts/scorecard/convex.mjs` is shared by the generator and the scorecard (`npx convex run` wrapper + prod guard). Both fire all four scenarios; `demo-armadin-004` has no answer-key entry and is not scored.
