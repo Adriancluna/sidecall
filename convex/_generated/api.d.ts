@@ -13,6 +13,7 @@ import type * as ai from "../ai.js";
 import type * as alerts from "../alerts.js";
 import type * as auth from "../auth.js";
 import type * as blastRadius from "../blastRadius.js";
+import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as incidents from "../incidents.js";
 import type * as payments from "../payments.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   alerts: typeof alerts;
   auth: typeof auth;
   blastRadius: typeof blastRadius;
+  crons: typeof crons;
   http: typeof http;
   incidents: typeof incidents;
   payments: typeof payments;
