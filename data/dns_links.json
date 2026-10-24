@@ -1,1 +1,67 @@
-[]
+[
+  {
+    "companyDomain": "alderfreight.example",
+    "assetName": "Relay Mail",
+    "detail": "MX → mx1.relaymail.example · SPF include:spf.relaymail.example"
+  },
+  {
+    "companyDomain": "alderfreight.example",
+    "assetName": "Keystone SSO",
+    "detail": "CNAME sso.alderfreight.example → alderfreight.keystone-sso.example"
+  },
+  {
+    "companyDomain": "alderfreight.example",
+    "assetName": "Ledgerly AP Portal",
+    "detail": "SPF include:spf.ledgerly.example"
+  },
+  {
+    "companyDomain": "cedarridge.example",
+    "assetName": "Ledgerly AP Portal",
+    "detail": "SPF include:spf.ledgerly.example · TXT ledgerly-domain-verification"
+  },
+  {
+    "companyDomain": "summithomehealth.example",
+    "assetName": "Relay Mail",
+    "detail": "MX → mx.relaymail.example · SPF include:spf.relaymail.example"
+  },
+  {
+    "companyDomain": "summithomehealth.example",
+    "assetName": "Ledgerly AP Portal",
+    "detail": "SPF include:spf.ledgerly.example"
+  },
+  {
+    "companyDomain": "bayviewvet.example",
+    "assetName": "Ledgerly AP Portal",
+    "detail": "SPF include:spf.ledgerly.example"
+  },
+  {
+    "companyDomain": "granitepeak.example",
+    "assetName": "Keystone SSO",
+    "detail": "TXT keystone-site-verification · CNAME login.granitepeak.example → granitepeak.keystone-sso.example"
+  },
+  {
+    "companyDomain": "harborlinefoods.example",
+    "assetName": "Relay Mail",
+    "detail": "MX → mx.relaymail.example · SPF include:spf.relaymail.example"
+  },
+  {
+    "companyDomain": "harborlinefoods.example",
+    "assetName": "Keystone SSO",
+    "detail": "CNAME sso.harborlinefoods.example → harborline.keystone-sso.example"
+  },
+  {
+    "companyDomain": "meridiandental.example",
+    "assetName": "Relay Mail",
+    "detail": "MX → mx1.relaymail.example · SPF include:spf.relaymail.example"
+  },
+  {
+    "companyDomain": "meridiandental.example",
+    "assetName": "Keystone SSO",
+    "detail": "CNAME sso.meridiandental.example → meridian.keystone-sso.example"
+  },
+  {
+    "companyDomain": "pinecreststaffing.example",
+    "assetName": "Relay Mail",
+    "detail": "MX → mx.relaymail.example · SPF include:spf.relaymail.example"
+  }
+]

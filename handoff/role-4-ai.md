@@ -1,59 +1,33 @@
 # Role 4: AI + scorecard + DNS (Waterloo #2, Omar)
-Last updated: Oct 23, 21:05 by Adrian's Claude (current brief, matches `main`; Role 4's Claude owns this file from now on)
+Last updated: Oct 24, 04:30 by Omar's Claude
 
-> **This file replaces any older Role 4 brief** (e.g. `role-4-ai-dns.md` handed out earlier). Where they differ, this file, `CONTRACT.md` and the code on `main` win.
-
-## Status
-- Not started. `convex/ai.ts` is a working stub with canned text; it already runs end to end on every incident.
-
-## Setup (once, on your machine)
-```
-git pull --rebase origin main && npm install
-npx convex dev                                    # your own dev database; keep it running or use --once
-npx @convex-dev/auth --web-server-url http://localhost:5173 --skip-git-check   # login keys for your dev
-npx convex env set DEMO_MODE true                 # Fire / Reset buttons
-npx convex run seed:run                           # demo data
-npm run dev                                       # app; sign in via the quick-pick, password sidecall-demo
-npm test                                          # 21 backend tests, should be green
-```
-
-## Your files
-`convex/ai.ts`, `prompts/`, `scripts/dns/`, `scripts/scorecard/`, `data/dns_links.json`, `data/scorecard.json`, `data/ai_cache.json` (new, see below), `data/dns_findings.json` (new, optional). Anything else in `convex/` is Role 1: ask in "Needs from others".
-
-## 1. AI writing (`convex/ai.ts`)
-- Keep the three exports and their args exactly: `generateAlert({ incidentId })`, `generateVendorLetter({ incidentId })`, `generateHoldNotice({ incidentId })`. Each is an `internalAction`, scheduled **once per incident**; loop inside over every company / payment.
-- Read: `ctx.runQuery(internal.alerts.getWritingContext, { incidentId })` → `{ incidentId, externalId, summary, asset: { name, vendorName, kind, phoneOnFile }, companyAlerts: [{ exposureId, companyId, companyName, urgency, reasons, confidence }], heldPayments: [{ paymentId, companyId, companyName, amountCents, accountLast4, bankChangeFlag, holdReasons }] }`. It never contains the reporting company.
-- Write: `ctx.runMutation(internal.alerts.saveAlert, { incidentId, exposureId?, companyId?, paymentId?, kind, body })` with `kind` = `"company_alert"` (pass `exposureId` + `companyId`), `"vendor_letter"` (no ids), `"hold_notice"` (pass `paymentId` + `companyId`). It upserts and marks the alert ready.
-- Don't write `"escalation"` alerts: the backend does those.
-- **Pre-generated for the demo (nothing on stage hits the network except Convex):** generate text off stage into `data/ai_cache.json`, keyed `"<externalId>|<kind>|<companyName or 'vendor'>"`, and have `ai.ts` `import cache from "../data/ai_cache.json"` and use it first. Only call the model when `env.AI_LIVE === "true"` (read `env` from `./_generated/server`; `ANTHROPIC_API_KEY` and `AI_LIVE` are already declared in `convex/convex.config.ts`). Fall back to the current canned text if neither exists. `fetch` works in Convex actions without `"use node"`.
-- Copy rules: never name the reporting company; hold notices say "held until verified", never "fraud"; tell readers to call the number on file, never one from a recent email; never call a `dns_inferred` link "validated". Urgency comes from the backend (`urgency` field): don't invent it.
-
-## 2. Scorecard (`scripts/scorecard/` → `data/scorecard.json`)
-- Per scenario, on a fresh seed, in this order (the Ironclad credential case expects Ironclad payments untouched, so fire it before the Ironclad MSP one):
-  ```
-  npx convex run seed:run
-  npx convex run seed:fireDemoIncident '{"scenario":"brightline"}'
-  npx convex run seed:fireDemoIncident '{"scenario":"ironcladCredential"}'
-  npx convex run seed:fireDemoIncident '{"scenario":"ironcladMsp"}'
-  npx convex run scoring:exportOutcomes '{"externalId":"demo-brightline-001"}'   # and the other two
-  ```
-- `exportOutcomes` → `{ incidentId, payments: [{ seedRef, status, held, bankChangeFlag }], bankChanges: [{ seedRef, flagged }] }`. Compare to `data/answer_key.json` by `seedRef` (`ref` there). A payment's actual is `hold_and_flag` / `hold_no_flag` / `no_action`; a bank change is `hold_and_flag` if flagged else `no_action`.
-- Write `data/scorecard.json` **exactly** in the CONTRACT.md → "Scorecard" shape (`generatedAt`, `scenarios[]` with `externalId, caught, missed, falseHolds, correctNoAction, cases[{ ref, type, expected, actual, result, why }]`). The Proof panel validates that shape and shows "unreadable" otherwise.
-- Nothing in `convex/` may read `data/answer_key.json`; only your script does.
-
-## 3. DNS links (`scripts/dns/` → `data/dns_links.json`)
-- Shape (CONTRACT.md → "DNS links"): `[{ "companyDomain": "<seed company domain>", "assetName": "<seed asset name>", "detail": "MX → mx.relaymail.example" }]`. The seed imports it on deploy as `same_vendor_only` / `dns_inferred` candidate links; unmatched entries are skipped (`seed:run` reports `dnsImported`, `dnsSkipped`).
-- ⚠ **No links to "Brightline Payroll"** for seed companies: it changes the demo headline (3 · 4,200 · $612K) and the answer key.
-- Seed domains are fictional (`*.example`). If you scan **real** public domains to prove the detection works, put those results in `data/dns_findings.json` (`[{ domain, vendor, record, evidence }]`) for the Proof panel ("real"), and keep `dns_links.json` to seed companies only. Tell Role 2 when it exists.
-
-## 4. If you post to `/incident` yourself
-Unsigned requests are accepted only for the three demo scenarios. Anything else needs `X-Sidecall-Signature: sha256=<hex HMAC-SHA256 of the raw body, key INCIDENT_WEBHOOK_SECRET>`; ask Adrian for the secret.
+## Status (this PR)
+- **AI writing (`convex/ai.ts`):** same three exports and args; writes each batch with one `saveAlerts` call (✓ done for Role 1), live calls 5 at a time. Text comes from `data/ai_cache.json` first (used only if the facts it was written from still match: urgency, reasons, amount, account, flag), then a live call only when `AI_LIVE=true` + `ANTHROPIC_API_KEY`, then the old canned text. Live text that breaks the copy rules falls back to canned. `npm test` 25 green.
+- **Prompts + copy rules (`prompts/writing.ts`):** system prompt, one prompt per kind, cache keys, and `checkCopy` (no "fraud"/"scam"/"validated"/"block"/"cancel", no other company names, no phone number except the one on file, hold notices must say "held until verified", alerts must start "Urgent:"/"Advisory:" from the backend's urgency, no markdown).
+- **Generator (`prompts/generate.mjs`):** reseeds a DEV deployment, fires the 3 scenarios, writes `data/ai_cache.json` with Claude (Opus 5.5, plain `fetch`, no SDK). Retries a text up to 3 times if it fails the copy rules. Refuses prod.
+- **Cache keys:** `"<externalId>|company_alert|<company>"`, `"<externalId>|vendor_letter|vendor"`, and `"<externalId>|hold_notice|<company>|<amountCents>"` (amount added because Bayview has two held payments).
+- **Scorecard (`scripts/scorecard/run.mjs`):** reseeds a DEV deployment, fires brightline → ironcladCredential → ironcladMsp, compares `scoring:exportOutcomes` with `data/answer_key.json` (skips `seedRef: null`), writes `data/scorecard.json` in the CONTRACT shape. Refuses prod. Checked the comparison offline against convex-test: 10/3/5 cases all caught or correctly left alone. **`data/scorecard.json` is still the placeholder until the real run.**
+- **DNS (`scripts/dns/scan.mjs`):** one detector (MX, SPF includes, TXT verification tokens, CNAMEs) over (a) simulated records for the fictional seed domains (`scripts/dns/seed_records.json`) → `data/dns_links.json`, and (b) live DNS for real domains (`scripts/dns/domains.json`) → `data/dns_findings.json`. Never links to Brightline or Ironclad.
+- **`data/dns_links.json` (13 entries):** seed imports 4 new candidate links (Alder → Ledgerly, Summit → Ledgerly, Harborline → Keystone, Pinecrest → Relay); the other 9 pairs already exist in `seed.ts` and are skipped. Checked in convex-test: headlines unchanged (Brightline 3 · 4,200 · $612K; credential 3 · 3,950 · $0; MSP 3 · 4,600 · $116K).
 
 ## In progress
-- (Role 4's Claude: fill in)
+1. Run `prompts/generate.mjs`, `scripts/scorecard/run.mjs` and `scripts/dns/scan.mjs` from a cloud session with network + keys, commit the data files.
+
+## How to run (dev deployment only)
+```
+npx convex dev --once                       # or set CONVEX_DEPLOY_KEY=dev:… (never prod:)
+ANTHROPIC_API_KEY=… node prompts/generate.mjs   # → data/ai_cache.json (~16 texts)
+node scripts/scorecard/run.mjs              # → data/scorecard.json
+node scripts/dns/scan.mjs                   # → data/dns_links.json + data/dns_findings.json
+node scripts/dns/scan.mjs --seed-only       # dns_links.json only, no network
+```
+Each Convex script runs `npx convex dev --once` first (`--no-push` skips it) and reseeds.
 
 ## Needs from others
-- (Role 4's Claude: fill in)
+- → Role 1 (optional, nice for the evidence panel): when a `dns_links.json` entry matches a pair that is already `dns_inferred` in `seed.ts` LINKS (Alder/Summit/Harborline/Meridian → Relay Mail, Granite Peak → Keystone), set its `detail` instead of skipping, so those links show the DNS record too. Today they're skipped and carry no detail.
+- → Role 2: `data/dns_findings.json` (`[{ domain, vendor, record, evidence }]`, real public domains) will land after the scan run; Proof panel "Real" can list it. The AI vendor letter will be ~150–230 words in several paragraphs (`\n\n`), so render it with `whitespace-pre-wrap`.
 
 ## Decisions & gotchas
-- No new npm packages without telling the team in your handoff first. Plain `fetch` to the model API needs no SDK.
+- No new npm packages: the model is called with plain `fetch` (`prompts/writing.ts` → `callClaude`).
+- Day counts are left out of AI text on purpose (they shift if the demo fires a day after seeding); the payment card shows the exact days.
+- `scripts/scorecard/convex.mjs` is shared by the generator and the scorecard (`npx convex run` wrapper + prod guard).

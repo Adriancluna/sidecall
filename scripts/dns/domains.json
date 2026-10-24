@@ -1,0 +1,15 @@
+{
+  "_comment": "Real public domains scanned by scan.mjs to show the detector works on live DNS. Edit freely. Findings are reachability (who a domain points at), not proof of a shared credential.",
+  "domains": [
+    "calhacks.io",
+    "berkeley.edu",
+    "uwaterloo.ca",
+    "convex.dev",
+    "vercel.com",
+    "stripe.com",
+    "shopify.com",
+    "airbnb.com",
+    "dropbox.com",
+    "zoom.us"
+  ]
+}
