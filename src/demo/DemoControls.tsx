@@ -12,7 +12,13 @@ const DEMO_INCIDENT = {
     "Attacker used Brightline's admin access at the newest acquisition to reach the payroll vendor's tenant.",
 };
 
-const SITE_URL = import.meta.env.VITE_CONVEX_SITE_URL as string | undefined;
+// `convex deploy` (Vercel) only sets VITE_CONVEX_URL, so derive the HTTP-actions host from it.
+const SITE_URL =
+  (import.meta.env.VITE_CONVEX_SITE_URL as string | undefined) ||
+  (import.meta.env.VITE_CONVEX_URL as string | undefined)?.replace(
+    /\.convex\.cloud$/,
+    ".convex.site",
+  );
 
 const BUTTON =
   "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50";
@@ -21,7 +27,7 @@ async function postIncident(): Promise<{
   incidentId: string;
   duplicate: boolean;
 }> {
-  if (!SITE_URL) throw new Error("VITE_CONVEX_SITE_URL is not set");
+  if (!SITE_URL) throw new Error("VITE_CONVEX_URL is not set");
   const res = await fetch(`${SITE_URL}/incident`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
