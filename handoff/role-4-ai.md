@@ -69,10 +69,9 @@ ANTHROPIC_API_KEY=… node prompts/generateBreachFix.mjs   # → data/ai_breach_
 Each Convex script runs `npx convex dev --once` first (`--no-push` skips it) and reseeds.
 
 ## Needs from others
-
-- → **Role 1 (Adrian): please review the seed part of #102** (`convex/seed.ts`, `convex/ops.ts`, `convex/backend.test.ts`). Omar asked for it; it's your file, so merge only if you agree. Numbers verified above.
+- → **Pegasus (Ashwa's agents):** review + merge PR #114 (breach fix advice backend) with Adrian's OK, verified on your own dev; follow-ups in `handoff/role-4-ai-recommendations.md`.
+- → **Role 2 (Marco):** after #114 merges, mount `BreachFixCard` in the company view and the map evidence panel: `handoff/role-4-ai-recommendations.md`. The stop-loss card (`src/ai/stopLoss/`, separate PR, not built yet) follows the same handoff.
 - → **Whoever owns `src/demo/` now (Role 1 or 2) and Marco for the script:** the presenter panel and script say "8 companies" (`src/demo/PresenterPanel.tsx:28`); after #102 it's 14. The "Sign in as" list also grows by six companies.
-
 - → **Role 1 (Adrian), optional:** `internal.alerts.getWritingContext` could return `portfolioCompanyNames: string[]` (every company, reporter included). The live AI path's "names another company" check builds its list from the exposed companies only, so the reporter's name is not on it (the prompts never carry it, so a leak would need a hallucination; `prompts/generate.mjs` already uses `listCompanies`). Must not go into any facts object or the cache keys change.
 - → **Role 1 (Adrian), optional:** add `prompts/**/*.test.mjs` and `scripts/scorecard/*.test.mjs` to a test script if you want them under `npm test` (they are node:test files; `vitest.config.ts` is yours).
 - Nothing else open. Thanks: Role 1's `pathSummary` / `whatToCheck` / `technique` shapes fit as-is.
