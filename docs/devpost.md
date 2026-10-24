@@ -1,6 +1,6 @@
 # Devpost draft: Sidecall
 
-Owner: Role 2. Draft; lines marked **[after 11pm]** wait for Role 3 / Role 4. Every figure below comes from CLAUDE.md "Background facts"; keep the wording and the caveats.
+Owner: Role 2. Draft; lines marked **[after 11pm]** wait for Role 3. Every figure below comes from CLAUDE.md "Background facts"; keep the wording and the caveats.
 
 ## Tagline
 
@@ -23,7 +23,9 @@ Private equity firms own companies that quietly share the same payroll providers
 5. **Everyone sees their part, and only their part.** Each company gets an alert written for its exposure and never learns who reported the incident. The PE firm sees the whole blast radius ("3 companies exposed · 4,200 people behind them · $612K in payments held") but never presses release: the company executes.
 6. **One letter to the vendor** replaces eight separate escalations.
 7. **It knows when to ask.** A held payment that nobody has decided as its due date gets close is escalated to the company's controllers, with an alert and an audit row.
-8. **Everything is on the record:** a controls log of every hold, flag, refusal, release and rejection, exportable as CSV.
+8. **New companies onboard from their own AP export.** The firm uploads the vendor master and open bills any AP system exports; Sidecall matches the vendors, warns when a file pays an account other than the one confirmed by phone, and, mid-incident, holds the new company's payments on import.
+9. **AI assistants are held like everyone else.** An agent connected over MCP can look up holds and request payments for a clerk, is recorded as an agent in the audit log, and has no way to release.
+10. **Everything is on the record:** a controls log of every hold, flag, refusal, release and rejection, exportable as CSV.
 
 ## How we built it
 
@@ -35,13 +37,13 @@ Private equity firms own companies that quietly share the same payroll providers
 - **Race-safe:** two people acknowledging the same alert at once: Convex serializes the transactions and exactly one wins; the UI shows who.
 - **Controls inside the mutation, not the UI:** segregation of duties, controller-only, held-status and verification-note checks all run in `releasePayment` / `rejectPayment`, and refusals are written to the audit log too.
 - **Identity from the session:** Convex Auth (password, invite-only); every query is scoped to the signed-in person, so Company A can't read Company B's data. Unsigned webhook calls are refused except the built-in demo scenarios.
-- **The AI only writes:** company alerts, hold notices and the vendor letter. Exposure, urgency and holds are decided by queries and scoring, never by the model. Demo output is pre-generated, so nothing on stage depends on a model call. **[after 11pm: Role 4's model and prompts]**
+- **The AI only writes:** company alerts, hold notices and the vendor letter. Exposure, urgency and holds are decided by queries and scoring, never by the model. Demo output is pre-generated, so nothing on stage depends on a model call. Texts come from Claude (Opus 5.5), checked against our copy rules before they're saved (no reporter named, no "fraud", only the phone number on file).
 - Tests with `convex-test` cover the guarantees: replay writes nothing, the headline totals, flagging, same-vendor-not-exposed, the acknowledge race, refusals logged, release moves cash once, every ledger entry balances, and scoping.
 
 ## What's real, what's simulated
 
 - **Simulated:** the portfolio, companies, users, bills, payments, amounts, incidents and bank-detail changes.
-- **Real:** the Convex backend and its guarantees (atomic fan-out, same snapshot, idempotency, race safety), the exposure and hold logic, the AI writing, the scorecard against the planted answer key, and DNS-based vendor detection on real public domains. **[after 11pm: confirm DNS + AI with Role 4]**
+- **Real:** the Convex backend and its guarantees (atomic fan-out, same snapshot, idempotency, race safety), the exposure and hold logic, the AI writing, the scorecard against the planted answer key, and DNS-based vendor detection on real public domains.
 
 ## Proof: the scorecard
 
@@ -73,4 +75,4 @@ Holding beats blocking as a default: a control that pauses money for a person to
 
 ## Built with
 
-Convex · Convex Auth · React · Vite · TypeScript · Tailwind CSS · Vercel · **[after 11pm: the LLM Role 4 uses]**
+Convex · Convex Auth · React · Vite · TypeScript · Tailwind CSS · Vercel · Claude (Anthropic) · MCP
