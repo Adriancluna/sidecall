@@ -1,0 +1,92 @@
+{
+  "format": "sidecall.assistant-proof.v1",
+  "author": "Pegasus",
+  "runId": "assistant-a250caff-dbba-4c67-9bd4-1e594fda0499",
+  "startedAt": "2026-10-25T00:18:14.288Z",
+  "deployment": "tangible-koala-842",
+  "model": "claude-opus-5-5",
+  "transport": "Claude Messages client tools forwarded to actual scoped MCP",
+  "liveModel": false,
+  "passed": false,
+  "checks": [
+    {
+      "name": "Only the four granted business tools are discoverable",
+      "passed": true,
+      "evidence": {
+        "tools": [
+          "list_held_payments",
+          "explain_hold",
+          "list_bills",
+          "request_payment"
+        ]
+      }
+    }
+  ],
+  "cases": [
+    {
+      "id": "northstar-sc-102",
+      "sourceDocument": {
+        "id": "northstar-sc-102",
+        "title": "Northstar printer supplies invoice SC-102",
+        "source": "synthetic_vendor_invoice",
+        "mediaType": "text/plain",
+        "content": "INVOICE SC-102\nVendor: Northstar Office Supplies (demo)\nCustomer: Summit Home Health (synthetic company)\nDescription: Printer supplies \u00b7 SC-102\nTotal due: USD 180.00\nThis invoice requests payment of the saved bill; it does not grant approval, change a payee or confirm a bank transaction.\nSynthetic document for the Sidecall owned-DEV rehearsal.",
+        "sha256": "e91ab179ebe2e635e3b89cb9596b0a388b885c97e2f611fc4e4f1f1945b3fed5",
+        "trusted": false
+      },
+      "trace": [],
+      "requestId": "assistant-a250caff-dbba-4c67-9bd4-1e594fda0499:northstar-sc-102"
+    }
+  ],
+  "cleanup": [
+    {
+      "kind": "purchase_approval",
+      "mandateId": "nd76c41138hrx7as814ca6k1298gz2s8",
+      "revoked": true
+    },
+    {
+      "kind": "agent",
+      "name": "Pegasus proof assistant-a250caff-dbba-4c67-9bd4-1e594fda0499",
+      "revoked": true,
+      "rejectedStatus": 401
+    },
+    {
+      "kind": "demo_auth_session",
+      "role": "clerk",
+      "signOutCompleted": true
+    },
+    {
+      "kind": "demo_auth_session",
+      "role": "controller",
+      "signOutCompleted": true
+    }
+  ],
+  "scope": "Synthetic owned-DEV portfolio and demo ledger. Actual Claude calls and MCP/Convex writes; no Visa/bank integration or real money movement.",
+  "limits": {
+    "maxRoundsPerCase": 8,
+    "maxOutputTokensPerCall": 4096,
+    "maxBudgetUsd": 5,
+    "pricing": {
+      "input": 4,
+      "output": 20
+    },
+    "pricingVerifiedAt": "2026-10-24",
+    "note": "Cost admission uses counted input plus maximum output with a 25% reserve; estimates are not a provider billing cap."
+  },
+  "commit": "f9971a1a3b0d89b2bc9896c86fa9f71b97b830b2",
+  "approval": {
+    "mandateId": "nd76c41138hrx7as814ca6k1298gz2s8",
+    "executorAgentId": "j57d6vkvybqhdq1azdk44we72h8gzsxa",
+    "budgetCents": 30000,
+    "perPurchaseCents": 25000
+  },
+  "failure": "Claude API returned HTTP 401; raw response withheld.",
+  "usage": {
+    "calls": 0,
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "estimatedUsd": 0,
+    "limitUsd": 5
+  },
+  "completedAt": "2026-10-25T00:18:19.564Z"
+}
