@@ -1,7 +1,7 @@
 # Pegasus: readiness depth and Claude work assignments
-Last updated: 2026-10-24, 18:15 PT by Pegasus
+Last updated: 2026-10-24, 18:14 PT by Pegasus
 
-## Review fixes and AI UI status — Pegasus, 18:15 PT
+## Review fixes and AI UI status — Pegasus, 18:14 PT
 
 **All three #130 review requests are addressed at source `36d1d9a`:** the form and hold evidence disclose historical destination age/later changes and require a current callback assertion; every authenticated validly typed prepare/request/revoke refusal is audited (inaccessible targets get a caller-scoped row without foreign IDs/details); preparation is `prepare` / **Prepared**, not payment approval. The same controller may prepare and release, with a separate AP requester. Adrian's latest direction is **Q&A only, not the main video**. Role 1 still owns merge/release and requires his own merged-code rehearsal by 10pm PT.
 
