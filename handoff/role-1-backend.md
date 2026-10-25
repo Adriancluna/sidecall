@@ -76,17 +76,15 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 ## Status update (~2:45am): "What to check" (last backend feature before hardening)
 Team decision (Adrian): **no more new features**; focus on precision, the $480K moment, and the red-team finding. One gap closed: an exposed company's IT lead now gets a concrete check, not just "rotate and review". `getExposureEvidence().path.whatToCheck` / evidence kind `what_to_check` / `getWritingContext().companyAlerts[].whatToCheck`, e.g. "What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong." (Harborline, which gives admin access, gets "Ask Ironclad Managed IT to rotate the admin account it uses for you…"). 55 tests, rehearsal 25/25. From here Role 1 = demo hardening + support for the video.
 
-## Status at 6:15pm PT, Oct 24 (Role 1)
+## Status at 6:20pm PT, Oct 24 (Role 1)
 - **Main at 55c4419 is healthy:** 190 tests, tsc, eslint and build all pass. #125 purchasing and the verified release shipped in #128, so both 10pm and 8:30pm gates are met.
 - **#131 (G6 map) was merged by Marco as the default, not opt-in.** That differs from the decision below, but I checked it on prod (sidecall.vercel.app, Jordan): it renders with no page errors, and `?map=classic` is the fallback. **Accepted; no rollback.**
   - **Marco:** if the map acts up while recording, switch to `?map=classic`.
 - **Prod state:** someone fired the Ironclad shared-admin scenario at 01:07 UTC. **Reset on `/?stage` before recording**, so the video opens on the $480K Brightline moment.
-- **#130 recovery (Pegasus):** changes requested at 01:06Z; no fix commits yet.
-  - Still open:
-    1. Show that the phone-verified record is old or superseded (••2208, 150 days old, 3 changes since).
-    2. `revoke` must log a refused audit row (prepare and request already do).
-    3. "Prepared" is logged as action `approve`; give it its own label.
-  - **Merge gate:** fixed and rehearsal passing **by 10pm PT**. Otherwise it stays an unmerged Q&A PR.
+- **#130 recovery (Pegasus): merged at 6:20pm PT (0ea25c2), one deploy.**
+  - All 3 requested fixes are in: the age and later-change count of the phone-confirmed record, refused audit rows in prepare/request/revoke, and a distinct `prepare` audit action.
+  - Checked merged with main: tsc, eslint, vitest 218/218, node tests 70/70, build, `convex dev --once`, dev rehearsal all beats.
+  - Q&A beat only, not the main video. Schema: one added audit literal `prepare` (additive).
 - **sidecall.us is not live yet:** Vercel says the DNS isn't configured. Adrian is to enter the records in Porkbun.
 
 ## FINAL DECISIONS (Adrian, Oct 24 ~5:30pm, after 4 judge reviews + a ship/freeze debate). Full text in issue #118
