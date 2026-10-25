@@ -7,6 +7,7 @@ Contents:
 2. The problem, with numbers
 3. Who uses it
 4. One incident, start to finish
+4b. Where Sidecall sits, and what it can switch off (mentor questions)
 5. How each part works
 6. The demo, beat by beat
 7. Pitch by track
@@ -91,6 +92,73 @@ This is the confirmed-response workflow; an unconfirmed signed report instead no
 > **Say it like this:** "One report, one transaction. The holds, the alerts and the steps land together or not at all, and every screen sees the same snapshot at the same instant."
 
 ---
+
+## 4b. Where Sidecall sits, and what it can switch off
+
+A mentor pushed us on this and we couldn't answer. The six questions build on each other, so learn them in order.
+
+### 1. Is Sidecall a middleman that stops breaches?
+**No.** Sidecall sits *beside* the companies, not between them and their software. None of their traffic, logins or payments run through it.
+- **What it knows:** which portfolio companies share which vendors, and *how* (same login, admin access, or just the same vendor name).
+- **When one breach is reported:** it works out which sister companies actually share that vendor, warns each at the right urgency without naming who was hit, shows the firm the map, and drafts one vendor letter.
+- **Where it acts:** it holds payments to the breached vendor (where companies opted in) and runs steps each company pre-approved, like pausing a shared login.
+
+The breach already happened at one company or vendor. Sidecall limits the **spread**.
+
+> Say: "Sidecall doesn't stop the breach. It makes sure the companies next to it hear about it in minutes, check the right thing, and don't pay the attacker while they verify."
+>
+> Don't say: "we stop the attack", "we contain the breach", "we block payments", "Sidecall covers everything".
+
+### 2. Why not become the middleman and cut the vendor off?
+1. **We'd become the shared vendor we warn about.** Kaseya was one tool every customer ran through; up to 1,500 businesses went down.
+2. **Cutting service is often the bigger harm.** Miljödata's 200+ municipalities weren't breached; they lost payroll. That's why we *hold* payments rather than cancel them.
+3. **It moves the blame to the PE firm.** The Bain ruling (Mar 2026) cited the firm's control over vendors. The firm sees, the company acts.
+4. **It's a crowded, giant market** (Zscaler, Netskope, Cloudflare). Nobody answers "who else in the portfolio shares this vendor?"
+
+> Say: "Cutting off a payroll vendor can hurt as much as the breach, and putting every company behind one gateway makes us the next Kaseya. Each company pre-approves its own steps, we run them on its behalf, and one click undoes them."
+
+### 3. How does the "blocking" of payments work?
+It's a **hold** until a person verifies, not a block (details in section 5, money controls).
+1. The report arrives; in the same instant, every pending payment to that vendor is held where holds are on. No money moves.
+2. A bank change within 30 days also flags it (the $480K: changed by email two days before).
+3. New requests to that vendor are held for 30 days or until the firm marks the incident contained.
+4. Only a controller at that company can release, never the requester or the firm. They call the number on file, type the last 4 digits, and note what was confirmed; the server rechecks it.
+5. Release: cash moves. Reject: it never does. Everything, including refusals, is in the audit log.
+
+### 4. If the breach already happened, what does "pausing" do?
+**The breach is in one place; the door is in many.** Ironclad's stolen admin login still works at every other company Ironclad serves. Pausing happens at those sister companies, in their own Okta / Entra / Google:
+- **Disable that one vendor account:** the password no longer opens anything.
+- **Sign out its open sessions:** anyone already in is kicked out.
+- **Revoke the vendor's app tokens.**
+
+Vendors take a median 73 days to disclose; attackers move in about 29 minutes. A pre-approved pause runs a fraction of a second after the report.
+- **Attacker already inside a sister:** the pause cuts the way in and their sessions, but there may be a backdoor. That's what "what to check" is for; their IT investigates. We don't claim to clean up.
+- **The vendor's real staff are locked out too** until a fresh login is set up. That's why it's pre-approved, capped and undoable.
+
+> Say: "The breach already happened at Ironclad. The pause is for the companies the attacker hasn't reached yet. Same stolen login, but at Cedar Ridge it's now switched off."
+
+### 5. Is that doable, or just a concept?
+- **Real today:** disabling an account and killing sessions is one API call (Okta: suspend + clear sessions; Entra: disable sign-in + revoke sessions; Google: suspend). Security teams already automate it (Okta Workflows, Tines, Splunk SOAR). Our rules, timing, audit and undo are real code.
+- **Concept in our build:** we don't make the call (simulated in the demo); each company must let us trigger it (question 6); each company must record which account is the shared one when it joins (e.g. `ironclad-admin@cedar`).
+- **Real limits even when built:** not every shared login lives in Okta/Entra. Remote-management tools (Kaseya was one), VPN accounts, local admin passwords and service accounts aren't closed by a pause; there we can only warn and say what to check. And it's only as fast as the first report.
+
+> Say: "The pause is one API call to Okta or Entra that security teams already automate. What we built is knowing which sister companies share that login and acting on each one's own pre-approval in seconds. In the demo the call is simulated."
+
+### 6. How would Sidecall get permission to disable an account?
+The **portfolio company's own IT admin** sets it up, never the PE firm. Three ways, least access first:
+1. **A person does it.** Sidecall tells the IT lead "pause this account" with a direct link. No access needed.
+2. **Their own automation does it (recommended).** The company builds a flow in Okta Workflows, a Microsoft Logic App or Tines. Sidecall sends a signed request ("pause the Ironclad admin account, incident #123, under your pre-approved policy"); their flow checks it, pauses with *their* credentials, and reports "done". We never hold their admin keys.
+3. **A narrow permission for Sidecall** (only disable and sign out, only a "vendor accounts" group). Simplest, but we'd hold keys for every company and become a target.
+
+| Playbook setting | What happens on a report | Access we need |
+|---|---|---|
+| Notify | IT lead warned, told what to check | None |
+| One click | Step prepared; IT lead presses Run | None (way 1) or way 2 |
+| Pre-approved | Signal to the company's own automation; account paused in seconds | Way 2 |
+
+Only the shared vendor account is paused, never employees. A company with its own separate login isn't touched. At most 3 companies are paused automatically per report; payroll is only ever one click; DNS guesses only get a warning.
+
+> Say: "We don't need anyone's admin keys. Each company points its own Okta or Microsoft automation at us and lists the vendor accounts it's willing to have paused. When one company reports a breach through a shared vendor, we signal every sister that shares that same login, and the ones that pre-approved it switch that account off within seconds."
 
 ## 5. How each part works
 For each part: what it does, how, why it's there, the line to say, and what can go wrong.
@@ -219,7 +287,7 @@ For each part: what it does, how, why it's there, the line to say, and what can 
 
 ### 5.11 Proof
 - **Planted answer key:** 18 cases with known right answers (should hold, should flag, must leave alone). Nothing in the backend reads the key; a separate script compares. Result: 0 missed, 0 false holds.
-- **104 automated tests** for the backend and app, plus **40** for the AI text rules and the scorecard. They cover the guarantees, privacy, the playbook rules and Pegasus's report handling.
+- **218 automated tests** for the backend and app, plus **70** for the AI text rules, the scorecard and the assistant. They cover the guarantees, privacy, the playbook rules and Pegasus's report handling.
 - **Rehearsal script:** plays every demo beat against a live deployment with real sign-ins and checks each number.
 - **Readiness check and presenter lock:** before going on stage, one command says READY, and a presenter key stops anyone else resetting the live demo.
 - **Don't say:** "99% accurate" or any accuracy figure. Say "on our own planted cases, not a benchmark."
@@ -351,7 +419,7 @@ Practise these out loud. Short answer first; stop there unless they ask for more
 | ~0.2 s | Alerts written after the report | Measured on our runs |
 | 303 / 304 / 1.4 s | Companies, payments held, one transaction | "In our test suite" |
 | 18 · 0 · 0 | Planted cases, missed, false holds | Our own planted cases, not a benchmark |
-| 104 + 40 | App/backend tests + AI-text and scorecard tests | Our test suite |
+| 218 + 70 | App/backend tests + AI-text, scorecard and assistant tests | Our test suite |
 | 14 · 3 · 10 | Demo portfolio: companies, exposed in Brightline, not linked | Our demo data |
 | 26 → 24 · 9 · 3 | Real PE portfolio (public DNS, totals only): on Microsoft 365 · same device-management vendor (Jamf) · same password manager / login-MFA vendor | Omar's scan, `scripts/dns/portfolio_report.json`; never name a company |
 | 48% | Breaches involving a third party | Verizon DBIR 2026 |
