@@ -14,6 +14,10 @@ export type Viewer =
 export async function getViewer(
   ctx: Pick<QueryCtx, "db" | "auth">,
 ): Promise<Viewer> {
+  // Keep reads/sign-in working during a batched stage reset, but prevent new
+  // user mutations from repopulating tables that the reset already cleared.
+  if ("insert" in ctx.db && (await ctx.db.query("demoResetState").first())?.running)
+    throw new ConvexError("Demo reset is in progress. Wait a moment, then retry.");
   const userId = await getAuthUserId(ctx);
   if (!userId) throw new ConvexError("Not signed in");
   const user = await ctx.db.get("users", userId);

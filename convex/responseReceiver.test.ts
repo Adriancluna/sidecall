@@ -143,11 +143,82 @@ test("restoration is separate, scoped, operator-gated and cannot use ordinary Un
   expect(await t.run(ctx => ctx.db.get("responseSteps", job.stepId))).toMatchObject({ status: "undone" });
 });
 
-test("demo reset cannot erase external command history even after disabling execution", async () => {
-  const { t, as } = await fixture(); vi.stubEnv("RESPONSE_RECEIVER_LIVE", "false");
+async function finishConnectedReset(t: Awaited<ReturnType<typeof fixture>>["t"]) {
+  for (let page = 0; page < 150; page++) {
+    const state = await t.run(ctx => ctx.db.query("demoResetState").first());
+    if (!state?.running) return;
+    await t.mutation(internal.seed.finishConnectedReset, { resetId: state._id });
+  }
+  throw new Error("Reset did not finish");
+}
+
+test("reset interrupts an unfinished test while keeping receiver identities and stopping an unsent pause", async () => {
+  const { t, as, job, company } = await fixture();
+  await t.mutation(internal.seed.fireDemoIncident, { scenario: "brightline" });
+  expect(await as("Sam Kowalski").query(api.seed.resetAvailability, {})).toMatchObject({ allowed: true, preservesExternal: true });
+  await as("Sam Kowalski").mutation(api.seed.resetDemo, {});
   expect(await as("Sam Kowalski").query(api.seed.resetAvailability, {})).toMatchObject({ allowed: false });
-  await expect(t.mutation(internal.seed.run, {})).rejects.toThrow("Reset blocked");
-  expect(await t.run(ctx => ctx.db.query("companies").take(20))).toHaveLength(14);
+  expect(await t.mutation(internal.responseReceiver.claim, { jobId: job._id })).toBeNull();
+  await finishConnectedReset(t);
+  const state = await t.run(async ctx => ({ company: await ctx.db.get("companies", company._id),
+    delivery: await ctx.db.get("responseDeliveries", job._id), payments: await ctx.db.query("payments").take(100), incidents: await ctx.db.query("incidents").take(100) }));
+  expect(state.company).toEqual(company);
+  expect(state.delivery).toMatchObject({ commandId: job.commandId, commandJson: job.commandJson, status: "refused" });
+  expect(state.payments.some(p => p.status === "held")).toBe(false);
+  expect(state.incidents).toHaveLength(1);
+  expect(await as("Sam Kowalski").query(api.seed.resetAvailability, {})).toMatchObject({ allowed: true });
+  const fresh = await t.mutation(internal.seed.fireDemoIncident, { scenario: "brightline" });
+  const replay = await t.mutation(internal.seed.fireDemoIncident, { scenario: "brightline" });
+  expect(fresh).toMatchObject({ duplicate: false }); expect(replay).toMatchObject({ duplicate: true });
+  await as("Sam Kowalski").mutation(api.seed.resetDemo, {}); await finishConnectedReset(t);
+  expect(await t.mutation(internal.seed.fireDemoIncident, { scenario: "brightline" })).toMatchObject({ duplicate: false });
+});
+
+test("reset keeps unknown sent commands reconcilable after a multi-page clear", async () => {
+  const { t, as, job, incident } = await fixture();
+  await t.mutation(internal.responseReceiver.claim, { jobId: job._id });
+  await t.mutation(internal.responseReceiver.record, { jobId: job._id });
+  await t.run(async ctx => { const channel = (await ctx.db.query("notificationChannels").first())!;
+    for (let i = 0; i < 250; i++) await ctx.db.insert("notifications", { channelId: channel._id, event: "test", refId: `clear-${i}`, text: "test", status: "simulated", createdAt: Date.now() }); });
+  vi.stubEnv("RESPONSE_RECEIVER_LIVE", "false");
+  await as("Sam Kowalski").mutation(api.seed.resetDemo, {}); await finishConnectedReset(t);
+  vi.advanceTimersByTime(1001);
+  expect(await t.mutation(internal.responseReceiver.claim, { jobId: job._id })).toMatchObject({ statusOnly: true, commandJson: job.commandJson });
+  const plan = await as("Sam Kowalski").query(api.responses.getMyResponsePlan, { incidentId: incident._id });
+  expect(plan.some(p => p.stepId === job.stepId && p.canManageReceiver)).toBe(true);
+  expect((await t.run(ctx => ctx.db.query("notifications").take(500))).some(n => n.refId.startsWith("clear-"))).toBe(false);
+});
+
+test("a pending restoration survives reset and still uses the original pause command", async () => {
+  const { t, as, job, receipt } = await fixture();
+  await t.mutation(internal.responseReceiver.claim, { jobId: job._id });
+  await t.mutation(internal.responseReceiver.record, { jobId: job._id, receipt: receipt() });
+  await as("Sam Kowalski").mutation(api.responseReceiver.prepareRestore, { stepId: job.stepId });
+  await as("Sam Kowalski").mutation(api.seed.resetDemo, {}); await finishConnectedReset(t);
+  const restore = await t.run(ctx => ctx.db.query("responseDeliveries").withIndex("by_stepId_and_kind", q=>q.eq("stepId", job.stepId).eq("kind", "restore")).unique());
+  expect(restore).toMatchObject({ status: "awaiting_operator" });
+  await as("Sam Kowalski").mutation(api.responseReceiver.checkOrSend, { jobId: restore!._id });
+  const claim = await t.mutation(internal.responseReceiver.claim, { jobId: restore!._id });
+  expect(JSON.parse(claim!.commandJson).pauseCommandId).toBe(job.commandId);
+});
+
+test("reset cancels in-flight AI authority and permits sample bills to be loaded again", async () => {
+  const { t, as } = await fixture();
+  vi.stubEnv("PRESENTER_KEY", "stage-secret"); vi.stubEnv("PURCHASE_CONSOLE_LIVE", "true"); vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
+  const rosa = as("Rosa Alvarez"), jamie = as("Jamie Chen");
+  await rosa.mutation(api.purchases.loadSamples, { presenterKey: "stage-secret" });
+  const bills = await jamie.query(api.payments.getMyBills, {});
+  const bill = bills.find(b=>b.bill.description === "Office supplies · SC-101")!;
+  await rosa.mutation(api.purchases.approve, { billIds: [bill.bill._id], perPurchaseCents: 12000, budgetCents: 12000, expiresAt: Date.now()+3600000 });
+  const id = await jamie.mutation(api.purchaseConsole.start, { billId: bill.bill._id, sourceText: "Synthetic office supplies invoice $120.00 ****4242", clientRequestId: "reset-inflight-test", presenterKey: "stage-secret" });
+  await t.mutation(internal.purchaseConsole.claim, { id });
+  await expect(rosa.mutation(api.seed.resetDemo, {})).rejects.toThrow("presenter-only");
+  await rosa.mutation(api.seed.resetDemo, { presenterKey: "stage-secret" });
+  expect(await t.mutation(internal.purchaseConsole.beforeModel, { id })).toBe(false);
+  await finishConnectedReset(t);
+  expect(await t.mutation(internal.purchaseConsole.executeTool, { id, name: "request_selected_payment", inputJson: "{}" })).toMatchObject({ done: true });
+  expect(await rosa.mutation(api.purchases.loadSamples, { presenterKey: "stage-secret" })).toEqual({ created: true });
+  expect((await jamie.query(api.payments.getMyBills, {})).filter(b=>b.vendorName === "Northstar Office Supplies (demo)")).toHaveLength(3);
 });
 
 test("transport rejects forged receipt and preserves uncertainty instead of marking done", async () => {
