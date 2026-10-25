@@ -54,6 +54,12 @@ The purchase rehearsal verifies concurrent budget competition, 20 exact retries,
 
 The separate assistant proof requires an Anthropic API key configured locally without committing it. Read `scripts/assistant/README.md` for its explicit deployment, cost bounds, source fixtures and cleanup. It must produce actual provider/tool evidence before anyone claims the AI flow was demonstrated. Offline fixture tests are not evidence that a live model called the tools. Do not run it against the state left by the purchase rehearsal: the original rehearsal must prepare clean synthetic samples again.
 
+## Recorded actual-model result
+
+On October 24, 2026 at 5:20 PM Pacific, the user completed the real-Claude proof on Pegasus DEV at source commit `cb01f79`. All eight checks passed across ten model calls. Claude requested the $180 saved invoice, the backend refused the changed $120 invoice with no additional payment or debit, and a separate $38,000 request stayed held while `explain_hold` supplied the stored verification guidance. The scoped agent, approval and two sessions were cleaned up successfully. Token usage implies approximately $0.14 in generation cost; that is an estimate, not an invoice.
+
+The redacted source/tool traces and server evidence are committed in [`scripts/assistant/report.json`](../scripts/assistant/report.json). Pegasus and an independent reviewer checked document hashes, tool IDs, exact payment/receipt/approval/ledger references and cleanup. This records one synthetic three-case run; it does not establish general model accuracy or production security. The earlier authentication failure in `pegasus-assistant-attempt.json` is historical.
+
 ## Limits
 
 The portfolio, invoices, payee-verification rows and money are synthetic. The receipts are database evidence, not cryptographic attestations. No Visa API, AP2 network, bank verification service or external payment processor is connected. The assistant proof is separate from the team's chatbot. No changes to the four existing stage scenarios or the $480K verification flow are intended; Role 1 reviews and owns production release. Demo recording and editing remain the last step.

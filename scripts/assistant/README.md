@@ -2,6 +2,8 @@
 
 This standalone rehearsal gives Claude synthetic invoice/email documents, records its real tool choices, and forwards those choices through Sidecall's real company-scoped MCP endpoint. It does not mount or interact with the team's chatbot. Financial authority remains in Convex: the model can request an existing saved bill, but cannot approve a mandate, change a payee, release a hold, or call a bank or Visa API.
 
+Recorded live proof: [`report.json`](./report.json), completed October 24, 2026 at 5:20 PM Pacific on `tangible-koala-842`, source commit `cb01f79`. Eight checks passed across ten real model calls; all cleanup succeeded. Estimated generation cost was $0.14. The three synthetic cases and scope below define what this proves; it is not a general accuracy/security benchmark. The report contains no API key and can be inspected without rerunning paid calls.
+
 Run offline tests without credentials, model calls, deployment or data changes:
 
 ```sh
