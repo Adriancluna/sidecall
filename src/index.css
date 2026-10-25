@@ -91,6 +91,12 @@ h3 {
   text-wrap: balance;
 }
 
+/* No paragraph ends on one stranded word. */
+p,
+li {
+  text-wrap: pretty;
+}
+
 body {
   font-variant-numeric: tabular-nums;
   accent-color: var(--color-link);
