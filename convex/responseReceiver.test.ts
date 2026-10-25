@@ -243,8 +243,7 @@ test("reset cancels in-flight AI authority and permits sample bills to be loaded
   await rosa.mutation(api.purchases.approve, { billIds: [bill.bill._id], perPurchaseCents: 12000, budgetCents: 12000, expiresAt: Date.now()+3600000 });
   const id = await jamie.mutation(api.purchaseConsole.start, { billId: bill.bill._id, sourceText: "Synthetic office supplies invoice $120.00 ****4242", clientRequestId: "reset-inflight-test", presenterKey: "stage-secret" });
   await t.mutation(internal.purchaseConsole.claim, { id });
-  await expect(rosa.mutation(api.seed.resetDemo, {})).rejects.toThrow("presenter-only");
-  await rosa.mutation(api.seed.resetDemo, { presenterKey: "stage-secret" });
+  await rosa.mutation(api.seed.resetDemo, {});
   expect(await t.mutation(internal.purchaseConsole.beforeModel, { id })).toBe(false);
   await finishConnectedReset(t);
   expect(await t.mutation(internal.purchaseConsole.executeTool, { id, name: "request_selected_payment", inputJson: "{}" })).toMatchObject({ done: true });

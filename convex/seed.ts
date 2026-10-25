@@ -11,7 +11,7 @@ import type { Doc, Id, TableNames } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { recordIncidentImpl } from "./incidents";
 import type { Finding } from "./findings";
-import { getViewer, isPresenter } from "./access";
+import { getViewer } from "./access";
 // Role 4's DNS findings, bundled at deploy time. Each entry becomes a dns_inferred candidate link.
 import dnsLinks from "../data/dns_links.json";
 import { DAY_MS, demoEmail } from "./shared";
@@ -688,7 +688,7 @@ export const resetAvailability = query({
     const state = await ctx.db.query("demoResetState").first();
     const resetting = state?.running === true;
     return { allowed: env.DEMO_MODE === "true" && !resetting, preservesExternal: external,
-      presenterKeyRequired: !!env.PRESENTER_KEY, running: resetting,
+      presenterKeyRequired: false, running: resetting,
       resetNumber: state?.generation ?? 0, resetError: state?.error ?? null,
       deployment: (env.CONVEX_CLOUD_URL ?? "").replace(/^https?:\/\//, "").split(".")[0] || "Unknown connection",
       reason: resetting ? (state.phase === "restoring" ? "Reset in progress: restoring and verifying the disposable Okta account…" : "Okta recovery checked. Clearing practice payments and AI tests…")
@@ -713,14 +713,11 @@ export const resetDemo = mutation({
     dnsSkipped: v.array(v.string()),
     continuing: v.boolean(), // true: the wipe was too big for one transaction and finishes shortly
   }),
-  handler: async (ctx, args) => {
+  handler: async (ctx) => {
     if (env.DEMO_MODE !== "true") {
       throw new ConvexError("Demo reset is disabled on this deployment (DEMO_MODE is not true).");
     }
     await getViewer(ctx); // signed in
-    if (!isPresenter(args.presenterKey)) {
-      throw new ConvexError("Reset is presenter-only on this deployment: enter the presenter key on /?stage.");
-    }
     return await resetAll(ctx);
   },
 });
@@ -737,5 +734,17 @@ export const fireDemoIncident = internalMutation({
   },
   handler: async (ctx, args) => {
     return await recordIncidentImpl(ctx, SCENARIOS[args.scenario]);
+  },
+});
+
+// Fixed practice scenarios only. Real detector HTTP intake keeps its own authentication.
+export const fireScenario = mutation({
+  args: { scenario: v.union(v.literal("brightline"), v.literal("ironcladCredential"), v.literal("ironcladMsp"), v.literal("armadinFinding")) },
+  handler: async (ctx, { scenario }) => {
+    if (env.DEMO_MODE !== "true") throw new ConvexError("Practice scenarios are disabled on this deployment.");
+    await getViewer(ctx);
+    const result = await recordIncidentImpl(ctx, SCENARIOS[scenario]);
+    if (!result.ok) throw new ConvexError(result.error);
+    return result;
   },
 });

@@ -1,5 +1,5 @@
 // Presenter narration steps show with ?stage. Simulator controls are available
-// in normal views too, with backend DEMO_MODE and presenter-key authorization.
+// in normal views too, with backend DEMO_MODE and signed-in authorization.
 // Remembered for this tab, so a sign-in or reload that drops the query string keeps presenter mode.
 const STAGE_KEY = "sidecall-stage";
 

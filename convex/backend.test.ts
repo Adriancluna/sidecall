@@ -706,15 +706,13 @@ describe("demo reset", () => {
     await expect(presenter.mutation(api.seed.resetDemo, {})).resolves.toMatchObject({ companies: 14, continuing: false });
   });
 
-  test("with a presenter key set, a signed-in visitor can't reset; the presenter can", async () => {
+  test("signed-in demo users can reset without a key even when legacy presenter protection exists", async () => {
     const { as } = await seeded();
     process.env.DEMO_MODE = "true";
     process.env.PRESENTER_KEY = "stage-secret";
     try {
       const visitor = await as("Jordan Ames (Northpass Capital)");
-      await expect(visitor.mutation(api.seed.resetDemo, {})).rejects.toThrow(/presenter-only/);
-      await expect(visitor.mutation(api.seed.resetDemo, { presenterKey: "guess" })).rejects.toThrow(/presenter-only/);
-      await expect(visitor.mutation(api.seed.resetDemo, { presenterKey: "stage-secret" })).resolves.toMatchObject({ companies: 14 });
+      await expect(visitor.mutation(api.seed.resetDemo, {})).resolves.toMatchObject({ companies: 14 });
     } finally {
       delete process.env.PRESENTER_KEY;
     }
@@ -1124,4 +1122,19 @@ describe("response playbook (pre-approved steps)", () => {
     expect(after.filter((x) => x.status === "awaiting_approval")).toEqual([]);
     expect(after.filter((x) => x.status === "expired").length).toBe(2);
   });
+});
+
+
+test("practice scenario controls require a session and demo mode, never a presenter key", async () => {
+  const { t, as } = await seeded();
+  const user = await as("Jamie Chen");
+  vi.stubEnv("PRESENTER_KEY", "still-required-for-other-tools");
+  try {
+    vi.stubEnv("DEMO_MODE", "false");
+    await expect(user.mutation(api.seed.fireScenario, { scenario: "brightline" })).rejects.toThrow("disabled");
+    vi.stubEnv("DEMO_MODE", "true");
+    await expect(t.mutation(api.seed.fireScenario, { scenario: "brightline" })).rejects.toThrow("Not signed in");
+    expect(await user.mutation(api.seed.fireScenario, { scenario: "brightline" })).toMatchObject({ ok: true, duplicate: false });
+    expect(await user.mutation(api.seed.fireScenario, { scenario: "brightline" })).toMatchObject({ ok: true, duplicate: true });
+  } finally { vi.unstubAllEnvs(); }
 });
