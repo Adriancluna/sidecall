@@ -33,26 +33,9 @@ import {
   Tile,
   UrgencyChip,
 } from "./ui";
-import { FIELD } from "./styles";
-
-const PIN_KEY = "sidecall-pe-incident";
-function loadPinned(): Id<"incidents"> | undefined {
-  try {
-    return (
-      (window.sessionStorage.getItem(PIN_KEY) as Id<"incidents"> | null) ??
-      undefined
-    );
-  } catch {
-    return undefined;
-  }
-}
-function savePinned(id: Id<"incidents">) {
-  try {
-    window.sessionStorage.setItem(PIN_KEY, id);
-  } catch {
-    // remembered for this page only
-  }
-}
+import { FIELD, BUTTON_SECONDARY } from "./styles";
+import { PortfolioOverview } from "./PortfolioOverview";
+import { selectPortfolioIncident, type IncidentSelection } from "./portfolioState";
 
 // G6 is large, so its code loads only when someone opens Map & evidence with ?map=g6.
 const G6BlastMap = lazy(() => import("./G6BlastMap").then((m) => ({ default: m.G6BlastMap })));
@@ -71,14 +54,13 @@ const TAB_IDS = [
 
 export function PortfolioView() {
   const incidents = useQuery(api.blastRadius.listIncidents, {});
-  // Follow the newest incident (list is newest first) unless the firm picked another one. The pick
-  // survives switching people (this view remounts), so "Mark contained" never lands on the wrong one.
-  const [chosen, setChosenState] = useState<Id<"incidents"> | undefined>(loadPinned);
-  const setChosen = (id: Id<"incidents">) => {
-    setChosenState(id);
-    savePinned(id);
-  };
-  const incidentId = incidents?.find((i) => i._id === chosen)?._id ?? incidents?.[0]?._id;
+  // History is an explicit, temporary choice. A new shared incident takes priority on every tab.
+  const [chosen, setChosenState] = useState<IncidentSelection>();
+  const setChosen = (id: Id<"incidents">) => setChosenState({
+    id, newestId: incidents?.[0]?._id,
+    history: incidents?.find(i => i._id === id)?.containedAt != null,
+  });
+  const incidentId = selectPortfolioIncident(incidents ?? [], chosen)?._id;
   const blast = useQuery(api.blastRadius.getBlastRadius, incidentId ? { incidentId } : "skip");
   const held = useQuery(api.payments.getHeldPayments, incidentId ? { incidentId } : "skip");
   const alerts = useQuery(api.alerts.getIncidentAlerts, incidentId ? { incidentId } : "skip");
@@ -88,48 +70,8 @@ export function PortfolioView() {
   if (incidents === undefined) return <HeroSkeleton />;
 
   if (!incidentId) {
-    const tabs: TabDef[] = [
-      {
-        id: "payments",
-        label: "Payments",
-        content: () => <InvestigationPanel firm />,
-      },
-      {
-        id: "timeline",
-        label: "Response safety",
-        content: () => <ResponseSafetyPanel />,
-      },
-      { id: "onboard", label: "Onboard", content: () => <ApImportPanel /> },
-      {
-        id: "alerts",
-        label: "Slack & alerts out",
-        content: () => <NotificationsPanel scope="firm" canManage />,
-      },
-      { id: "proof", label: "Proof", content: () => <ProofPanel /> },
-    ];
-    const allClear = (
-        <section aria-labelledby="hero-title">
-          <StatusLine tone="ok" state="All clear" />
-          <h1 id="hero-title" className="mt-5 max-w-3xl text-headline font-semibold text-balance">
-            No open incidents across the portfolio
-          </h1>
-          <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ash">
-            When a shared vendor or login is compromised, this page shows which
-            companies genuinely share it, what each was told to do, and which
-            payments are held.
-          </p>
-        </section>
-    );
-    return (
-      <Tabs
-        tabs={tabs}
-        active={tabs.some((t) => t.id === active) ? active : "onboard"}
-        onSelect={(t) => select(t)}
-        label="Portfolio"
-        lead={allClear}
-        leadTab="onboard"
-      />
-    );
+    return <PortfolioOverview incidents={incidents} active={active} select={select}
+      onHistory={(id) => { setChosen(id); setSelected(undefined); select("map"); }} />;
   }
   if (!blast) return <HeroSkeleton />;
 
@@ -416,6 +358,12 @@ export function PortfolioView() {
       leadTab="map"
       lead={
         <div className="space-y-12">
+          {incident.containedAt !== undefined && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-tile border border-line p-4">
+              <p className="text-ash">Incident history · this is a contained incident, not the current portfolio status.</p>
+              <button className={BUTTON_SECONDARY} onClick={() => { setChosenState(undefined); select("map"); }}>Current portfolio</button>
+            </div>
+          )}
           {incidents.some(
             (i) => i.responseClass === "observation" && !i.containedAt,
           ) && (

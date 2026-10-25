@@ -71,7 +71,7 @@ export function CompanyView({ companyId, meId, role }: Props) {
   // A held payment leads; once decided, it stays in the hero (both signatures filled) so the release
   // or rejection lands on the screen where it happened instead of the page jumping to another hero.
   const lastDecided = [...(held ?? [])]
-    .filter((r) => r.decision)
+    .filter((r) => r.decision && (!r.payment.heldByIncidentId || incidentById.get(r.payment.heldByIncidentId)?.containedAt == null))
     .sort((a, b) => (b.decision?.at ?? 0) - (a.decision?.at ?? 0))[0];
   const heroPayment = handlesPayments ? (pickHeroPayment(stillHeld, escalations) ?? lastDecided) : undefined;
   // The exposure the IT hero already shows in full; its tab entry skips the repeated steps and buttons.
@@ -232,15 +232,15 @@ function AllClear({
   return (
     <section aria-labelledby="hero-title" className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] xl:gap-16">
       <div className="min-w-0">
-        <StatusLine tone="ok" state={resolved ? "Resolved" : "All clear"}>
+        <StatusLine tone="ok" state="No open alerts">
           {companyName && <span className="sm:hidden">{companyName}</span>}
         </StatusLine>
         <h1 id="hero-title" className="mt-5 max-w-3xl text-headline font-semibold text-balance">
-          {resolved ? "Every incident affecting you is resolved" : "Nothing needs your attention"}
+          Business as usual
         </h1>
         <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ash">
           {resolved
-            ? `${companyName ?? "Your company"} has closed every alert. The history stays in the tabs below.`
+            ? `${companyName ?? "Your company"} has no open incident alerts. Past alerts and recovery evidence remain available in history.`
             : `No active incident touches anything ${companyName ?? "your company"} shares. Sidecall only alerts you when you genuinely share what was compromised, not just the same vendor.`}
         </p>
       </div>
@@ -279,20 +279,21 @@ function AlertsTab({
       </Card>
     );
   }
-  return (
-    <div className="space-y-6">
-      {exposures.map((e) => (
-        <AlertItem
-          key={e._id}
-          exposure={e}
-          alert={alertByExposure.get(e._id)}
-          incident={incidentById.get(e.incidentId)}
-          payments={held.filter((r) => r.payment.heldByIncidentId === e.incidentId)}
-          inHero={e._id === heroExposureId}
-        />
-      ))}
-    </div>
-  );
+  const renderExposure = (e: Doc<"exposures">) => <AlertItem
+    key={e._id} exposure={e} alert={alertByExposure.get(e._id)}
+    incident={incidentById.get(e.incidentId)}
+    payments={held.filter(r => r.payment.heldByIncidentId === e.incidentId)}
+    inHero={e._id === heroExposureId} />;
+  const open = exposures.filter(e => e.status !== "closed");
+  const past = exposures.filter(e => e.status === "closed");
+  return <div className="space-y-6">
+    {open.map(renderExposure)}
+    {past.length > 0 && <details className="rounded-tile border border-line p-5">
+      <summary className="cursor-pointer text-sm text-ash">Incident history · {past.length} resolved alert{past.length === 1 ? "" : "s"}</summary>
+      <div className="mt-5 space-y-6">{past.map(renderExposure)}</div>
+    </details>}
+  </div>;
+
 }
 
 function AlertItem({
