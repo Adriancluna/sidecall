@@ -241,3 +241,35 @@ test('Okta adapter uses only configured HTTPS origin and exact allowlisted user 
   assert.throws(() => oktaProvider({ orgUrl: 'https://evil.example', token: '123456789012345678901' }));
   await assert.rejects(provider.pause('../another-user'));
 });
+
+
+test('demo reset is opt-in, target scoped, persistent and never weakens ordinary restoration', async t => {
+  const s = fixture(t), pause = s.pause(); await s.send(pause);
+  const reset = s.restore(pause, { demoReset: true });
+  assert.equal((await s.send(reset)).body.reason, 'demo_reset_not_authorized_for_owned_target');
+  s.cfg.demoResetTarget = 'unrelated';
+  assert.equal((await s.send(reset)).body.status, 'refused');
+  s.cfg.demoResetTarget = 'vendor';
+  assert.equal((await s.send(s.restore(pause))).body.reason, 'company_operator_restore_approval_required');
+  assert.equal((await s.send(reset)).body.observedState, 'ACTIVE');
+  s.restart();
+  assert.equal((await s.send(reset)).body.status, 'confirmed');
+  assert.equal(s.calls.filter(([kind]) => kind === 'restore').length, 1);
+  assert.equal(s.accounts.get('account2'), 'ACTIVE');
+});
+
+test('demo reset cannot release an externally suspended account', async t => {
+  const s = fixture(t); s.cfg.demoResetTarget = 'vendor'; s.accounts.set('account1', 'SUSPENDED');
+  const pause = s.pause(); await s.send(pause);
+  assert.equal((await s.send(s.restore(pause, { demoReset: true }))).body.status, 'refused');
+  assert.equal(s.calls.filter(([kind]) => kind === 'restore').length, 0);
+});
+
+test('demo reset preserves other holds until the last matching pause is released', async t => {
+  const s = fixture(t); s.cfg.demoResetTarget = 'vendor';
+  const first = s.pause(), second = s.pause({ commandId: 'pause-command-0002', incidentId: 'incident-two' });
+  await s.send(first); await s.send(second);
+  assert.equal((await s.send(s.restore(first, { demoReset: true }))).body.observedState, 'SUSPENDED');
+  assert.equal((await s.send(s.restore(second, { demoReset: true, commandId: 'restore-command-0002' }))).body.observedState, 'ACTIVE');
+  assert.equal(s.calls.filter(([kind]) => kind === 'restore').length, 1);
+});

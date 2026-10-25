@@ -16,6 +16,7 @@ import { getViewer, isPresenter } from "./access";
 import dnsLinks from "../data/dns_links.json";
 import { DAY_MS, demoEmail } from "./shared";
 import { postLedgerEntry } from "./ledger";
+import { restoreDemoAccounts } from "./demoResetReceiver";
 
 type DnsLink = { companyDomain: string; assetName: string; detail?: string };
 
@@ -366,7 +367,7 @@ async function startConnectedReset(ctx: MutationCtx) {
   }
   for (const id of protectedIncidents) if (await ctx.db.get("incidents", id))
     await ctx.db.patch("incidents", id, { demoResetAt: Date.now() });
-  const value = { running: true, generation: (previous?.generation ?? 0) + 1, tableIndex: 0, cursor: null, protectedIncidents: [...protectedIncidents], startedAt: Date.now() };
+  const value = { running: true, phase: "restoring" as const, generation: (previous?.generation ?? 0) + 1, tableIndex: 0, cursor: null, protectedIncidents: [...protectedIncidents], startedAt: Date.now() };
   const id = previous ? previous._id : await ctx.db.insert("demoResetState", value);
   if (previous) await ctx.db.replace("demoResetState", id, value);
   await ctx.scheduler.runAfter(0, internal.seed.finishConnectedReset, { resetId: id });
@@ -378,6 +379,28 @@ export const finishConnectedReset = internalMutation({
   handler: async (ctx, { resetId }) => {
     const state = await ctx.db.get("demoResetState", resetId);
     if (!state?.running) return;
+    if (state.phase === "restoring") {
+      const recovery = await restoreDemoAccounts(ctx, state);
+      if (recovery === "waiting") {
+        await ctx.scheduler.runAfter(2000, internal.seed.finishConnectedReset, { resetId });
+        return;
+      }
+      if (recovery) {
+        await ctx.db.patch("demoResetState", resetId, { running: false, error: recovery });
+        return;
+      }
+      // Close only these retained practice episodes after all account recovery
+      // is confirmed. Their evidence remains available for the recorded demo.
+      for (const id of state.protectedIncidents) {
+        const incident = await ctx.db.get("incidents", id);
+        if (incident && incident.containedAt === undefined) {
+          await ctx.db.patch("incidents", id, { containedAt: Date.now(), containmentNote: "Practice demo reset: receiver recovery completed; not a claim of real incident remediation." });
+          await ctx.db.insert("auditLog", { at: Date.now(), actor: "system", action: "contain", incidentId: id,
+            rule: "presenter_demo_reset", reason: "Closed practice episode after receiver recovery; command evidence retained." });
+        }
+      }
+      await ctx.db.patch("demoResetState", resetId, { phase: "clearing" });
+    }
     const protectedIds = new Set<string>(state.protectedIncidents);
     let index = state.tableIndex, cursor = state.cursor;
     if (index < CONNECTED_TABLES.length) {
@@ -656,11 +679,13 @@ export const resetAvailability = query({
   handler: async ctx => {
     await getViewer(ctx);
     const external = env.RESPONSE_RECEIVER_LIVE === "true" || !!(await ctx.db.query("responseDeliveries").first());
-    const resetting = (await ctx.db.query("demoResetState").first())?.running === true;
+    const state = await ctx.db.query("demoResetState").first();
+    const resetting = state?.running === true;
     return { allowed: env.DEMO_MODE === "true" && !resetting, preservesExternal: external,
-      reason: resetting ? "Reset in progress… Your sign-in and external recovery records are preserved."
+      reason: resetting ? (state.phase === "restoring" ? "Reset in progress: restoring and verifying the disposable Okta account…" : "Okta recovery checked. Clearing practice payments and AI tests…")
+        : state?.error ? `Reset stopped: ${state.error}`
         : env.DEMO_MODE !== "true" ? "Demo reset is disabled on this deployment."
-        : external ? "Reset clears simulated payments and unfinished AI tests. Real account actions and recovery records stay available; Reset does not restore an Okta account." : null };
+        : external ? (state ? "Ready for the next practice run. " : "") + "Reset restores the disposable Okta account paused by the demo before clearing simulated payments and AI tests. Recovery history stays available; revoked sessions cannot be recreated." : null };
   },
 });
 

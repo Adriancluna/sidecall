@@ -1,0 +1,19 @@
+{
+  "deployment": "tangible-koala-842",
+  "checkedAt": "2026-10-25T06:21:12.137Z",
+  "passed": true,
+  "checks": {
+    "companiesUnchanged": true,
+    "pauseEvidencePreserved": true,
+    "targetRestored": true,
+    "controlUnchanged": true,
+    "restorationConfirmed": true,
+    "aiRunsCleared": true,
+    "noSimulatedHolds": true,
+    "seededPaymentsRestored": true,
+    "sessionSurvived": true
+  },
+  "paymentSeedRefs": [
+    "pay_C_brightline_480k"
+  ]
+}

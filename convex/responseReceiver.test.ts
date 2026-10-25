@@ -174,32 +174,60 @@ test("reset interrupts an unfinished test while keeping receiver identities and 
   expect(await t.mutation(internal.seed.fireDemoIncident, { scenario: "brightline" })).toMatchObject({ duplicate: false });
 });
 
-test("reset keeps unknown sent commands reconcilable after a multi-page clear", async () => {
+test("reset stops without clearing data when a sent pause remains uncertain", async () => {
   const { t, as, job, incident } = await fixture();
   await t.mutation(internal.responseReceiver.claim, { jobId: job._id });
   await t.mutation(internal.responseReceiver.record, { jobId: job._id });
   await t.run(async ctx => { const channel = (await ctx.db.query("notificationChannels").first())!;
     for (let i = 0; i < 250; i++) await ctx.db.insert("notifications", { channelId: channel._id, event: "test", refId: `clear-${i}`, text: "test", status: "simulated", createdAt: Date.now() }); });
   vi.stubEnv("RESPONSE_RECEIVER_LIVE", "false");
-  await as("Sam Kowalski").mutation(api.seed.resetDemo, {}); await finishConnectedReset(t);
+  await as("Sam Kowalski").mutation(api.seed.resetDemo, {});
+  vi.advanceTimersByTime(180_001); await finishConnectedReset(t);
+  expect(await as("Sam Kowalski").query(api.seed.resetAvailability, {})).toMatchObject({ reason: expect.stringContaining("Reset stopped") });
   vi.advanceTimersByTime(1001);
   expect(await t.mutation(internal.responseReceiver.claim, { jobId: job._id })).toMatchObject({ statusOnly: true, commandJson: job.commandJson });
   const plan = await as("Sam Kowalski").query(api.responses.getMyResponsePlan, { incidentId: incident._id });
   expect(plan.some(p => p.stepId === job.stepId && p.canManageReceiver)).toBe(true);
-  expect((await t.run(ctx => ctx.db.query("notifications").take(500))).some(n => n.refId.startsWith("clear-"))).toBe(false);
+  expect((await t.run(ctx => ctx.db.query("notifications").take(500))).some(n => n.refId.startsWith("clear-"))).toBe(true);
 });
 
-test("a pending restoration survives reset and still uses the original pause command", async () => {
-  const { t, as, job, receipt } = await fixture();
+test("reset restores the demo account before clearing and closes the old practice episode", async () => {
+  const { t, as, job, receipt, incident } = await fixture();
   await t.mutation(internal.responseReceiver.claim, { jobId: job._id });
   await t.mutation(internal.responseReceiver.record, { jobId: job._id, receipt: receipt() });
   await as("Sam Kowalski").mutation(api.responseReceiver.prepareRestore, { stepId: job.stepId });
-  await as("Sam Kowalski").mutation(api.seed.resetDemo, {}); await finishConnectedReset(t);
+  await as("Sam Kowalski").mutation(api.seed.resetDemo, {});
+  const state = await t.run(ctx => ctx.db.query("demoResetState").first());
+  await t.mutation(internal.seed.finishConnectedReset, { resetId: state!._id });
   const restore = await t.run(ctx => ctx.db.query("responseDeliveries").withIndex("by_stepId_and_kind", q=>q.eq("stepId", job.stepId).eq("kind", "restore")).unique());
-  expect(restore).toMatchObject({ status: "awaiting_operator" });
-  await as("Sam Kowalski").mutation(api.responseReceiver.checkOrSend, { jobId: restore!._id });
+  expect(restore).toMatchObject({ status: "ready" });
   const claim = await t.mutation(internal.responseReceiver.claim, { jobId: restore!._id });
-  expect(JSON.parse(claim!.commandJson).pauseCommandId).toBe(job.commandId);
+  const command = JSON.parse(claim!.commandJson);
+  expect(command).toMatchObject({ pauseCommandId: job.commandId, demoReset: true });
+  expect(await t.run(ctx => ctx.db.get("incidents", incident._id))).not.toHaveProperty("containedAt");
+  const { pauseCommandId: _pauseId, policyVersion: _version, demoReset: _reset, ...fields } = command;
+  await t.mutation(internal.responseReceiver.record, { jobId: restore!._id,
+    receipt: receipt({ ...fields, commandHash: digest(claim!.commandJson), observedState: "ACTIVE", restoreEligible: false }) });
+  await finishConnectedReset(t);
+  expect(await t.run(ctx => ctx.db.get("responseSteps", job.stepId))).toMatchObject({ status: "undone" });
+  expect(await t.run(ctx => ctx.db.get("incidents", incident._id))).toHaveProperty("containedAt");
+  expect(await as("Sam Kowalski").query(api.seed.resetAvailability, {})).toMatchObject({ allowed: true, reason: expect.stringContaining("Ready") });
+  const fresh = await t.mutation(internal.seed.fireDemoIncident, { scenario: "ironcladCredential" });
+  expect(fresh).toMatchObject({ duplicate: false });
+});
+
+test("reset keeps data and explains a receiver refusal instead of claiming success", async () => {
+  const { t, as, job, receipt } = await fixture();
+  await t.mutation(internal.responseReceiver.claim, { jobId: job._id });
+  await t.mutation(internal.responseReceiver.record, { jobId: job._id, receipt: receipt() });
+  await as("Sam Kowalski").mutation(api.seed.resetDemo, {});
+  const state = await t.run(ctx => ctx.db.query("demoResetState").first());
+  await t.mutation(internal.seed.finishConnectedReset, { resetId: state!._id });
+  const restore = await t.run(ctx => ctx.db.query("responseDeliveries").withIndex("by_stepId_and_kind", q=>q.eq("stepId", job.stepId).eq("kind", "restore")).unique());
+  await t.run(ctx => ctx.db.patch("responseDeliveries", restore!._id, { status: "refused", reason: "demo_reset_not_authorized_for_owned_target" }));
+  await finishConnectedReset(t);
+  expect(await t.run(ctx => ctx.db.query("demoResetState").first())).toMatchObject({ running: false, tableIndex: 0, error: expect.stringContaining("refused") });
+  expect(await t.run(ctx => ctx.db.get("responseDeliveries", job._id))).not.toBeNull();
 });
 
 test("reset cancels in-flight AI authority and permits sample bills to be loaded again", async () => {
@@ -236,4 +264,38 @@ test("transport accepts a correctly bound signed receiver receipt", async () => 
   vi.stubGlobal("fetch", vi.fn(async () => new Response(raw, { status: 200, headers: { 'x-sidecall-signature': sign('receiver-test-secret-32-characters-long', '/v1/commands:receipt', raw) } })));
   await t.action(internal.receiverTransport.dispatch, { jobId: job._id });
   expect(await t.run(ctx => ctx.db.get("responseSteps", job.stepId))).toMatchObject({ status: "done", executionMode: "external" });
+});
+
+test("an uncertain restore is checked with the same body and cannot finish Reset", async () => {
+  const { t, as, job, receipt } = await fixture();
+  await t.mutation(internal.responseReceiver.claim, { jobId: job._id });
+  await t.mutation(internal.responseReceiver.record, { jobId: job._id, receipt: receipt() });
+  await as("Sam Kowalski").mutation(api.seed.resetDemo, {});
+  const state = await t.run(ctx => ctx.db.query("demoResetState").first());
+  await t.mutation(internal.seed.finishConnectedReset, { resetId: state!._id });
+  const restore = await t.run(ctx => ctx.db.query("responseDeliveries").withIndex("by_stepId_and_kind", q=>q.eq("stepId", job.stepId).eq("kind", "restore")).unique());
+  const first = await t.mutation(internal.responseReceiver.claim, { jobId: restore!._id });
+  await t.mutation(internal.responseReceiver.record, { jobId: restore!._id });
+  vi.advanceTimersByTime(10001);
+  expect(await t.mutation(internal.responseReceiver.claim, { jobId: restore!._id })).toMatchObject({ statusOnly: true, commandJson: first!.commandJson });
+  await t.mutation(internal.seed.finishConnectedReset, { resetId: state!._id });
+  expect(await t.run(ctx => ctx.db.get("demoResetState", state!._id))).toMatchObject({ running: true, phase: "restoring", tableIndex: 0 });
+  vi.advanceTimersByTime(180001);
+  await t.mutation(internal.seed.finishConnectedReset, { resetId: state!._id });
+  expect(await t.run(ctx => ctx.db.get("demoResetState", state!._id))).toMatchObject({ running: false, error: expect.stringContaining("could not be confirmed") });
+});
+
+test("releasing one hold with SUSPENDED evidence cannot complete Reset", async () => {
+  const { t, as, job, receipt } = await fixture();
+  await t.mutation(internal.responseReceiver.claim, { jobId: job._id });
+  await t.mutation(internal.responseReceiver.record, { jobId: job._id, receipt: receipt() });
+  await as("Sam Kowalski").mutation(api.seed.resetDemo, {});
+  const state = await t.run(ctx => ctx.db.query("demoResetState").first());
+  await t.mutation(internal.seed.finishConnectedReset, { resetId: state!._id });
+  const restore = await t.run(ctx => ctx.db.query("responseDeliveries").withIndex("by_stepId_and_kind", q=>q.eq("stepId", job.stepId).eq("kind", "restore")).unique());
+  const claim = await t.mutation(internal.responseReceiver.claim, { jobId: restore!._id });
+  const { policyVersion: _version, pauseCommandId: _pause, demoReset: _reset, ...fields } = JSON.parse(claim!.commandJson);
+  await t.mutation(internal.responseReceiver.record, { jobId: restore!._id, receipt: receipt({ ...fields, commandHash: digest(claim!.commandJson), reason: "this_hold_released_other_holds_remain", restoreEligible: false }) });
+  await finishConnectedReset(t);
+  expect(await t.run(ctx => ctx.db.get("demoResetState", state!._id))).toMatchObject({ running: false, tableIndex: 0, error: expect.stringContaining("Other account holds remain") });
 });

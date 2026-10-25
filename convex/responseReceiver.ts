@@ -75,6 +75,13 @@ async function authority(ctx: QueryCtx, step: Doc<"responseSteps">) {
 }
 
 async function restoreAuthority(ctx: QueryCtx, job: Doc<"responseDeliveries">, step: Doc<"responseSteps">) {
+  if (JSON.parse(job.commandJson).demoReset === true) {
+    const reset = await ctx.db.query("demoResetState").first();
+    const incident = await ctx.db.get("incidents", step.incidentId);
+    return env.DEMO_MODE === "true" && reset?.running && reset.phase === "restoring" &&
+      reset.protectedIncidents.includes(step.incidentId) && incident?.demoResetAt !== undefined && step.status === "done"
+      ? null : "Demo reset restoration is no longer authorized";
+  }
   const person = job.requestedBy ? await ctx.db.get("users", job.requestedBy) : null;
   if (!person || person.companyId !== step.companyId || !["it", "controller"].includes(person.role)) return "Restoration requester no longer has company authority";
   if (step.status !== "done") return "Original pause is no longer eligible for restoration";

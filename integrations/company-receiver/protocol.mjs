@@ -27,9 +27,10 @@ export function parseCommand(raw, statusOnly = false) {
   try { body = JSON.parse(raw); } catch { throw new Error('invalid_json'); }
   if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('invalid_body');
   const keys = statusOnly ? ['version', 'companyId', 'commandId']
-    : ['version', 'companyId', 'commandId', 'target', 'incidentId', 'action', 'policyVersion', 'pauseCommandId'];
+    : ['version', 'companyId', 'commandId', 'target', 'incidentId', 'action', 'policyVersion', 'pauseCommandId', 'demoReset'];
   if (Object.keys(body).some(key => !keys.includes(key)) || body.version !== 1 || !identifier(body.companyId) ||
       !identifier(body.commandId) || body.commandId.length < 8) throw new Error('invalid_command');
+  if (body.demoReset !== undefined && (body.demoReset !== true || body.action !== 'restore_shared_login')) throw new Error('invalid_demo_reset');
   if (!statusOnly && (!identifier(body.target) || !identifier(body.incidentId) ||
       !['pause_shared_login', 'restore_shared_login'].includes(body.action) ||
       !Number.isSafeInteger(body.policyVersion) || body.policyVersion < 1 ||
