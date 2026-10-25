@@ -185,6 +185,7 @@ function VerificationForm({ data, busy, submitting, onSubmit }: {
   // The reviewed facts remain fixed until an explicit restart; reactive changes never move
   // the account or phone number behind a checked attestation.
   const [snapshot, setSnapshot] = useState(() => snapshotOf(data));
+  const [reviewedAt, setReviewedAt] = useState(() => Date.now());
   const [account, setAccount] = useState("");
   const [called, setCalled] = useState(false);
   const [note, setNote] = useState("");
@@ -196,6 +197,7 @@ function VerificationForm({ data, busy, submitting, onSubmit }: {
 
   function restart() {
     setSnapshot(snapshotOf(data));
+    setReviewedAt(Date.now());
     setAccount("");
     setCalled(false);
     setNote("");
@@ -207,11 +209,15 @@ function VerificationForm({ data, busy, submitting, onSubmit }: {
   }
 
   if (!snapshot) return <p className="text-sm text-ash">A destination previously confirmed by phone is required before preparing a correction.</p>;
+  const daysOld = Math.max(0, Math.floor((reviewedAt - snapshot.destination.changedAt) / 86_400_000));
   return (
     <form onSubmit={submit} className="min-w-0 space-y-4">
       <div className="space-y-1 text-sm">
         <p>Corrected request: <strong className="tabular-nums">{dollars(snapshot.amountCents)}</strong> to account ending <strong className="tabular-nums">{snapshot.destination.accountLast4}</strong>.</p>
-        <p className="text-ash">Destination previously confirmed by phone on {dateTime(snapshot.destination.changedAt)}. This correction applies only to this bill.</p>
+        <p className="text-ash">Last phone confirmation: {dateTime(snapshot.destination.changedAt)} · {daysOld} {daysOld === 1 ? "day" : "days"} old when this verification began.</p>
+        <p className="text-ash">Subsequent bank changes on file: {snapshot.destination.laterChangesCapped ? "at least 100" : snapshot.destination.laterChangesCount}.</p>
+        <p>Confirm on the call that this destination is still current.</p>
+        <p className="text-ash">This correction applies only to this bill.</p>
       </div>
       {stale && (
         <div className="space-y-2">
@@ -229,7 +235,7 @@ function VerificationForm({ data, busy, submitting, onSubmit }: {
         </div>
         <label className="flex items-start gap-2 text-sm leading-relaxed">
           <input type="checkbox" className="mt-1 shrink-0 accent-amber" checked={called} onChange={event => setCalled(event.target.checked)} required />
-          <span>I called <strong className="break-words">{snapshot.phoneOnFile}</strong>, the number on file, and confirmed {dollars(snapshot.amountCents)} to account ending {snapshot.destination.accountLast4}.</span>
+          <span>I called <strong className="break-words">{snapshot.phoneOnFile}</strong>, the number on file, and confirmed that account ending {snapshot.destination.accountLast4} is still current for this {dollars(snapshot.amountCents)} payment.</span>
         </label>
         <div>
           <label htmlFor={`${fieldId}-note`} className="block text-sm font-medium">Who confirmed the corrected destination?</label>

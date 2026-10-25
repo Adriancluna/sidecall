@@ -10,7 +10,8 @@ import { holdNewPayment } from "./payments";
 
 const TTL = 15 * 60_000;
 const failure = v.object({ ok: v.literal(false), reason: v.string() });
-const destinationValidator = v.object({ id: v.id("bankDetailChanges"), accountLast4: v.string(), changedAt: v.number() });
+const destinationValidator = v.object({ id: v.id("bankDetailChanges"), accountLast4: v.string(), changedAt: v.number(),
+  laterChangesCount: v.number(), laterChangesCapped: v.boolean() });
 
 async function sourceFor(ctx: QueryCtx, viewer: Viewer, paymentId: Id<"payments">) {
   const payment = await ctx.db.get("payments", paymentId);
@@ -21,6 +22,11 @@ async function destinationFor(ctx: QueryCtx, assetId: Id<"assets">) {
   return await ctx.db.query("bankDetailChanges")
     .withIndex("by_assetId_and_requestChannel_and_changedAt", q => q.eq("assetId", assetId).eq("requestChannel", "verified_call"))
     .order("desc").first();
+}
+async function destinationHistory(ctx: QueryCtx, bank: Doc<"bankDetailChanges">) {
+  const later = await ctx.db.query("bankDetailChanges")
+    .withIndex("by_assetId_and_changedAt", q => q.eq("assetId", bank.assetId).gt("changedAt", bank.changedAt)).take(101);
+  return { laterChangesCount: Math.min(later.length, 100), laterChangesCapped: later.length > 100 };
 }
 async function latestProposal(ctx: QueryCtx, paymentId: Id<"payments">) {
   return await ctx.db.query("paymentRecoveries").withIndex("by_rejectedPaymentId", q => q.eq("rejectedPaymentId", paymentId)).order("desc").first();
@@ -39,6 +45,14 @@ async function refuse(ctx: MutationCtx, payment: Doc<"payments">, viewer: Viewer
   await ctx.db.insert("auditLog", { at: Date.now(), actor: viewer.user._id, action: "refused",
     companyId: payment.companyId, paymentId: payment._id, incidentId: payment.heldByIncidentId,
     rule: "payment_recovery_refused", reason });
+  return { ok: false as const, reason };
+}
+// Log inaccessible/unknown targets against the caller, without linking another company's
+// payment, incident, destination or guessed ID into the caller's readable audit log.
+async function refuseUnavailable(ctx: MutationCtx, viewer: Viewer, operation: string, reason: string) {
+  await ctx.db.insert("auditLog", { at: Date.now(), actor: viewer.user._id, action: "refused",
+    companyId: viewer.firm ? undefined : viewer.companyId,
+    rule: "payment_recovery_refused", reason: `${operation}: ${reason}` });
   return { ok: false as const, reason };
 }
 
@@ -66,7 +80,8 @@ export const getForPayment = query({
     const proposalCurrent = !!proposal && sameReleaseContext(context, proposal.context) &&
       destination?._id === proposal.bankRecordId && destination.changedAt === proposal.bankRecordChangedAt &&
       destination.accountLast4 === proposal.accountLast4 && proposer?.role === "controller" && proposer.companyId === payment.companyId;
-    return { context, destination: destination ? { id: destination._id, accountLast4: destination.accountLast4, changedAt: destination.changedAt } : null,
+    return { context, destination: destination ? { id: destination._id, accountLast4: destination.accountLast4, changedAt: destination.changedAt,
+      ...await destinationHistory(ctx, destination) } : null,
       latestProposal: proposal ? { id: proposal._id, status: proposal.status, expiresAt: proposal.expiresAt,
         proposedByName: proposer?.name ?? "Controller", accountLast4: proposal.accountLast4, amountCents: proposal.context.amountCents,
         replacementPaymentId: proposal.replacementPaymentId ?? null } : null,
@@ -84,7 +99,7 @@ export const prepare = mutation({
   returns: v.union(failure, v.object({ ok: v.literal(true), proposalId: v.id("paymentRecoveries") })),
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx), payment = await sourceFor(ctx, viewer, args.paymentId);
-    if (!payment) return { ok: false as const, reason: "This payment is unavailable to your company." };
+    if (!payment) return await refuseUnavailable(ctx, viewer, "Prepare correction", "This payment is unavailable to your company.");
     if (viewer.user.role !== "controller" || viewer.user._id === payment.requestedBy)
       return await refuse(ctx, payment, viewer, "A different controller at this company must verify the correction.");
     const blocked = await sourceBlock(ctx, payment);
@@ -92,7 +107,7 @@ export const prepare = mutation({
     const context = await currentReleaseContext(ctx, payment), bank = await destinationFor(ctx, payment.assetId);
     if (!sameReleaseContext(context, args.context)) return await refuse(ctx, payment, viewer, "Payment, invoice or vendor facts changed. Start the verification again.");
     if (!bank || bank._id !== args.bankRecordId || bank.changedAt !== args.bankRecordChangedAt || bank.accountLast4 === payment.accountLast4)
-      return await refuse(ctx, payment, viewer, "Choose the current destination previously confirmed by phone; it must differ from the rejected destination.");
+      return await refuse(ctx, payment, viewer, "Choose the most recent phone-confirmed record; it must differ from the rejected destination and still needs a current callback.");
     // Validate bill consistency and callback assertion against the corrected destination,
     // while retaining the original rejected snapshot separately as immutable provenance.
     const correctedContext = { ...context, accountLast4: bank.accountLast4 };
@@ -108,7 +123,7 @@ export const prepare = mutation({
     const proposalId = await ctx.db.insert("paymentRecoveries", { companyId: payment.companyId, billId: payment.billId,
       rejectedPaymentId: payment._id, context, bankRecordId: bank._id, bankRecordChangedAt: bank.changedAt, accountLast4: bank.accountLast4,
       proposedBy: viewer.user._id, proposedAt: now, expiresAt: now + TTL, verificationNote: note, calledPhoneOnFile: true, status: "prepared" });
-    await ctx.db.insert("auditLog", { at: now, actor: viewer.user._id, action: "approve", companyId: payment.companyId,
+    await ctx.db.insert("auditLog", { at: now, actor: viewer.user._id, action: "prepare", companyId: payment.companyId,
       paymentId: payment._id, incidentId: payment.heldByIncidentId, rule: "payment_recovery_prepared",
       reason: `Controller prepared a bill-specific request to account ending ${bank.accountLast4}; AP must request it within 15 minutes, then a controller must release it. No vendor-master change or money movement. ${note}` });
     return { ok: true as const, proposalId };
@@ -121,9 +136,9 @@ export const requestReplacement = mutation({
   handler: async (ctx, { proposalId }) => {
     const viewer = await getViewer(ctx), proposal = await ctx.db.get("paymentRecoveries", proposalId);
     if (!proposal || viewer.firm || viewer.companyId !== proposal.companyId)
-      return { ok: false as const, reason: "This correction is unavailable to your company." };
+      return await refuseUnavailable(ctx, viewer, "Request correction", "This correction is unavailable to your company.");
     const payment = await sourceFor(ctx, viewer, proposal.rejectedPaymentId);
-    if (!payment) return { ok: false as const, reason: "Original payment is unavailable." };
+    if (!payment) return await refuseUnavailable(ctx, viewer, "Request correction", "Original payment is unavailable.");
     if (viewer.user.role !== "ap_clerk" || viewer.user._id === proposal.proposedBy)
       return await refuse(ctx, payment, viewer, "A separate AP clerk must request the corrected payment.");
     if (proposal.status === "requested" && proposal.replacementPaymentId) return { ok: true as const, paymentId: proposal.replacementPaymentId };
@@ -139,14 +154,18 @@ export const requestReplacement = mutation({
       bank.changedAt !== proposal.bankRecordChangedAt || bank.accountLast4 !== proposal.accountLast4)
       return await refuse(ctx, payment, viewer, "Invoice, contact or bank details changed after verification. Ask the controller to verify again.");
     const incident = (await ctx.db.get("incidents", payment.heldByIncidentId!))!, asset = (await ctx.db.get("assets", payment.assetId))!;
-    const now = Date.now();
+    const now = Date.now(), history = await destinationHistory(ctx, bank);
+    const ageDays = Math.max(0, Math.floor((now - bank.changedAt) / 86_400_000));
+    const changesWarning = history.laterChangesCount === 0 ? "no later bank changes are on file"
+      : `superseded by ${history.laterChangesCapped ? "at least " : ""}${history.laterChangesCount} later bank changes`;
+    const ageWarning = `Destination ${bank.accountLast4} was last confirmed by phone ${ageDays} days ago; ${changesWarning}. Confirm on the call that this is still current.`;
     const paymentId = await ctx.db.insert("payments", { billId: payment.billId, companyId: payment.companyId, assetId: payment.assetId,
       amountCents: payment.amountCents, dueDate: context.bill!.dueDate, accountLast4: proposal.accountLast4, status: "pending",
       requestedBy: viewer.user._id, recoveryFromPaymentId: payment._id, recoveryProposalId: proposalId });
     // Recovery always requires a fresh controller release, even after containment or with
     // an automatic purchase mandate. Preparing a correction is never settlement authority.
     await holdNewPayment(ctx, { payment: (await ctx.db.get("payments", paymentId))!, incident, asset, at: now,
-      rule: "payment_recovery_requires_release", reason: "Corrected request for a rejected payment. A controller must verify and release this exact destination before any money moves." });
+      rule: "payment_recovery_requires_release", reason: `Corrected request for a rejected payment. A controller must verify and release this exact destination before any money moves. ${ageWarning}` });
     await ctx.db.patch("paymentRecoveries", proposalId, { status: "requested", replacementPaymentId: paymentId,
       requestedBy: viewer.user._id, requestedAt: now });
     await ctx.db.insert("auditLog", { at: now, actor: viewer.user._id, action: "request", companyId: payment.companyId,
@@ -161,11 +180,14 @@ export const revoke = mutation({
   returns: v.union(failure, v.object({ ok: v.literal(true) })),
   handler: async (ctx, { proposalId }) => {
     const viewer = await getViewer(ctx), proposal = await ctx.db.get("paymentRecoveries", proposalId);
-    if (!proposal || viewer.firm || viewer.companyId !== proposal.companyId || viewer.user.role !== "controller")
-      return { ok: false as const, reason: "Only this company's controller can withdraw a correction." };
-    if (proposal.status !== "prepared") return { ok: false as const, reason: "Only an unused correction can be withdrawn; decide any replacement through its held-payment controls." };
+    if (!proposal || viewer.firm || viewer.companyId !== proposal.companyId)
+      return await refuseUnavailable(ctx, viewer, "Withdraw correction", "Only this company's controller can withdraw a correction.");
+    const payment = await sourceFor(ctx, viewer, proposal.rejectedPaymentId);
+    if (!payment) return await refuseUnavailable(ctx, viewer, "Withdraw correction", "Original payment is unavailable.");
+    if (viewer.user.role !== "controller")
+      return await refuse(ctx, payment, viewer, "Only this company's controller can withdraw a correction.");
+    if (proposal.status !== "prepared") return await refuse(ctx, payment, viewer, "Only an unused correction can be withdrawn; decide any replacement through its held-payment controls.");
     await ctx.db.patch("paymentRecoveries", proposalId, { status: "revoked", revokedAt: Date.now() });
-    const payment = await ctx.db.get("payments", proposal.rejectedPaymentId);
     await ctx.db.insert("auditLog", { at: Date.now(), actor: viewer.user._id, action: "undo", companyId: proposal.companyId,
       paymentId: proposal.rejectedPaymentId, incidentId: payment?.heldByIncidentId, rule: "payment_recovery_revoked",
       reason: "Controller withdrew the unused payment correction. The original payment remains rejected." });

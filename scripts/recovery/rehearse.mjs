@@ -13,7 +13,7 @@ const env = runtimeEnv(), transport = createTransport({ options, env });
 requireProof(env.PRESENTER_KEY, "The matching local presenter key is required before any setup mutation; never paste it in chat.");
 const report = { format: "sidecall-recovery-proof-v1", author: "Pegasus", sourceCommit: await transport.commit(),
   deployment: options.deployment, startedAt: new Date().toISOString(), passed: false, checks: [], cleanup: [],
-  scope: "Synthetic payments and simulated callback assertions on Pegasus DEV. No real bank/Visa integration, model calls, external notifications or real funds. Stale-context and expiry challenges are unit-only, not exercised by this live run.",
+  scope: "Synthetic payments and simulated callback assertions on Pegasus DEV. No real bank/Visa integration, model calls, external notifications or real funds. Stale-context, expiry and caller-scoped unlinked refusal audit rows are unit-only, not exercised by this live run. Foreign attempts are checked for no change to the target payment's state or linked audit.",
   retainedFixtures: "Synthetic incident, rejected/corrected payments, sample bills, journals and audits remain as evidence. Cleanup withdraws unused recovery authority, revokes the routine purchase approval and signs out test sessions; it never resets or deletes fixtures." };
 const secrets = [env.PRESENTER_KEY, env.ANTHROPIC_API_KEY].filter(Boolean), cleanup = [], cleanupFailures = [];
 const call = (kind, path, args, token) => transport.call(kind, path, args, token);
@@ -83,10 +83,13 @@ try {
     const getView = () => query("paymentRecovery:getForPayment", { paymentId: source.payment._id }, rosa);
     let view = await getView();
     const rejectedPayment = (await rows(rosa)).find(r => r.payment._id === source.payment._id)?.payment;
-    check("Rejecting the changed destination preserves cash and offers the known 2208 record", rejected.ok &&
+    const destinationAgeDays = Math.floor((Date.now() - view?.destination?.changedAt) / 86_400_000);
+    check("Rejecting the changed destination preserves cash and discloses the 150-day-old 2208 record and three later changes", rejected.ok &&
       rejectedPayment?.status === "rejected" && rejectedPayment.accountLast4 === "7731" && rejectedPayment.approvedBy === controller._id &&
-      view?.destination?.accountLast4 === "2208" && view.latestProposal === null && same(baseline, await ledger(rosa)),
-    { sourcePaymentId: source.payment._id, rejectedPayment, view, cashCents: baseline.balances.cash });
+      view?.destination?.accountLast4 === "2208" && destinationAgeDays === 150 &&
+      view.destination.laterChangesCount === 3 && view.destination.laterChangesCapped === false &&
+      view.latestProposal === null && same(baseline, await ledger(rosa)),
+    { sourcePaymentId: source.payment._id, rejectedPayment, view, destinationAgeDays, cashCents: baseline.balances.cash });
     const originalBankRecord = view.context.latestBankRecord, originalDestination = view.destination;
 
     // Register before any preparation: an HTTP timeout can hide a successful server commit.
@@ -134,11 +137,13 @@ try {
       const audit = await query("payments:getPaymentAudit", { paymentId: auditPaymentId }, rosa);
       const previousIds = new Set(beforeAudit.map(row => row._id));
       const added = audit.filter(row => !previousIds.has(row._id));
-      const correctAudit = expectedRule === null ? added.length === 0
+      const correctAudit = expectedRule === null ? same(beforeAudit, audit)
         : added.length === 1 && added[0].action === "refused" && added[0].rule === expectedRule;
       requireProof(outcome?.ok === false && same(before, after) && correctAudit,
         `${label}: expected a refusal, unchanged stored payment/proposal/ledger and the appropriate audit.`);
-      return { outcome, unchangedState: true, audit: added };
+      return { outcome, unchangedState: true, audit: added, auditScope: expectedRule === null
+        ? "Target payment's linked audit unchanged; caller-scoped unlinked refusal is unit-tested only."
+        : "One refusal linked to the caller's own-company payment." };
     }
     const prepareArgs = () => ({ paymentId: source.payment._id, context: view.context, bankRecordId: view.destination.id, bankRecordChangedAt: view.destination.changedAt,
       confirmedAccountLast4: "2208", calledPhoneOnFile: true, verificationNote: "Synthetic callback: Alex confirmed the saved invoice amount and original 2208 destination; no real call occurred." });
@@ -148,12 +153,20 @@ try {
     const foreignPrepare = await refusedWithoutEffects("Foreign preparation", () => prepareRecovery(prepareArgs(), elena), source.payment._id, null);
     check("Wrong destination, self-approval and cross-company access cannot prepare a correction", invalid.unchangedState && selfApproved.unchangedState && foreignPrepare.unchangedState && foreign === null,
       { invalid, selfApproved, foreignPrepare, foreign });
+    const preparationAudits = [];
     async function prepare() {
+      const beforeAudit = await query("payments:getPaymentAudit", { paymentId: source.payment._id }, rosa);
       view = await getView(); const result = await prepareRecovery(prepareArgs(), rosa);
       requireProof(result.ok, "Controller preparation failed.");
       const saved = (await getView())?.latestProposal;
       requireProof(saved?.id === result.proposalId && saved.status === "prepared" && saved.accountLast4 === "2208" && saved.amountCents === source.payment.amountCents,
         "Prepared response must match the saved correction.");
+      const beforeIds = new Set(beforeAudit.map(row => row._id));
+      const added = (await query("payments:getPaymentAudit", { paymentId: source.payment._id }, rosa)).filter(row => !beforeIds.has(row._id));
+      requireProof(added.length === 1 && added[0].action === "prepare" && added[0].rule === "payment_recovery_prepared" &&
+        added[0].actor === controller._id && added[0].companyId === controller.companyId && added[0].paymentId === source.payment._id,
+      "Controller preparation must record preparation, not payment approval or release.");
+      preparationAudits.push({ proposalId: result.proposalId, audit: added[0] });
       return result.proposalId;
     }
     const first = await prepare();
@@ -167,19 +180,27 @@ try {
       withdrawn.unchangedState && same(baseline, await ledger(rosa)), { revoked, revokedState, withdrawn });
     const old = await prepare(), current = await prepare();
     const superseded = await refusedWithoutEffects("Superseded correction", () => mutate("paymentRecovery:requestReplacement", { proposalId: old }, jamie));
-    check("A replacement approval invalidates the previous proposal", superseded.unchangedState && (await getView()).latestProposal.id === current,
-      { superseded, activeProposalId: current });
+    check("A new preparation invalidates the previous proposal and is audited as prepare", superseded.unchangedState && (await getView()).latestProposal.id === current,
+      { superseded, activeProposalId: current, preparationAudits });
     const attempts = await Promise.all(Array.from({ length: 8 }, () => mutate("paymentRecovery:requestReplacement", { proposalId: current }, jamie)));
     requireProof(attempts[0].ok, "Replacement request failed.");
     const paymentId = attempts[0].paymentId;
     let all = await rows(rosa), replacement = all.find(r => r.payment._id === paymentId);
     const consumed = (await getView()).latestProposal;
+    const recoveryHoldAudit = (await query("payments:getPaymentAudit", { paymentId }, rosa))
+      .filter(row => row.action === "hold" && row.rule === "payment_recovery_requires_release");
+    const ageAtHoldDays = Math.floor((recoveryHoldAudit[0]?.at - originalDestination.changedAt) / 86_400_000);
+    const ageWarning = `Destination 2208 was last confirmed by phone ${ageAtHoldDays} days ago; superseded by 3 later bank changes. Confirm on the call that this is still current.`;
     check("Eight concurrent retries create one held 2208 replacement and no debit", attempts.every(r => r.ok && r.paymentId === paymentId) &&
       all.filter(r => r.payment.recoveryProposalId === current).length === 1 && replacement?.payment.status === "held" &&
       all.filter(r => r.payment.billId === source.payment.billId && r.payment.status !== "rejected").length === 1 &&
       replacement.payment.accountLast4 === "2208" && replacement.payment.requestedBy === clerk._id && replacement.payment.recoveryFromPaymentId === source.payment._id &&
+      recoveryHoldAudit.length === 1 && ageAtHoldDays === 150 && replacement.holdReasons.join(" ").includes(ageWarning) &&
+      recoveryHoldAudit[0].reason === replacement.holdReasons[0] && recoveryHoldAudit[0].actor === "system" &&
+      recoveryHoldAudit[0].companyId === controller.companyId &&
       consumed.id === current && consumed.status === "requested" && consumed.replacementPaymentId === paymentId && same(baseline, await ledger(rosa)),
-    { attempts, consumed, replacement: replacement?.payment, cashCents: (await ledger(rosa)).balances.cash });
+    { attempts, consumed, replacement: replacement?.payment, holdReasons: replacement?.holdReasons, recoveryHoldAudit, ageAtHoldDays,
+      cashCents: (await ledger(rosa)).balances.cash });
 
     // An unrelated, newly approved purchase can still complete while Brightline is quarantined.
     const loaded = await mutate("purchases:loadSamples", { presenterKey: env.PRESENTER_KEY }, rosa);

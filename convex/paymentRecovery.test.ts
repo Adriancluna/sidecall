@@ -124,3 +124,60 @@ test("editing verified provenance in place invalidates a controller's already-op
   await t.run(ctx => ctx.db.patch("bankDetailChanges", args.bankRecordId, { changedAt: args.bankRecordChangedAt + 1 }));
   expect(await rosa.mutation(api.paymentRecovery.prepare, args)).toMatchObject({ ok: false });
 });
+
+test("old verified destination discloses subsequent changes in the form and hold evidence; preparation is not approval", async () => {
+  const { rosa, jamie, row, view, prepare } = await setup();
+  expect(view.destination).toMatchObject({ accountLast4: "2208", laterChangesCount: 3, laterChangesCapped: false });
+  const ageDays = Math.floor((Date.now() - view.destination!.changedAt) / 86_400_000);
+  expect(ageDays).toBe(150);
+  const proposalId = await prepare();
+  const audit = await rosa.query(api.payments.getPaymentAudit, { paymentId: row.payment._id });
+  expect(audit.find(a => a.rule === "payment_recovery_prepared")?.action).toBe("prepare");
+  const result = await jamie.mutation(api.paymentRecovery.requestReplacement, { proposalId });
+  if (!result.ok) throw new Error(result.reason);
+  const replacement = (await rosa.query(api.payments.getHeldPayments, {})).find(r => r.payment._id === result.paymentId)!;
+  expect(replacement.holdReasons.join(" ")).toContain("last confirmed by phone 150 days ago; superseded by 3 later bank changes");
+  expect(replacement.holdReasons.join(" ")).toContain("Confirm on the call that this is still current.");
+});
+
+test("large bank history is bounded and disclosed as a lower bound", async () => {
+  const { t, rosa, row, view } = await setup();
+  await t.run(async ctx => {
+    for (let i = 1; i <= 101; i++) await ctx.db.insert("bankDetailChanges", {
+      assetId: row.payment.assetId, changedAt: view.destination!.changedAt + i,
+      accountLast4: "0193", requestChannel: "portal",
+    });
+  });
+  const current = await rosa.query(api.paymentRecovery.getForPayment, { paymentId: row.payment._id });
+  expect(current?.destination).toMatchObject({ laterChangesCount: 100, laterChangesCapped: true });
+});
+
+const refusedCases = (["prepare", "request", "revoke"] as const).flatMap(operation =>
+  (["foreign", "unknown", "wrong role"] as const).map(scope => ({ operation, scope })));
+test.each(refusedCases)("$operation logs $scope refusals without leaking foreign payment facts", async ({ operation, scope }) => {
+  const { t, rosa, jamie, elena, row, args, prepare, ledger, users } = await setup();
+  const proposalId = await prepare();
+  if (scope === "unknown") await t.run(async ctx => {
+    if (operation === "prepare") await ctx.db.delete("payments", row.payment._id);
+    else await ctx.db.delete("paymentRecoveries", proposalId);
+  });
+  const actor = scope === "foreign" ? elena : scope === "wrong role" ? (operation === "request" ? rosa : jamie) : rosa;
+  const actorName = scope === "foreign" ? "Elena Ruiz" : scope === "wrong role" && operation !== "request" ? "Jamie Chen" : "Rosa Alvarez";
+  const user = users.find(u => u.name === actorName)!;
+  const before = await t.run(ctx => ctx.db.query("auditLog").take(100)), cashBefore = await ledger();
+  const result = operation === "prepare" ? await actor.mutation(api.paymentRecovery.prepare, args)
+    : operation === "request" ? await actor.mutation(api.paymentRecovery.requestReplacement, { proposalId })
+    : await actor.mutation(api.paymentRecovery.revoke, { proposalId });
+  expect(result.ok).toBe(false);
+  const oldIds = new Set(before.map(a => a._id));
+  const added = (await t.run(ctx => ctx.db.query("auditLog").take(100))).filter(a => !oldIds.has(a._id));
+  expect(added).toHaveLength(1);
+  expect(added[0]).toMatchObject({ actor: user._id, companyId: user.companyId, action: "refused", rule: "payment_recovery_refused" });
+  if (scope === "wrong role") expect(added[0].paymentId).toBe(row.payment._id);
+  else {
+    expect(added[0].paymentId).toBeUndefined();
+    expect(added[0].incidentId).toBeUndefined();
+    expect(added[0].reason).not.toMatch(/2208|7731|Brightline|480000/);
+  }
+  expect(await ledger()).toEqual(cashBefore);
+});
