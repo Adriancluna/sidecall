@@ -13,6 +13,7 @@ import type { HeldPaymentRow } from "./types";
 import { LookChip } from "./ui";
 import { BUTTON_PRIMARY, BUTTON_PRIMARY_LG, BUTTON_SECONDARY, BUTTON_SECONDARY_LG } from "./styles";
 import { dueIn, usePaymentDecision, type Viewer } from "./usePaymentDecision";
+import { PaymentRecovery } from "./PaymentRecovery";
 
 type Decision = ReturnType<typeof usePaymentDecision>;
 
@@ -390,6 +391,10 @@ export function PaymentCard({ row, escalation, viewer }: Props) {
         <LookChip look={paymentLook(payment)} />
       </header>
 
+      {payment.recoveryFromPaymentId && (
+        <p className="text-sm text-ash">Corrected request for a previously rejected payment; the original rejection remains in the record.</p>
+      )}
+
       {escalation && isHeld && (
         <p role="status" className="-mt-2 text-sm font-semibold text-amber">
           Decision needed{due && `, ${due}`}
@@ -416,6 +421,7 @@ export function PaymentCard({ row, escalation, viewer }: Props) {
         </div>
       )}
       {isHeld && viewer && !decision.isDecider && <TryRelease decision={decision} />}
+      {payment.status === "rejected" && <PaymentRecovery paymentId={payment._id} />}
 
       <div className="flex flex-wrap gap-x-8 gap-y-3">
         <WhyHeld row={row} escalation={escalation} />

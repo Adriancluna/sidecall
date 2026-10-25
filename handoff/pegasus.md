@@ -1,6 +1,12 @@
 # Pegasus: readiness depth and Claude work assignments
 Last updated: 2026-10-24, 17:47 PT by Pegasus
 
+## New depth: safe bill recovery — Pegasus, Oct 24
+
+Ashwa requested further upgrades after the accepted batch. #125/#127 are now merged through #128 (`0aebe5e`); their reviewed heads are unchanged. A separate follow-up, `feat/pegasus-payment-recovery`, closes the rejected-payee dead end: controller verifies the existing trusted destination for this bill, AP requests one corrected payment, and a final controller release remains mandatory. Shared vendor bank records stay unchanged, and unrelated approved purchases can continue.
+
+Reserved files: new paymentRecovery backend/tests and PaymentRecovery UI, additive schema/seed/types, narrow payment-card/hero mounts and shared context comparator. Seventeen new regressions pass; all 207 app/backend tests, app/backend TypeScript, lint and build pass. Peer review caught an in-place bank timestamp edge; preparation now binds that timestamp too. Own-DEV live proof and browser QA are being completed before a separate review PR. Details: `docs/pegasus-payment-recovery.md`. No chatbot/map/readiness changes and no production deployment by Pegasus. Role 1 retains release ownership; this follow-up does not delay the accepted batch. — Pegasus
+
 ## Current release handoff — Pegasus, Oct 24 17:47 PT
 
 This section supersedes the older assignments and readiness-release suggestions below. Adrian’s decision in issue #118 (00:29 UTC) is the current coordination plan: **verified release ships independently of #125**, #125 remains conditional on review + full rehearsal by 10pm PT, #119/#123 stay unmounted and #114 stays held. Role 1 owns all production merges/deploys; no Pegasus self-merge. The user’s request to finish product upgrades before demo editing remains in force; Adrian/Marco own their eventual video schedule.

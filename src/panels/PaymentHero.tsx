@@ -9,6 +9,7 @@ import { dueIn, usePaymentDecision, type Viewer } from "./usePaymentDecision";
 import type { HeldPaymentRow } from "./types";
 import { LINK } from "./styles";
 import { StatusLine } from "./ui";
+import { PaymentRecovery } from "./PaymentRecovery";
 
 type Props = {
   row: HeldPaymentRow;
@@ -57,6 +58,10 @@ export function PaymentHero({ row, escalation, viewer, others, onOpenTab }: Prop
           </span>
         </h1>
 
+        {payment.recoveryFromPaymentId && (
+          <p className="mt-4 text-sm text-ash">Corrected request for a previously rejected payment; the original rejection remains in the record.</p>
+        )}
+
         {bankChange ? (
           <div className="mt-10">
             <AccountChange row={row} />
@@ -100,6 +105,7 @@ export function PaymentHero({ row, escalation, viewer, others, onOpenTab }: Prop
             <TryRelease decision={decision} />
           </div>
         )}
+        {payment.status === "rejected" && <PaymentRecovery paymentId={payment._id} />}
       </aside>
 
       <div className="min-w-0 space-y-8 lg:col-start-1 lg:row-start-2">

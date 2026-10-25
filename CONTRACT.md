@@ -7,6 +7,8 @@ The data shapes and function signatures every role builds against. Owned by Role
 
 ## Changelog
 
+- **Oct 24, Pegasus payment-recovery candidate.** `paymentRecovery` adds company-scoped prepare/request/withdraw for a bill-specific correction of a rejected payment. Corrections bind existing verified bank provenance and invoice/contact snapshots, expire after 15 minutes and create exactly one held replacement, never automatic settlement or a global vendor edit. Additive `paymentRecoveries` and payment origin links; see `docs/pegasus-payment-recovery.md`.
+
 - **Oct 24, Pegasus verified-release candidate.** `getHeldPayments` adds `releaseContext` for held rows. `releasePayment` requires a matching structured controller attestation, validates current bill/payment/contact/bank context, and writes `payments.releaseVerification` with the exact ledger reference atomically; old note-only calls receive an audited refusal. Full contract and limitations: `docs/pegasus-verified-release.md`.
 
 - **Oct 24, ~10am.** Response playbook (`docs/specs/response-playbook.md`). Tables `responsePolicies`, `responseSteps`; audit actions `respond`, `approve`, `undo`, `expire`, `policy` (also timeline event kinds). New `convex/responses.ts`: queries `getMyPlaybook()`, `getMyResponsePlan({ incidentId })`, `getResponseTracker({ incidentId })` (firm); mutations `setPlaybookMode({ action, mode })`, `approveStep({ stepId })`, `undoStep({ stepId })`. `containIncident` expires waiting steps. Seed: Cedar Ridge pause = act, tokens = prepare; Granite Peak pause = prepare; Harborline notify. Brightline numbers unchanged.

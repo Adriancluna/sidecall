@@ -85,11 +85,15 @@ function contextValues(c: ReleaseContext) {
       c.latestBankRecord.accountLast4, c.latestBankRecord.requestChannel]];
 }
 
+export function sameReleaseContext(a: ReleaseContext, b: ReleaseContext) {
+  return JSON.stringify(contextValues(a)) === JSON.stringify(contextValues(b));
+}
+
 export function checkReleaseAttestation(current: ReleaseContext, supplied?: ReleaseAttestation):
   { ok: true } | { ok: false; rule: string; reason: string } {
   if (!supplied) return { ok: false, rule: "structured_verification_required",
     reason: "Confirm the exact destination account and the call to the number on file before releasing." };
-  if (JSON.stringify(contextValues(current)) !== JSON.stringify(contextValues(supplied.context)))
+  if (!sameReleaseContext(current, supplied.context))
     return { ok: false, rule: "verification_context_changed",
       reason: "Payment, bill or vendor details changed since verification began. Review the updated details and verify again." };
   const bill = current.bill;
