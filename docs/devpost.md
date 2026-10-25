@@ -108,6 +108,7 @@ Holding beats blocking as a default. A control that pauses money for a person to
 
 ## What's next
 
+- Post-incident AI response advice (#114) is held for outcome validation; the existing response plan and evidence record remain the current workflow.
 - Ingest real offensive-security findings as incidents (the signed webhook is already in place).
 - Pull vendor masters and open bills straight from AP systems instead of CSV exports.
 - Email as a notification channel, next to Slack, Discord and webhooks.

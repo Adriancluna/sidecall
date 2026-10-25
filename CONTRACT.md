@@ -182,10 +182,10 @@ claude mcp add --transport http sidecall https://<deployment>.convex.site/mcp --
 | `list_held_payments({ status? })` | The company's held / paid / rejected payments with reasons and flags |
 | `explain_hold({ paymentId })` | Reasons, bank change (new vs last verified), audit trail, `nextStep` ("…must call the number on file… This assistant cannot release or reject payments.") |
 | `list_bills()` | Bills and whether each has a payment |
-| `request_payment({ billId })` | Same as an AP clerk's request: held and flagged on creation if the vendor is under an incident |
+| `request_payment({ billId, requestId?, expectedMandateId? })` | Same request path as the company's AP clerk, including incident holds and bounded controller-approved demo purchases; see the purchasing contract below |
 
 - Scoped to the person's company via the same `Viewer` logic; another company's or a garbage id → "Payment not found."; never the reporter.
-- Every `tools/call` writes one `auditLog` row (`action: "agent_call"`, `rule: "mcp_tool:<tool>"`); the controls log shows the actor as "Summit AP assistant (agent)".
+- Each new `tools/call` writes an `auditLog` row (`action: "agent_call"`, `rule: "mcp_tool:<tool>"`); payment requests log in the same transaction as the decision. Replaying an existing `requestId`, including conflicting reuse, does not add another agent-call row. The controls log shows the actor as "Summit AP assistant (agent)".
 - Segregation of duties holds: the agent requests as Jamie, so Jamie can't release it; Rosa can, in the UI.
 - Errors: `Origin` header → 403; bad/missing token → 401; bad JSON → -32700; batch → -32600; unknown method → -32601; unknown tool → -32602; `GET`/`DELETE` → 405.
 - Stage rule: shown only as a recorded clip, never live.
@@ -456,3 +456,105 @@ Rules (enforced in Convex):
 - Legacy transport changes: the streamed body limit is **32 KiB in bytes**, overflow now returns **413 (previously 400)**, invalid UTF-8 returns 400, and the new external-ID/summary limits are 200/4,000 characters. Named-source scope failures include a missing reporter when the registration has a nonempty reporter allowlist.
 - Unknown/inactive credentials still incur one indexed lookup and have no global quota. These application limits are not ingress/DDoS protection. The pre-existing presenter check uses plain equality and allows demo requests when `PRESENTER_KEY` is unset; Role 1 owns that separate follow-up.
 - `detectors.list` now has an explicit return validator; no response fields changed. Reset ordering and the exact `/fresh credential/` rotation-collision assertion have regression coverage. Detector rehearsal guards also reject the `CONVEX_DEPLOYMENT_TOKEN` deploy-key alias.
+
+## Controller-approved purchasing and scoped MCP requests
+
+Purchasing uses saved bills, controller approvals and deterministic Convex checks. An assistant's text, vendor document or tool description grants no financial authority. Automatic settlement requires `DEMO_MODE=true` and posts only to Sidecall's synthetic double-entry ledger; it does not call Visa, verify a real bank account or move real money. The four MCP tools above remain the complete catalog: there is no approval, preview, bank-change, release or reject tool.
+
+### Approval and executor scope
+
+```ts
+[purchases] approve({
+  billIds: Id<"bills">[], perPurchaseCents: number, budgetCents: number,
+  expiresAt: number, executorAgentId?: Id<"agents">
+}) -> Id<"purchaseMandates">
+[purchases] revoke({ mandateId: Id<"purchaseMandates"> }) -> null
+```
+
+- Only the signed-in company's controller can approve or revoke. An approval covers 1–25 distinct saved bills from one vendor at that company, each without an existing pending, held or paid payment. Amounts and limits must be positive safe integers no greater than 100,000,000 cents; the per-purchase limit cannot exceed the total budget. Expiry must be a safe timestamp later than server time and no more than 24 hours away.
+- Approval stores each bill's vendor, amount, description and due date, plus the latest payee record's ID, account last four digits and change timestamp. That record must have `requestChannel: "verified_call"`. A new payee record invalidates the saved match even if its last four digits are unchanged.
+- Supplying `executorAgentId` restricts execution to that exact active agent, acting for an AP clerk at the same company with the `request_payment` grant. Omitting it explicitly permits that company's AP clerks and their eligible agents (`executorScope: "company_ap"`); it is not restricted to the controller's current session or one implied agent.
+- The newest mandate for the company and vendor governs every new decision, including bills omitted from that mandate. Expiry, revocation or a failed check never reactivates an older approval. The original approver must still be a controller at that company and different from the requester; an agent must still be active for the requesting AP clerk with its payment grant.
+- Revocation prevents future automatic settlement under that mandate and preserves past payments and evidence. It does not itself release, reject or reverse a payment.
+
+### Payment decisions and retries
+
+The UI mutation and MCP tool share the same request path:
+
+```ts
+[payments] requestPayment({
+  billId: Id<"bills">, requestId?: string,
+  expectedMandateId?: Id<"purchaseMandates">
+}) -> PaymentRequestResult
+// MCP request_payment uses string IDs and returns this JSON in a text content block.
+type PaymentRequestResult =
+  | { ok: true; paymentId: Id<"payments">; held: boolean; flagged: boolean;
+      automatic?: boolean; receiptId?: Id<"purchaseReceipts"> }
+  | { ok: false; reason: string; receiptId?: Id<"purchaseReceipts"> };
+```
+
+- Only an authenticated AP clerk or its scoped agent can request payment. Company and executor identity come from authentication, never caller-supplied company/user fields. `expectedMandateId`, when supplied, must match the current mandate when evaluating an existing approval; it pins the selected approval rather than authorizing the request itself.
+- Every new request evaluates current saved data in one mutation using server time. Checks cover demo mode, requester/approver/agent authority, executor scope, approval expiry/revocation/replacement, active confirmed vendor incidents, inclusion in the approved bills, exact saved bill and payee matches, per-purchase limit, remaining total budget and absence of an existing live payment. Pending, held and paid payments prevent another payment; rejected history cannot hide one. Irrelevant observations or contained/credential incidents cannot crowd an active vendor incident out of the hold lookup.
+- An approved decision creates the paid demo payment, increments `spentCents`, posts the payment ledger entry, records the receipt and writes audit evidence atomically. Its result has `automatic: true`, `held: false` and a `receiptId`. Concurrent requests cannot spend the same remaining budget independently.
+- With no mandate for the vendor, the normal pending/incident-hold path applies. A failed purchasing check records a refusal receipt without automatic settlement. If an active incident and the company's hold rule require a hold, the same request can still return `ok: true, held: true` with that **refused automatic-purchase** receipt; `ok: true` alone does not mean paid. A held payment consumes no purchase budget and still requires the separate controller decision. Early failures such as an existing payment may have no purchase receipt.
+- `requestId` is optional and must match `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`. Its namespace is the server-derived company plus actual agent ID or human user ID. Reuse with the identical `billId` and identical optional `expectedMandateId` returns the **original stored result**, before quota or financial effects; changing the bill or adding/removing/changing the approval pin returns a conflict refusal. Omit the ID for the existing non-idempotent request behavior.
+- An exact retry remains a historical result after bill/payee changes, mandate expiry, revocation or replacement. It is not a fresh authorization check and does not prove the payment's current status. Current authentication, company/AP-clerk role and agent capability are still required; a revoked agent cannot replay via MCP and receives HTTP 401. Use a new request ID for a new decision, and query current state to display current payment status.
+- New requests use an independent per-executor token bucket: capacity 10, replenished at 20 requests per minute. Exact retries and conflicts consume no further quota. A rate-limit refusal is not retained as a request result, so the same ID can be retried later. Admitted results, including refusals, are retained in `purchaseRequests` with no automatic TTL or purge; demo reset deletes these records before purchase receipts. Receipt export limits below do not bound request retention. No raw bearer token is stored in these rows.
+- A new agent request records its agent-call audit in the same mutation. Exact replays and conflicting reuse of an already stored request ID add neither another decision receipt nor another agent-call audit row. MCP marks `ok: false` results with `isError: true`; the JSON result remains the authoritative business outcome.
+
+### Advisory preview and company overview
+
+```ts
+[purchases] preview({ billId: Id<"bills">, asOf: number,
+  executorAgentId?: Id<"agents"> }) -> null | {
+    decision: "manual" | "refused" | "approved"; reason: string;
+    evidence: PurchaseEvidence | null; mandateId: Id<"purchaseMandates"> | null;
+    existingPaymentId: Id<"payments"> | null;
+  }
+[purchases] overview({}) -> null | {
+  eligibleAgents, canApprove, demoOnly: true, enabled, mandates, receipts
+}
+```
+
+Preview is read-only and company-scoped; PE or another company's bill returns `null`. `asOf` must be a nonnegative safe integer timestamp. It is a caller-selected evaluation time against **current database records**, not a historical snapshot, reservation or authority to spend. A selected eligible agent supplies the executor context for the shared evaluator; a revoked or otherwise ineligible selected agent returns an explicit refusal. Without a selected agent, the signed-in user is the executor. Execution always checks again with server time, regardless of an earlier approved preview. Clients can retain preview's mandate ID as `expectedMandateId` on a later request.
+
+Overview is a bounded company view: it considers up to 100 mandate rows, keeps one per vendor within that window, returns the latest 50 receipts and supplies eligible agent labels without credentials. It is not a complete history or the source of execution authority. `canApprove` reflects the viewer's controller role; `enabled` reflects demo mode. PE viewers receive `null`.
+
+### Decision evidence and bounded export
+
+New `purchaseReceipts` include the company, mandate, bill, requesting user (`actorId`), optional actual `agentId` and `requestId`, decision time/amount, `outcome: "paid_demo" | "refused"`, rule and reason. `paymentId` is present for paid purchases and incident-held requests; `ledgerEntryId` links paid demo receipts to their payment journal entry. Earlier receipts can omit the newly optional evidence/agent/request/ledger fields.
+
+```ts
+type PurchaseEvidence = {
+  version: 1; currency: "USD"; evaluatedAt: number;
+  executorScope: "company_ap" | "specific_agent";
+  executorAgentId: Id<"agents"> | null; // approval's selected executor, if any
+  checks: { code: string; passed: boolean; reason: string }[];
+  expected: {
+    mandateId: Id<"purchaseMandates">; quoteId: Id<"purchaseQuotes"> | null;
+    bill: BillFacts | null; payee: PayeeFacts;
+    approvedBy: Id<"users">; expiresAt: number;
+  };
+  current: {
+    bill: BillFacts; payee: PayeeFacts | null;
+    agentId: Id<"agents"> | null; incidentId: Id<"incidents"> | null;
+  };
+  budget: { beforeCents: number; afterCents: number; limitCents: number };
+};
+type BillFacts = { assetId: Id<"assets">; amountCents: number;
+  description: string; dueDate: number };
+type PayeeFacts = { bankDetailId: Id<"bankDetailChanges">; accountLast4: string;
+  changedAt: number; requestChannel: string };
+
+[purchases] getRecord({}) -> null | {
+  format: "sidecall.purchase-record.v1"; settlement: "demo_ledger";
+  companyId: Id<"companies">;
+  receipts: PurchaseReceipt[]; receiptsTruncated: boolean;
+  approvals: (PurchaseMandate & { quotes: PurchaseQuote[]; quotesTruncated: boolean })[];
+  scope: string;
+}
+```
+
+Evidence stores expected and evaluated facts at decision time, plus every check; the first failing check determines a refusal's rule/reason. `budget.beforeCents` and `afterCents` are **spent amounts**, not remaining balances; a refusal leaves them equal. The snapshot remains evidence of that decision even when current records change. Exported approval rows are the referenced original mandates with their current spent/revoked fields; use the receipt's evidence for the decision-time values.
+
+`getRecord` returns only the signed-in company's latest 50 decision receipts and the original approvals they reference, with up to 25 saved quotes per approval. It reads one extra row to expose `receiptsTruncated` and `quotesTruncated`; PE viewers receive `null`. This is a bounded demo record, not a full ledger dump, payment-network receipt, signed attestation or proof of real-world payee verification.

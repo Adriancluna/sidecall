@@ -14,7 +14,7 @@ const DEFAULT_VERSION = "2025-06-18";
 const MAX_BODY_BYTES = 64 * 1024;
 
 const INSTRUCTIONS =
-  "Sidecall holds payments to vendors under an active security incident until a person verifies them. You can list and explain held payments for your company, list its bills, and request payment of a bill as its AP clerk (a request to a vendor under an incident is held). You cannot release or reject payments: a controller other than the requester must call the vendor at the number on file and decide in Sidecall.";
+  "Sidecall holds payments to vendors under an active security incident until a person verifies them. You can list and explain held payments for your company, list its bills, and request payment of a bill as its AP clerk (a request to a vendor under an incident is held). A safe, unchanged bill within an explicit controller purchasing approval can settle automatically in the demo ledger. You cannot release or reject held payments: a controller other than the requester must call the vendor at the number on file and decide in Sidecall.";
 
 const TOOLS = [
   {
@@ -46,10 +46,10 @@ const TOOLS = [
   {
     name: "request_payment",
     description:
-      "Request payment of one bill, as the AP clerk you act for. If the vendor is under an active security incident the payment is held until a controller verifies it.",
+      "Request payment of one bill, as the AP clerk you act for. If the vendor is under an active security incident the payment is held until a controller verifies it. An unchanged bill covered by a controller purchasing approval can settle automatically within its limits in the demo ledger; this is not a live payment-network transaction.",
     inputSchema: {
       type: "object",
-      properties: { billId: { type: "string" } },
+      properties: { billId: { type: "string" }, requestId: { type: "string", minLength: 1, maxLength: 128, description: "Stable retry identifier; reuse only for this exact bill and approval." }, expectedMandateId: { type: "string", description: "Optional exact controller approval selected before execution." } },
       required: ["billId"],
       additionalProperties: false,
     },
@@ -86,7 +86,10 @@ async function callTool(ctx: ActionCtx, agent: Agent, name: string, args: Record
   if (name === "request_payment") {
     const billId = typeof args.billId === "string" ? args.billId : "";
     // Audited inside the mutation, in the same transaction as the request.
-    const out = await ctx.runMutation(internal.agents.requestPayment, { agentId: agent.agentId, billId });
+    if ((args.requestId !== undefined && typeof args.requestId !== "string") || (args.expectedMandateId !== undefined && typeof args.expectedMandateId !== "string"))
+      return { result: textContent("requestId and expectedMandateId must be strings.", true), ok: false, summary: "Bad purchase request identifiers." };
+    const out = await ctx.runMutation(internal.agents.requestPayment, { agentId: agent.agentId, billId,
+      requestId: args.requestId, expectedMandateId: args.expectedMandateId });
     return { result: textContent(JSON.stringify(out, null, 2), !out.ok), ok: out.ok, summary: "", logged: true };
   }
   // explain_hold
