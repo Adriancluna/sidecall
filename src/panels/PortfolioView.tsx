@@ -7,6 +7,7 @@ import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { BlastRadiusMap } from "../map/BlastRadiusMap";
+import { G6BlastMap } from "./G6BlastMap";
 import { EvidencePanel } from "../map/EvidencePanel";
 import { Tabs, type TabDef } from "../layout/Tabs";
 import { useTabs } from "../layout/useTabs";
@@ -260,11 +261,16 @@ export function PortfolioView() {
       label: "Map & evidence",
       content: () => (
         <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_400px] lg:grid-cols-[minmax(0,1fr)_360px]">
-          <BlastRadiusMap
-            blast={blast}
-            selected={selected}
-            onSelect={setSelected}
-          />
+          {/* EXPERIMENT: ?map=g6 swaps in the G6 expandable map (branch proto/g6-map). */}
+          {new URLSearchParams(window.location.search).get("map") === "g6" ? (
+            <G6BlastMap blast={blast} onSelect={setSelected} />
+          ) : (
+            <BlastRadiusMap
+              blast={blast}
+              selected={selected}
+              onSelect={setSelected}
+            />
+          )}
           <div className="space-y-6">
             <EvidencePanel exposureId={selectedNode?.exposureId ?? undefined} companyName={selectedNode?.name} />
             {selectedNode && (
