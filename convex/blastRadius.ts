@@ -1,6 +1,7 @@
 // Read-side queries for the UI. Every query scopes to the signed-in viewer. getBlastRadius is the PE firm view: the only place the
 // reporting company is named.
 import { v } from "convex/values";
+import schema from "./schema";
 import { env, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
@@ -204,6 +205,8 @@ export const getExposureEvidence = query({
 // A company user's own exposures, newest first (their home screen).
 export const getMyExposures = query({
   args: {},
+  // Whole documents, so the declared shape is exactly the table's schema.
+  returns: v.array(schema.tables.exposures.validator.extend({ _id: v.id("exposures"), _creationTime: v.number() })),
   handler: async (ctx) => {
     const viewer = await getViewer(ctx);
     if (viewer.firm) return [];

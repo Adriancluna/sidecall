@@ -83,7 +83,7 @@ export function ExposureHero({
         <h1 id="hero-title" className="mt-5 max-w-3xl text-headline font-semibold text-balance">
           {exposure.observation
             ? `Verify the report involving ${vendor}`
-            : exposureHeadline(share, vendor, candidate)}
+            : exposureHeadline(share, vendor, candidate, exposure.path !== undefined)}
         </h1>
 
         <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ash">
@@ -107,7 +107,7 @@ export function ExposureHero({
                   ({exposure.path.techniqueName})
                 </span>
               )}
-              . Nobody touched your systems.
+              . Sidecall tested nothing at your company; any step above ran only because your company pre-approved it.
             </p>
           </div>
         )}

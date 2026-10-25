@@ -557,7 +557,7 @@ function PortfolioHero({
                   ` using ${finding.technique.name} (${finding.technique.id})`}
                 . Sister companies that share it are{" "}
                 <strong className="font-semibold">reachable, not tested</strong>
-                . Nobody touched their systems.
+                . Sidecall tested nothing at sister companies; any step shown ran under that company's own pre-approval.
               </p>
             </div>
           )}
