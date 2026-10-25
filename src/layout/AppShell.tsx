@@ -4,14 +4,15 @@ import type { CurrentUser } from "../auth/currentUser";
 import { ROLE_LABEL } from "../auth/directory";
 import { UserMenu } from "../auth/UserMenu";
 import { DemoControls } from "../demo/DemoControls";
-import { IS_STAGE, loadStage, saveStage } from "../demo/stage";
+import { loadStage, saveStage } from "../demo/stage";
 import { ShellSlotsContext, type ShellSlots } from "./shellSlots";
 
 // proto/ux-vercel shell: a black left sidebar (whose desk this is, the page's tabs, the person
-// switch at the bottom) and a 56px top bar (breadcrumb left, page name centred, simulator right).
-// On phones the sidebar folds away: the tabs become a strip under the top bar.
+// switch at the bottom) and a 56px top bar (breadcrumb left, simulator right).
+// On phones the sidebar folds away: the tabs become a strip under the top bar. The simulator is
+// demo tooling, so it starts folded into its header button (remembered per tab), /?stage included.
 export function AppShell({ me, children }: { me: CurrentUser; children: ReactNode }) {
-  const [simOpen, setSimOpenState] = useState(() => loadStage("sim", IS_STAGE));
+  const [simOpen, setSimOpenState] = useState(() => loadStage("sim", false));
   const setSimOpen = (open: boolean) => {
     setSimOpenState(open);
     saveStage("sim", open);
@@ -19,8 +20,7 @@ export function AppShell({ me, children }: { me: CurrentUser; children: ReactNod
   // State setters are stable, so each slot's ref callback runs only on mount and unmount.
   const [nav, setNav] = useState<HTMLElement | null>(null);
   const [mobileNav, setMobileNav] = useState<HTMLElement | null>(null);
-  const [title, setTitle] = useState<HTMLElement | null>(null);
-  const slots = useMemo<ShellSlots>(() => ({ nav, mobileNav, title }), [nav, mobileNav, title]);
+  const slots = useMemo<ShellSlots>(() => ({ nav, mobileNav }), [nav, mobileNav]);
   const company = me.companyName ?? "Northpass Capital";
 
   return (
@@ -50,14 +50,13 @@ export function AppShell({ me, children }: { me: CurrentUser; children: ReactNod
 
         <div className="min-w-0">
           <header className="sticky top-0 z-20 border-b border-line bg-graphite">
-            <div className="flex h-14 items-center justify-between gap-3 px-4 md:grid md:grid-cols-[1fr_auto_1fr] md:px-6">
+            <div className="flex h-14 items-center justify-between gap-3 px-4 md:px-6">
               <p className="flex min-w-0 items-center gap-2 text-sm">
                 <img src={symbolUrl} alt="Sidecall" width={20} height={20} className="size-5 shrink-0 md:hidden" />
                 <span className="hidden truncate font-medium text-paper sm:inline">{company}</span>
                 <span aria-hidden className="hidden text-[#454545] sm:inline">/</span>
                 <span className="hidden truncate text-ash sm:inline">{me.name}</span>
               </p>
-              <p ref={setTitle} className="hidden truncate text-sm font-medium tracking-[-0.02em] text-paper md:block" />
               <div className="flex min-w-0 items-center justify-end gap-2">
                 <button
                   type="button"

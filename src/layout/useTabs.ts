@@ -8,10 +8,12 @@ function readHash(ids: readonly string[]): string | undefined {
   return ids.includes(id) ? id : undefined;
 }
 
+// scroll: jump to the page's content (e.g. the map after picking a company in the hero);
+// otherwise a new page starts at its title, like any page load.
 function scrollToTabs() {
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   document
-    .getElementById(TABS_ANCHOR)
+    .querySelector(`[data-anchor="${TABS_ANCHOR}"]`)
     ?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
 }
 
@@ -32,6 +34,7 @@ export function useTabs(ids: readonly string[], fallback: string) {
     setActive(id);
     window.history.replaceState(null, "", `#tab-${id}`);
     if (scroll) scrollToTabs();
+    else if (id !== current) window.scrollTo({ top: 0 });
   };
   return { active: current, select };
 }

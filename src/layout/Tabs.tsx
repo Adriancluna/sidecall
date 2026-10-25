@@ -1,10 +1,11 @@
-// Tabs for everything below the hero. The active tab lives in the URL hash (#tab-payments), so a
-// tab can be linked, opened in a new tab, and the back button works.
-// proto/ux-vercel: the tab list renders in the shell's left sidebar (desktop) or the strip under
-// the top bar (phones), and the active tab's name sits centred in the top bar.
+// The dashboard's pages. The active page lives in the URL hash (#tab-payments), so a page can be
+// linked, opened in a new tab, and the back button works.
+// proto/ux-vercel: the page list renders in the shell's left sidebar (desktop) or the strip under
+// the top bar (phones). Each page opens with its own title (Render's structure); the lead page
+// opens with the hero instead, so the hero is shown once, not above every page.
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useIsDesktop, useShellSlots } from "./shellSlots";
+import { PageTitleContext, useIsDesktop, useShellSlots } from "./shellSlots";
 import { TABS_ANCHOR } from "./useTabs";
 
 export type TabDef = {
@@ -22,11 +23,16 @@ export function Tabs({
   active,
   onSelect,
   label,
+  lead,
+  leadTab,
 }: {
   tabs: TabDef[];
   active: string;
   onSelect: (id: string) => void;
   label: string;
+  // The hero, shown only on its own page (leadTab) in place of the page title.
+  lead?: ReactNode;
+  leadTab?: string;
 }) {
   const refs = useRef(new Map<string, HTMLButtonElement>());
   const slots = useShellSlots();
@@ -96,18 +102,24 @@ export function Tabs({
   );
 
   const navSlot = vertical ? slots.nav : slots.mobileNav;
+  const showsLead = lead !== undefined && current.id === leadTab;
   return (
-    <section id={TABS_ANCHOR} className="scroll-mt-14">
+    <section>
       {navSlot ? createPortal(tablist, navSlot) : tablist}
-      {slots.title && createPortal(current.label, slots.title)}
+      {showsLead ? (
+        <div className="mb-14">{lead}</div>
+      ) : (
+        <h1 className="mb-8 text-[32px] leading-9 font-medium tracking-[-0.02em] text-balance">{current.label}</h1>
+      )}
       <div
         role="tabpanel"
         id={`panel-${current.id}`}
+        data-anchor={TABS_ANCHOR}
         aria-labelledby={`tab-${current.id}`}
         tabIndex={0}
-        className="rounded-tile pt-8 focus-visible:outline-offset-4"
+        className="scroll-mt-20 rounded-tile focus-visible:outline-offset-4"
       >
-        {current.content()}
+        <PageTitleContext.Provider value={showsLead ? undefined : current.label}>{current.content()}</PageTitleContext.Provider>
       </div>
     </section>
   );

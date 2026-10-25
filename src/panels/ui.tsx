@@ -1,7 +1,8 @@
 // Small shared building blocks for the panels.
 // Status reads as a word plus a small dot: filled for a live state, hollow for
 // neutral or history. The word carries the meaning, so status is never colour alone.
-import type { ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
+import { PageTitleContext } from "../layout/shellSlots";
 import symbolUrl from "../../brand/logo/sidecall-symbol-small-amber.svg";
 import { URGENCY, type Look } from "./labels";
 
@@ -14,11 +15,13 @@ export function Card({
   children: ReactNode;
   aside?: ReactNode;
 }) {
+  // The page title already names a card that shares its name; keep the header only for the aside.
+  const shownTitle = title === useContext(PageTitleContext) ? undefined : title;
   return (
-    <section className="overflow-hidden rounded-tile border border-line bg-panel">
-      {(title || aside) && (
+    <section aria-label={shownTitle ? undefined : title} className="overflow-hidden rounded-tile border border-line bg-panel">
+      {(shownTitle || aside) && (
         <header className="flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line py-3 pr-3 pl-4">
-          {title && <h2 className="text-sm font-medium tracking-[-0.02em] text-paper">{title}</h2>}
+          {shownTitle ? <h2 className="text-sm font-medium tracking-[-0.02em] text-paper">{shownTitle}</h2> : <span />}
           {aside}
         </header>
       )}

@@ -103,8 +103,7 @@ export function PortfolioView() {
       },
       { id: "proof", label: "Proof", content: () => <ProofPanel /> },
     ];
-    return (
-      <div className="space-y-12">
+    const allClear = (
         <section aria-labelledby="hero-title">
           <StatusLine tone="ok" state="All clear" />
           <h1 id="hero-title" className="mt-5 max-w-3xl text-headline font-semibold text-balance">
@@ -116,50 +115,55 @@ export function PortfolioView() {
             payments are held.
           </p>
         </section>
-        <Tabs
-          tabs={tabs}
-          active={tabs.some((t) => t.id === active) ? active : "onboard"}
-          onSelect={(t) => select(t)}
-          label="Portfolio"
-        />
-      </div>
+    );
+    return (
+      <Tabs
+        tabs={tabs}
+        active={tabs.some((t) => t.id === active) ? active : "onboard"}
+        onSelect={(t) => select(t)}
+        label="Portfolio"
+        lead={allClear}
+        leadTab="onboard"
+      />
     );
   }
   if (!blast) return <HeroSkeleton />;
 
   if (blast.incident.responseClass === "observation")
     return (
-      <div className="space-y-8">
-        <section aria-labelledby="hero-title">
-          <StatusLine tone="amber" state="Unconfirmed report" />
-          <h1 id="hero-title" className="mt-5 text-headline font-semibold">
-            Review the report involving {blast.asset.vendorName}
-          </h1>
-          <p className="mt-4 max-w-3xl text-lg text-ash">
-            {blast.totals.companiesNotified} linked companies notified.
-            Compromise is not yet confirmed; this report has not held payments
-            or changed access.
-          </p>
-          <label className="mt-5 block text-sm">
-            Choose a report
-            <select
-              className={`${FIELD} mt-2 block max-w-full`}
-              value={incidentId}
-              onChange={(e) => setChosen(e.target.value as Id<"incidents">)}
-            >
-              {incidents.map((i) => (
-                <option key={i._id} value={i._id}>
-                  {i.vendorName} —{" "}
-                  {i.responseClass === "observation"
-                    ? "unconfirmed"
-                    : "confirmed"}{" "}
-                  — {dateTime(i.createdAt)}
-                </option>
-              ))}
-            </select>
-          </label>
-        </section>
-        <Tabs
+      <Tabs
+        lead={
+          <section aria-labelledby="hero-title">
+            <StatusLine tone="amber" state="Unconfirmed report" />
+            <h1 id="hero-title" className="mt-5 text-headline font-semibold">
+              Review the report involving {blast.asset.vendorName}
+            </h1>
+            <p className="mt-4 max-w-3xl text-lg text-ash">
+              {blast.totals.companiesNotified} linked companies notified.
+              Compromise is not yet confirmed; this report has not held payments
+              or changed access.
+            </p>
+            <label className="mt-5 block text-sm">
+              Choose a report
+              <select
+                className={`${FIELD} mt-2 block max-w-full`}
+                value={incidentId}
+                onChange={(e) => setChosen(e.target.value as Id<"incidents">)}
+              >
+                {incidents.map((i) => (
+                  <option key={i._id} value={i._id}>
+                    {i.vendorName} —{" "}
+                    {i.responseClass === "observation"
+                      ? "unconfirmed"
+                      : "confirmed"}{" "}
+                    — {dateTime(i.createdAt)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </section>
+        }
+        leadTab="map"
           active={active}
           onSelect={(t) => select(t)}
           label="Report details"
@@ -216,8 +220,7 @@ export function PortfolioView() {
             },
             { id: "proof", label: "Proof", content: () => <ProofPanel /> },
           ]}
-        />
-      </div>
+      />
     );
 
   const { incident, totals } = blast;
@@ -298,7 +301,7 @@ export function PortfolioView() {
       content: () => (
         <div className="space-y-8">
           <section aria-labelledby="told-title">
-            <h2 id="told-title" className="mb-4 text-lg font-semibold">
+            <h2 id="told-title" className="mb-4 text-xl font-semibold tracking-[-0.02em]">
               What each company was told
             </h2>
             <div className="grid gap-4 xl:grid-cols-2">
@@ -392,31 +395,39 @@ export function PortfolioView() {
   ];
 
   return (
-    <div className="space-y-12">
-      {incidents.some(
-        (i) => i.responseClass === "observation" && !i.containedAt,
-      ) && (
-        <button
-          className="text-left text-amber underline underline-offset-4"
-          onClick={() => select("timeline", true)}
-        >
-          Unconfirmed reports also need review — open Response safety
-        </button>
-      )}
-      <PortfolioHero
-        blast={blast}
-        incidents={incidents}
-        onPickIncident={(id) => {
-          setChosen(id);
-          setSelected(undefined);
-        }}
-        releasedCents={releasedCents}
-        exposed={exposed}
-        acknowledged={acknowledged}
-        onOpenCompany={openCompany}
-      />
-      <Tabs tabs={tabs} active={active} onSelect={(t) => select(t)} label="Incident details" />
-    </div>
+    <Tabs
+      tabs={tabs}
+      active={active}
+      onSelect={(t) => select(t)}
+      label="Incident details"
+      leadTab="map"
+      lead={
+        <div className="space-y-12">
+          {incidents.some(
+            (i) => i.responseClass === "observation" && !i.containedAt,
+          ) && (
+            <button
+              className="text-left text-amber underline underline-offset-4"
+              onClick={() => select("timeline")}
+            >
+              Unconfirmed reports also need review — open Response safety
+            </button>
+          )}
+          <PortfolioHero
+            blast={blast}
+            incidents={incidents}
+            onPickIncident={(id) => {
+              setChosen(id);
+              setSelected(undefined);
+            }}
+            releasedCents={releasedCents}
+            exposed={exposed}
+            acknowledged={acknowledged}
+            onOpenCompany={openCompany}
+          />
+        </div>
+      }
+    />
   );
 }
 
@@ -554,7 +565,7 @@ function PortfolioHero({
 
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-            <h2 className="text-lg font-semibold">Response by company</h2>
+            <h2 className="text-xl font-semibold tracking-[-0.02em]">Response by company</h2>
             <p className="flex items-center gap-3 text-sm text-ash tabular-nums">
               <AckTiles nodes={exposed} />
               <span>
