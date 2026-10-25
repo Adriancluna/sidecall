@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "deployment": "tangible-koala-842",
+  "startedAt": "2026-10-25T05:30:40.680Z",
+  "stage": "complete",
+  "passed": true,
+  "checks": [
+    {
+      "name": "Authorized detector automatically caused a signed real Okta pause",
+      "passed": true
+    },
+    {
+      "name": "Company UI query reports confirmed provider state; unrelated account remains ACTIVE",
+      "passed": true
+    },
+    {
+      "name": "Exact detector replay retains the same incident and command identity",
+      "passed": true
+    },
+    {
+      "name": "UI-requested restore confirmed by receiver and independent Okta read-back",
+      "passed": true
+    },
+    {
+      "name": "Firm response evidence includes external pause and restore receipts",
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "Synthetic detector evidence and disposable account only",
+    "No live downstream application sessions established",
+    "No Visa payment sent",
+    "Public production frontend not deployed"
+  ],
+  "sourceId": "ns725dsb82x8d2jegbevpg7wx98gzy4n",
+  "input": {
+    "externalId": "receiver-acceptance-1d3d0709-9353-42d5-8acd-8ff4a57617a9",
+    "assetName": "Ironclad shared admin account",
+    "reportedByDomain": "pinecreststaffing.example",
+    "assessment": "confirmed",
+    "evidenceRefs": [
+      "synthetic:owned-okta-acceptance"
+    ],
+    "summary": "Synthetic acceptance test: exercise an approved response against one disposable Okta account."
+  },
+  "incidentId": "kx7dygjvvtpfaw838cm11s7rjd8gz9pm",
+  "stepId": "mx7frszjt7b8masc8er4kxkr318gzx03",
+  "pause": {
+    "commandId": "pause-mx7frszjt7b8masc8er4kxkr318gzx03",
+    "id": "p974wned9139mn5jv93a35aeh18gyap5",
+    "kind": "pause",
+    "reason": "suspension_verified",
+    "receipt": {
+      "action": "pause_shared_login",
+      "commandHash": "23e4b0b1e64ef12f4368db1dcf9d05bf86c3f824a9c208b1ea06732862bd4117",
+      "commandId": "pause-mx7frszjt7b8masc8er4kxkr318gzx03",
+      "companyId": "kn7epjs9zyjbv78fhz44z0r7p18gz5hc",
+      "incidentId": "kx7dygjvvtpfaw838cm11s7rjd8gz9pm",
+      "observedAt": 1792906245621,
+      "observedState": "SUSPENDED",
+      "provider": "okta",
+      "reason": "suspension_verified",
+      "restoreEligible": true,
+      "sessionRevocation": "provider_acknowledged",
+      "status": "confirmed",
+      "target": "disposable-vendor-login",
+      "version": 1
+    },
+    "status": "confirmed",
+    "updatedAt": 1792906245721
+  },
+  "restore": {
+    "commandId": "restore-mx7frszjt7b8masc8er4kxkr318gzx03",
+    "id": "p97d544dq5kvxyags2hnm6ec4d8gygvx",
+    "kind": "restore",
+    "reason": "restoration_verified",
+    "receipt": {
+      "action": "restore_shared_login",
+      "commandHash": "f8e49f3799670fdb23b2f3361422f11f3f2f78458f5d18c70b90a69eecee899e",
+      "commandId": "restore-mx7frszjt7b8masc8er4kxkr318gzx03",
+      "companyId": "kn7epjs9zyjbv78fhz44z0r7p18gz5hc",
+      "incidentId": "kx7dygjvvtpfaw838cm11s7rjd8gz9pm",
+      "observedAt": 1792906293497,
+      "observedState": "ACTIVE",
+      "provider": "okta",
+      "reason": "restoration_verified",
+      "restoreEligible": false,
+      "sessionRevocation": "not_confirmed",
+      "status": "confirmed",
+      "target": "disposable-vendor-login",
+      "version": 1
+    },
+    "status": "confirmed",
+    "updatedAt": 1792906293595
+  },
+  "testDetectorRevoked": true,
+  "testIncidentContained": true,
+  "finishedAt": "2026-10-25T05:31:39.469Z",
+  "finalStates": {
+    "target": "ACTIVE",
+    "control": "ACTIVE"
+  }
+}

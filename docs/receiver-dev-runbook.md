@@ -81,6 +81,8 @@ The default receiver budget is three new pauses per hour. A reused report or com
 
 The next checkpoint should make repeated stage runs convenient without deleting the external ledger, then choose stable hosting and verify the intended final frontend/backend together. No production deployment has occurred here.
 
+The [full MVP rehearsal](full-mvp-rehearsal.md) subsequently passed a second integrated Okta cycle alongside payment, Claude and continuity checks. The receiver harness now supports `--run-id <unique-label>` after `--disposable-test-only`, using the same label for `pause` and `verify-restored`. Each run preserves its own report; existing incidents must still be contained and both test users ACTIVE before a fresh pause. This does not refresh purchase fixtures or bypass receiver limits.
+
 ## Honest track explanation
 
 - **Convex:** transactional policy/command creation, role-scoped data, scheduled delivery/reconciliation and live UI updates do substantive work; external side effects themselves are not atomic with database writes.

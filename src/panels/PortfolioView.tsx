@@ -281,9 +281,9 @@ export function PortfolioView() {
           <div className="space-y-6">
             <EvidencePanel exposureId={selectedNode?.exposureId ?? undefined} companyName={selectedNode?.name} />
             {selectedNode && (
-              <Card title={`Payments held at ${selectedNode.name}`}>
+              <Card title={`Payment outcomes at ${selectedNode.name}`}>
                 {!selectedHeld?.length ? (
-                  <Empty>No payments held at this company.</Empty>
+                  <Empty>No payments affected by this incident at this company.</Empty>
                 ) : (
                   <ul className="space-y-2 text-sm">
                     {selectedHeld.map((r) => (

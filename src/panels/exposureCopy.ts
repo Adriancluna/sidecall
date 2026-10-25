@@ -79,7 +79,7 @@ const EVIDENCE_LABEL: Record<string, string> = {
   link: "How you're connected",
   source: "How we know",
   technique: "Attack technique",
-  payments_held: "Payments held",
+  payments_held: "Payments held at report time",
 };
 const EVIDENCE_ORDER = ["what_to_check", "path", "link", "source", "technique", "payments_held"];
 

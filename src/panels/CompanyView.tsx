@@ -323,7 +323,19 @@ function AlertItem({
             <span className="mt-1 block text-sm font-normal text-ash">{dateTime(incident.createdAt)}</span>
           </h3>
         )}
-        <p className="mt-3 max-w-prose leading-relaxed">
+        {incident?.containedAt != null && (
+          <p className="mt-3 text-sm text-ash">
+            {exposure.observation
+              ? "This unconfirmed report’s review is closed. The observation itself did not authorize payment holds or access changes."
+              : exposure.status === "closed"
+                ? "Vendor incident contained. Your company’s review is marked resolved."
+                : "Vendor incident contained. Your company’s checks remain open until your team marks them resolved."}
+          </p>
+        )}
+        <p className="mt-3 text-xs font-medium text-ash">
+          Original notice · saved when the alert was written
+        </p>
+        <p className="mt-1 max-w-prose leading-relaxed">
           {alert?.status === "ready" ? alert.body : "Writing your alert…"}
         </p>
         {/* The alert text is written once; payments show their state now. */}

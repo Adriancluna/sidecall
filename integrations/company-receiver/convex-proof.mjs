@@ -9,7 +9,11 @@ import { oktaProvider } from './okta.mjs';
 const exec = promisify(execFile);
 const dev = createOwnedDev({ argv: ['--deployment', 'tangible-koala-842'] });
 const cloud = `https://${dev.deployment}.convex.cloud`, site = cloud.replace('.cloud', '.site');
-const file = 'integrations/company-receiver/.state/convex-proof.json';
+// An explicit run ID gives a fresh report without erasing earlier command evidence.
+// Safety checks below still require contained incidents and ACTIVE disposable users.
+const extra = process.argv.slice(4);
+if (extra.length && (extra.length !== 2 || extra[0] !== '--run-id' || !/^[a-zA-Z0-9_-]{8,80}$/.test(extra[1]))) throw Error('Use --run-id followed by a unique safe rehearsal label');
+const file = `integrations/company-receiver/.state/convex-proof${extra.length ? `-${extra[1]}` : ''}.json`;
 const users = JSON.parse(readFileSync('integrations/company-receiver/.state/live-test-users.json', 'utf8'));
 const provider = oktaProvider({ orgUrl: process.env.OKTA_ORG_URL, token: process.env.OKTA_API_TOKEN });
 if (users.tenant !== provider.binding) throw Error('Disposable tenant mismatch');
@@ -47,9 +51,10 @@ async function waitForPlan(incidentId, token, predicate) {
 }
 
 let report, sourceId, phase = 'preflight';
+const sessions = [];
 try {
   ensure(process.argv[3] === '--disposable-test-only', 'Explicit disposable test flag required');
-  const it = await login('sam.kowalski@cedarridge.example');
+  const it = await login('sam.kowalski@cedarridge.example'); sessions.push(it);
   if (process.argv[2] === 'pause') {
     ensure(!existsSync(file), 'Prior integrated proof exists; do not create another incident');
     const setup = await operator('responseReceiver:setupState');
@@ -101,7 +106,7 @@ try {
     report.restore = plan.deliveries.find(j => j.kind === 'restore');
     ensure(report.restore.receipt?.observedState === 'ACTIVE', 'Restore receipt did not confirm ACTIVE');
     ensure(await provider.state(target.id) === 'ACTIVE' && await provider.state(control.id) === 'ACTIVE', 'Final account state mismatch');
-    const firm = await login('jordan.ames@northpasscapital.example');
+    const firm = await login('jordan.ames@northpasscapital.example'); sessions.push(firm);
     const record = await call('query', 'responseEvidence:getRecord', { incidentId: report.incidentId }, firm);
     ensure(record.steps.some(s => s.id === report.stepId && s.executionMode === 'external' && s.deliveries.some(d => d.kind === 'restore' && d.status === 'confirmed')), 'Firm evidence view missing receiver outcome');
     report.checks.push({ name: 'UI-requested restore confirmed by receiver and independent Okta read-back', passed: true },
@@ -119,5 +124,9 @@ try {
   if (sourceId) {
     try { await operator('detectors:revoke', { sourceId }); if (report) { report.testDetectorRevoked = true; save(report); } }
     catch { console.error('Test detector revocation needs operator follow-up.'); process.exitCode = 1; }
+  }
+  for (const token of sessions) {
+    try { await call('action', 'auth:signOut', {}, token); }
+    catch { console.error('Synthetic session sign-out needs follow-up.'); process.exitCode = 1; }
   }
 }

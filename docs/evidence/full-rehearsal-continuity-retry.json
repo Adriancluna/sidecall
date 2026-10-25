@@ -1,0 +1,88 @@
+{
+  "startedAt": "2026-10-25T05:33:05.706Z",
+  "deployment": "tangible-koala-842",
+  "sourceCommit": "a06e2341708dce852356ee80b1977e9bde75be84",
+  "scope": "Authenticated synthetic observation flood and concurrent demo-ledger purchases; no reset or external payment",
+  "checks": [
+    {
+      "name": "Out-of-scope detector report refused before effects",
+      "passed": true
+    },
+    {
+      "name": "Observation credential cannot escalate itself into a hold or action",
+      "passed": true
+    },
+    {
+      "name": "Repeated small attacks merge without restarting review or actions",
+      "passed": true,
+      "evidence": {
+        "reports": 6,
+        "incidentId": "kx7c6bjr3nbj7zkqbwrqwmk6a98gzejk"
+      }
+    },
+    {
+      "name": "AP requester cannot promote noise to a confirmed response",
+      "passed": true
+    },
+    {
+      "name": "Purchasing continues during noise without concurrent overspending",
+      "passed": true,
+      "evidence": {
+        "results": [
+          {
+            "automatic": true,
+            "flagged": false,
+            "held": false,
+            "ok": true,
+            "paymentId": "mn70w3gts4wb1v5tqs8jzapeh98gy817",
+            "receiptId": "nn7afcn9w6j7rjpkeqvt58y31s8gzzbz"
+          },
+          {
+            "flagged": false,
+            "held": false,
+            "ok": true,
+            "paymentId": "mn707g0pgrp5bb8rsnepa7e1k18gzzfa",
+            "receiptId": "nn74ptcacbyg49jhcjr33j2e9d8gy5y4"
+          }
+        ],
+        "cashDebitCents": 18000,
+        "budgetCents": 30000
+      }
+    },
+    {
+      "name": "Twenty exact retries preserve one receipt and unchanged ledger",
+      "passed": true
+    },
+    {
+      "name": "Company requester cannot read firm-only detector evidence",
+      "passed": true
+    },
+    {
+      "name": "Revoked detector credential is rejected",
+      "passed": true
+    }
+  ],
+  "cleanup": [
+    {
+      "detectorRevoked": true
+    },
+    {
+      "observationDismissed": true
+    },
+    {
+      "approvalRevoked": true
+    },
+    {
+      "signedOut": true
+    },
+    {
+      "signedOut": true
+    },
+    {
+      "signedOut": true
+    }
+  ],
+  "passed": true,
+  "failure": null,
+  "finishedAt": "2026-10-25T05:33:17.927Z"
+}
