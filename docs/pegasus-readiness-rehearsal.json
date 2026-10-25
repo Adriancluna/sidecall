@@ -1,0 +1,40 @@
+{
+  "format": "sidecall-readiness-rehearsal-v1",
+  "author": "Pegasus",
+  "startedAt": "2026-10-24T23:44:44.540Z",
+  "completedAt": "2026-10-24T23:44:46.944Z",
+  "cloud": "https://tangible-koala-842.convex.cloud",
+  "passed": true,
+  "checks": [
+    {
+      "name": "Signed-out access is refused",
+      "passed": true
+    },
+    {
+      "name": "Real company and firm sessions receive only their permitted advice and readiness",
+      "passed": true
+    },
+    {
+      "name": "Summit retains the grounded $480K bank check without a false one-click revoke",
+      "passed": true
+    },
+    {
+      "name": "Convex pushes a new setup gap immediately when its controller disables the hold rule",
+      "passed": true
+    },
+    {
+      "name": "The gap closes and readiness updates on authorized adoption through the same subscription, without polling",
+      "passed": true
+    },
+    {
+      "name": "Readiness and setup create no incident or automatic response",
+      "passed": true
+    },
+    {
+      "name": "The original company policy is restored and verified",
+      "passed": true
+    }
+  ],
+  "restoredOriginalPolicy": true,
+  "scope": "Synthetic own DEV; real sessions, live Convex subscription and authorized policy change. No reset, deployment, model call, incident, real payment or external-provider action."
+}
