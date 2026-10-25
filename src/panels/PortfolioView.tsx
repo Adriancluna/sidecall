@@ -20,7 +20,7 @@ import { paymentLook } from "./labels";
 import { NotificationsPanel } from "./NotificationsPanel";
 import { ProofPanel } from "./ProofPanel";
 import { TimelinePanel } from "./TimelinePanel";
-import type { BlastRadius } from "./types";
+import type { BlastRadius, HeldPaymentRow } from "./types";
 import { VendorLetterActions } from "./VendorLetterActions";
 import { FirstStepCell } from "./ResponsePlaybook";
 import {
@@ -382,6 +382,7 @@ export function PortfolioView() {
               setSelected(undefined);
             }}
             releasedCents={releasedCents}
+            payments={held}
             exposed={exposed}
             acknowledged={acknowledged}
             onOpenCompany={openCompany}
@@ -399,6 +400,7 @@ function PortfolioHero({
   incidents,
   onPickIncident,
   releasedCents,
+  payments,
   exposed,
   acknowledged,
   onOpenCompany,
@@ -407,11 +409,14 @@ function PortfolioHero({
   incidents: NonNullable<ReturnType<typeof useQuery<typeof api.blastRadius.listIncidents>>>;
   onPickIncident: (id: Id<"incidents">) => void;
   releasedCents: number;
+  payments: HeldPaymentRow[] | undefined;
   exposed: Node[];
   acknowledged: number;
   onOpenCompany: (id: Id<"companies">) => void;
 }) {
   const { incident, totals, asset } = blast;
+  const rejectedCents = (payments ?? []).filter(r => r.payment.status === "rejected")
+    .reduce((sum, r) => sum + r.payment.amountCents, 0);
   const finding = incident.finding;
   const tracker = useQuery(api.responses.getResponseTracker, {
     incidentId: incident._id,
@@ -503,6 +508,16 @@ function PortfolioHero({
               {money(releasedCents)} released after phone verification
             </p>
           )}
+          {rejectedCents > 0 && (
+            <p className="mt-4 font-semibold text-danger" role="status">
+              {money(rejectedCents)} rejected · not paid
+            </p>
+          )}
+          {(rejectedCents > 0 || releasedCents > 0) && !contained && (
+            <p className="mt-2 text-sm text-ash">
+              Payment decisions do not close the incident. Companies still need to acknowledge their alerts and complete the response steps.
+            </p>
+          )}
           {/* A red-team finding's own paragraph says what happened; the summary would repeat it. */}
           {incident.summary && !finding && (
             <p className="mt-5 max-w-[52ch] leading-relaxed text-ash">
@@ -548,7 +563,7 @@ function PortfolioHero({
                 <span>Urgency</span>
                 <span>Acknowledged</span>
                 <span>First step</span>
-                <span className="text-right">Held</span>
+                <span className="text-right">Payments</span>
               </div>
               <ul className="divide-y divide-line">
                 {exposed.map((n) => (
@@ -584,14 +599,13 @@ function PortfolioHero({
                           <FirstStepCell row={stepFor.get(n.companyId)} />
                         </span>
                         <span className="tabular-nums md:text-right">
-                          {n.heldCents > 0 ? (
+                          {n.heldCents > 0 && (
                             <span className="font-semibold text-amber">
                               {money(n.heldCents)}
-                              <span className="md:sr-only"> held</span>
+                              <span> held</span>
                             </span>
-                          ) : (
-                            <span className="text-ash">No holds</span>
                           )}
+                          <PaymentOutcomes rows={payments?.filter(r => r.payment.companyId === n.companyId)} heldCents={n.heldCents} />
                         </span>
                       </span>
                       <span className="sr-only">
@@ -610,7 +624,19 @@ function PortfolioHero({
 }
 
 // Cells say only what their header doesn't ("Not yet", a name, "Done in 4s"), so each fits on one line.
-const ROW_GRID = "md:grid-cols-[minmax(0,1.6fr)_5.25rem_minmax(0,1fr)_7rem_5rem] md:gap-x-3";
+function PaymentOutcomes({ rows, heldCents }: { rows: HeldPaymentRow[] | undefined; heldCents: number }) {
+  if (!rows) return heldCents > 0 ? null : <span className="text-ash">Loading…</span>;
+  const rejected = rows.filter(r => r.payment.status === "rejected");
+  const paid = rows.filter(r => r.payment.status === "paid");
+  const total = (items: HeldPaymentRow[]) => money(items.reduce((sum, r) => sum + r.payment.amountCents, 0));
+  return <>
+    {rejected.length > 0 && <span className="block text-danger">{total(rejected)} rejected<span className="block text-xs text-ash">Not paid</span></span>}
+    {paid.length > 0 && <span className="block text-ok">{total(paid)} released</span>}
+    {heldCents === 0 && rejected.length === 0 && paid.length === 0 && <span className="text-ash">No holds</span>}
+  </>;
+}
+
+const ROW_GRID = "md:grid-cols-[minmax(0,1.6fr)_5.25rem_minmax(0,1fr)_7rem_8rem] md:gap-x-3";
 
 // Who acknowledged. A row resolved without anyone acknowledging says so quietly; its urgency
 // chip already reads "Resolved", so the word isn't repeated here.

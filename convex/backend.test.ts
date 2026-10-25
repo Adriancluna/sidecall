@@ -237,8 +237,17 @@ describe("payment release", () => {
     const { as, paymentId } = await heldPayment();
     const controller = await as("Rosa Alvarez");
     const before = (await controller.query(api.payments.getLedger, {}))!.balances;
+    const incidentId = (await controller.query(api.payments.getHeldPayments, {})).find(r => r.payment._id === paymentId)!.payment.heldByIncidentId!;
     expect(await controller.mutation(api.payments.rejectPayment, { paymentId })).toEqual({ ok: true });
     expect((await controller.query(api.payments.getLedger, {}))!.balances).toEqual(before);
+    const firm = await as(PE);
+    const rejected = (await firm.query(api.payments.getHeldPayments, { incidentId })).find(r => r.payment._id === paymentId)!;
+    expect(rejected.decision).toMatchObject({ status: "rejected", byName: "Rosa Alvarez" });
+    expect(rejected.payment.status).toBe("rejected");
+    const blast = (await firm.query(api.blastRadius.getBlastRadius, { incidentId }))!;
+    expect(blast.totals.heldCents).toBe(13_200_000);
+    expect(blast.nodes.find(n => n.companyId === rejected.payment.companyId)).toMatchObject({ heldCents: 0, status: "open" });
+    expect(blast.incident.containedAt).toBeUndefined();
   });
 
   test("every ledger entry balances", async () => {
