@@ -409,6 +409,12 @@ export const finishConnectedReset = internalMutation({
       for (const doc of page.page) {
         const incidentId = table === "incidents" ? doc._id : "incidentId" in doc ? doc.incidentId : undefined;
         if (!incidentId || !protectedIds.has(incidentId)) await ctx.db.delete(table, doc._id);
+        else if (table === "exposures") {
+          await ctx.db.patch("exposures", doc._id as Id<"exposures">, { status: "closed" });
+        } else if (table === "responseSteps" && "status" in doc && ["queued", "awaiting_approval", "pending"].includes(doc.status)) {
+          await ctx.db.patch("responseSteps", doc._id as Id<"responseSteps">, {
+            status: "expired", capNote: "Practice demo reset closed this unfinished response after account recovery." });
+        }
       }
       cursor = page.isDone ? null : page.continueCursor;
       if (page.isDone) index++;

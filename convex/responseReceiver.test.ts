@@ -211,6 +211,9 @@ test("reset restores the demo account before clearing and closes the old practic
   await finishConnectedReset(t);
   expect(await t.run(ctx => ctx.db.get("responseSteps", job.stepId))).toMatchObject({ status: "undone" });
   expect(await t.run(ctx => ctx.db.get("incidents", incident._id))).toHaveProperty("containedAt");
+  const reviews = await t.run(ctx => ctx.db.query("exposures").withIndex("by_incidentId_and_companyId", q=>q.eq("incidentId", incident._id)).take(100));
+  expect(reviews.length).toBeGreaterThan(0);
+  expect(reviews.every(review => review.status === "closed")).toBe(true);
   expect(await as("Sam Kowalski").query(api.seed.resetAvailability, {})).toMatchObject({ allowed: true, reason: expect.stringContaining("Ready") });
   const fresh = await t.mutation(internal.seed.fireDemoIncident, { scenario: "ironcladCredential" });
   expect(fresh).toMatchObject({ duplicate: false });
