@@ -194,16 +194,21 @@ function SignatureLine({
   );
 }
 
-// A refusal is the control doing its job (segregation of duties), so it reads calm, not as an error.
-function Refusal({ text }: { text: string }) {
+// Refusals need attention; green success styling can imply the payment went through.
+function Refusal({ text, title = "Action could not be completed", nextStep }: {
+  text: string;
+  title?: string;
+  nextStep?: string;
+}) {
   return (
     <p
       role="status"
       key={text}
-      className="rounded-chip bg-ok/[0.08] px-3 py-2.5 text-sm leading-relaxed motion-safe:animate-arrive"
+      className="rounded-chip border border-amber/30 bg-amber/[0.08] px-3 py-2.5 text-sm leading-relaxed motion-safe:animate-arrive"
     >
-      <span className="font-semibold text-ok">Working as designed.</span> {text} Nothing was released, and the refusal
-      is on the record.
+      <span className="mb-1 block font-semibold text-amber">{title}</span>
+      {text}
+      {nextStep && <span className="mt-2 block">{nextStep}</span>}
     </p>
   );
 }
@@ -302,7 +307,8 @@ export function TryRelease({ decision }: { decision: Decision }) {
       >
         {busy === "release" ? "Releasing…" : "Try to release"}
       </button>
-      {refusal && <Refusal text={refusal} />}
+      {refusal && <Refusal text={refusal} title="Release blocked"
+        nextStep={decision.isRequester ? "Ask a different controller to verify and approve this payment." : undefined} />}
     </div>
   );
 }
