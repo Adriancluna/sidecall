@@ -184,7 +184,8 @@ describe("payment release", () => {
     await s.fire();
     const clerk = await s.as("Jamie Chen"); // requested the $480K
     const [row] = await clerk.query(api.payments.getHeldPayments, {});
-    return { ...s, clerk, paymentId: row.payment._id };
+    return { ...s, clerk, paymentId: row.payment._id,
+      verification: { context: row.releaseContext!, confirmedAccountLast4: row.payment.accountLast4, calledPhoneOnFile: true } };
   }
 
   test("requester, other companies and the PE firm are refused, and each refusal is logged", async () => {
@@ -202,22 +203,22 @@ describe("payment release", () => {
   });
 
   test("controller release needs a note, pays once, and moves cash", async () => {
-    const { as, paymentId } = await heldPayment();
+    const { as, paymentId, verification } = await heldPayment();
     const controller = await as("Rosa Alvarez");
     const ledger = () => controller.query(api.payments.getLedger, {});
     const { cash: cashBefore, accounts_payable: apBefore } = (await ledger())!.balances;
 
     expect(
-      await controller.mutation(api.payments.releasePayment, { paymentId, verificationNote: "  " }),
+      await controller.mutation(api.payments.releasePayment, { paymentId, verification, verificationNote: "  " }),
     ).toMatchObject({ ok: false });
     expect((await ledger())!.balances.cash).toBe(cashBefore); // held money never moves
 
     expect(
-      await controller.mutation(api.payments.releasePayment, { paymentId, verificationNote: "480000" }),
+      await controller.mutation(api.payments.releasePayment, { paymentId, verification, verificationNote: "480000" }),
     ).toMatchObject({ ok: false }); // an amount is not a verification
 
     const args = {
-      paymentId,
+      paymentId, verification,
       verificationNote: "Called Brightline at +1 415 555-0142, they confirmed account 7731",
     };
     expect(await controller.mutation(api.payments.releasePayment, args)).toEqual({ ok: true });
@@ -241,9 +242,9 @@ describe("payment release", () => {
   });
 
   test("every ledger entry balances", async () => {
-    const { t, as, paymentId } = await heldPayment();
+    const { t, as, paymentId, verification } = await heldPayment();
     await (await as("Rosa Alvarez")).mutation(api.payments.releasePayment, {
-      paymentId,
+      paymentId, verification,
       verificationNote: "Called the number on file, vendor confirmed the account",
     });
     const entries = await t.run((ctx) => ctx.db.query("ledgerEntries").take(500));

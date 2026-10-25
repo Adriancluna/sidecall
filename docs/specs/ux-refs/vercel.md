@@ -1,6 +1,6 @@
 # UX reference: Vercel dashboard (Geist, dark)
 
-Prototype reference only, on branch `proto/ux-vercel`, never merged to `main`. Measured on Oct 24, 2026 from the live, signed-in dashboard (`vercel.com/<team>`, a project's Overview, Deployments and Settings) at 1280x800 and 375x812, through computed styles. Nothing was copied apart from values: no logo, icons, copy or code.
+Reference for the Oct 24-25 dashboard redesign. Measured on Oct 24, 2026 from the live, signed-in dashboard (`vercel.com/<team>`, a project's Overview, Deployments and Settings) at 1280x800 and 375x812, through computed styles. Nothing was copied apart from values: no logo, icons, copy or code.
 
 ## 1. Feel in one paragraph
 

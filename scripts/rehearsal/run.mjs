@@ -148,11 +148,13 @@ check("4 Acknowledge race: exactly one wins", acks.filter((a) => a.ok).length ==
 
 // 5. Rosa verifies by phone and releases; cash moves only now.
 const ledgerBefore = (await query("payments:getLedger", {}, rosa)).balances;
-const vague = await mutation("payments:releasePayment", { paymentId: big.payment._id, verificationNote: "480000" }, rosa);
+const vague = await mutation("payments:releasePayment", { paymentId: big.payment._id, verificationNote: "480000",
+  verification: { context: big.releaseContext, confirmedAccountLast4: "7731", calledPhoneOnFile: true } }, rosa);
 check("5 A vague note is refused", vague.ok === false);
 const release = await mutation(
   "payments:releasePayment",
-  { paymentId: big.payment._id, verificationNote: "Called Brightline at +1 415 555-0142, they confirmed account 7731" },
+  { paymentId: big.payment._id, verificationNote: "Called Brightline at +1 415 555-0142, they confirmed account 7731",
+    verification: { context: big.releaseContext, confirmedAccountLast4: "7731", calledPhoneOnFile: true } },
   rosa,
 );
 check("  Rosa releases after verifying", release.ok === true, release.reason);

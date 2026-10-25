@@ -35,9 +35,9 @@ export const insertAgent = internalMutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("agents")
-      .withIndex("by_name", (q) => q.eq("name", args.name))
-      .take(20);
-    if (existing.some((a) => a.revokedAt === undefined)) {
+      .withIndex("by_name_and_revokedAt", (q) => q.eq("name", args.name).eq("revokedAt", undefined))
+      .first();
+    if (existing) {
       throw new ConvexError(`An active agent named "${args.name}" exists; revoke it first.`);
     }
     return await ctx.db.insert("agents", {
@@ -56,11 +56,15 @@ export const revoke = internalMutation({
   handler: async (ctx, args) => {
     const agents = await ctx.db
       .query("agents")
-      .withIndex("by_name", (q) => q.eq("name", args.name))
-      .take(20);
+      .withIndex("by_name_and_revokedAt", (q) => q.eq("name", args.name).eq("revokedAt", undefined))
+      .take(501);
+    // Older versions could admit duplicate active names behind revoked history. Revoke all
+    // matching active credentials, or fail explicitly instead of claiming a partial success.
+    if (agents.length > 500) {
+      throw new ConvexError("Too many active agents with this name; operator batch revocation is required.");
+    }
     let revoked = 0;
     for (const agent of agents) {
-      if (agent.revokedAt !== undefined) continue;
       await ctx.db.patch("agents", agent._id, { revokedAt: Date.now() });
       revoked += 1;
     }
@@ -128,14 +132,18 @@ export const logCall = internalMutation({
 // the agent sees exactly what that person would: their own company, never the reporter. ----
 
 
-async function agentViewer(ctx: QueryCtx, agentId: Id<"agents">) {
+async function agentViewer(ctx: QueryCtx, agentId: Id<"agents">, requiredTool?: string) {
   const agent = await ctx.db.get("agents", agentId);
   if (!agent || agent.revokedAt !== undefined) throw new ConvexError("Agent not active");
+  if (requiredTool && !agent.tools.includes(requiredTool)) throw new ConvexError("Tool not available to this agent.");
   const user = await ctx.db
     .query("users")
     .withIndex("email", (q) => q.eq("email", agent.onBehalfOfEmail))
     .unique();
   if (!user) throw new ConvexError("The person this agent acts for no longer exists");
+  // HTTP authentication and this read/mutation are separate transactions; scope may have
+  // changed between them. Agents never inherit firm-wide visibility from a changed role.
+  if (!user.companyId || user.role === "pe_partner") throw new ConvexError("Agent requires a company-scoped person.");
   return { agent, viewer: viewerForUser(user) };
 }
 
@@ -148,7 +156,7 @@ export const listHeldPayments = internalQuery({
     status: v.optional(v.union(v.literal("held"), v.literal("paid"), v.literal("rejected"))),
   },
   handler: async (ctx, args) => {
-    const { viewer } = await agentViewer(ctx, args.agentId);
+    const { viewer } = await agentViewer(ctx, args.agentId, "list_held_payments");
     const rows = await heldPaymentsFor(ctx, viewer, {});
     return rows
       .filter((r) => !args.status || r.payment.status === args.status)
@@ -169,7 +177,7 @@ export const listHeldPayments = internalQuery({
 export const explainHold = internalQuery({
   args: { agentId: v.id("agents"), paymentId: v.string() },
   handler: async (ctx, args) => {
-    const { viewer } = await agentViewer(ctx, args.agentId);
+    const { viewer } = await agentViewer(ctx, args.agentId, "explain_hold");
     const paymentId = ctx.db.normalizeId("payments", args.paymentId);
     if (!paymentId) return null;
     const [row] = await heldPaymentsFor(ctx, viewer, { paymentId });
@@ -208,7 +216,7 @@ export const explainHold = internalQuery({
 export const listBills = internalQuery({
   args: { agentId: v.id("agents") },
   handler: async (ctx, args) => {
-    const { viewer } = await agentViewer(ctx, args.agentId);
+    const { viewer } = await agentViewer(ctx, args.agentId, "list_bills");
     const bills = await billsFor(ctx, viewer);
     return bills.map((b) => ({
       billId: b.bill._id,
@@ -224,13 +232,21 @@ export const listBills = internalQuery({
 // Requests a payment as the clerk the agent acts for, through the same code as the UI, and writes
 // the agent_call audit row in the same transaction (the HTTP handler doesn't log this tool again).
 export const requestPayment = internalMutation({
-  args: { agentId: v.id("agents"), billId: v.string() },
+  args: { agentId: v.id("agents"), billId: v.string(), requestId: v.optional(v.string()), expectedMandateId: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const { agent, viewer } = await agentViewer(ctx, args.agentId);
+    if (!agent.tools.includes("request_payment")) return { ok: false as const, reason: "Tool not available to this agent." };
+    const expectedMandateId = args.expectedMandateId === undefined ? undefined : ctx.db.normalizeId("purchaseMandates", args.expectedMandateId);
+    if (expectedMandateId === null) return { ok: false as const, reason: "Invalid purchasing approval identifier." };
+    // Exact retry results are historical; do not amplify audit writes when quota is bypassed.
+    const requestId = args.requestId;
+    const priorRequest = requestId && !viewer.firm ? await ctx.db.query("purchaseRequests")
+      .withIndex("by_companyId_and_executorKey_and_requestId", q => q.eq("companyId", viewer.companyId).eq("executorKey", `agent:${agent._id}`).eq("requestId", requestId)).unique() : null;
     const billId = ctx.db.normalizeId("bills", args.billId);
     const result = billId
-      ? await requestPaymentFor(ctx, viewer, billId)
+      ? await requestPaymentFor(ctx, viewer, billId, agent._id, { requestId: args.requestId, expectedMandateId })
       : { ok: false as const, reason: "That bill isn't your company's." };
+    if (priorRequest) return result;
     const payment = result.ok ? await ctx.db.get("payments", result.paymentId) : null;
     await ctx.db.insert("auditLog", {
       at: Date.now(),

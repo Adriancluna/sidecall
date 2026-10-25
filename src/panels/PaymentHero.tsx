@@ -34,7 +34,7 @@ export function PaymentHero({ row, escalation, viewer, others, onOpenTab }: Prop
         {done ? (
           <StatusLine tone={done.status === "paid" ? "ok" : "danger"} state={done.status === "paid" ? "Released" : "Rejected"}>
             <span>
-              {done.status === "paid" ? "After a call to the number on file" : "Never paid"}, by {done.byName ?? "a controller"}
+              {done.status === "paid" ? (payment.releaseVerification ? "Callback recorded" : "Legacy release recorded") : "Never paid"}, by {done.byName ?? "a controller"}
             </span>
           </StatusLine>
         ) : (

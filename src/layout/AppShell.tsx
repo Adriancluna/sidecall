@@ -7,7 +7,7 @@ import { DemoControls } from "../demo/DemoControls";
 import { loadStage, saveStage } from "../demo/stage";
 import { ShellSlotsContext, type ShellSlots } from "./shellSlots";
 
-// proto/ux-vercel shell: a black left sidebar (whose desk this is, the page's tabs, the person
+// The shell: a black left sidebar (whose desk this is, the page's tabs, the person
 // switch at the bottom) and a 56px top bar (breadcrumb left, simulator right).
 // On phones the sidebar folds away: the tabs become a strip under the top bar. The simulator is
 // demo tooling, so it starts folded into its header button (remembered per tab), /?stage included.

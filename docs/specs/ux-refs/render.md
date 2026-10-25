@@ -1,6 +1,6 @@
 # UX reference: Render dashboard (dark)
 
-Prototype reference only, kept local on `proto/ux-vercel`. Measured Oct 25, 2026 at 1440x900 from the signed-in dashboard (Overview and Account settings) through computed styles. Values only: no logo, icons, copy or code.
+Reference for the Oct 24-25 dashboard redesign (page structure). Measured Oct 25, 2026 at 1440x900 from the signed-in dashboard (Overview and Account settings) through computed styles. Values only: no logo, icons, copy or code.
 
 ## What Render does that Sidecall needs
 Render is the answer to the critique's P1 ("sidebar clicks don't change the visible page"): every sidebar item is a **page**, and every page opens with its own large title.
