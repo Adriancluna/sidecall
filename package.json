@@ -13,6 +13,7 @@
     "rehearse": "node scripts/rehearsal/run.mjs"
   },
   "dependencies": {
+    "@antv/g6": "^5.1.1",
     "@auth/core": "^0.41.3",
     "@convex-dev/auth": "^0.0.96",
     "@convex-dev/rate-limiter": "^0.4.2",

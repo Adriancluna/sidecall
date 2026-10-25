@@ -1,6 +1,12 @@
 # Role 2: Frontend (Marco)
 Last updated: Oct 25, ~01:00 UTC (Oct 24 evening PT) by Marco's Claude
 
+## Firm map: AntV G6 expandable map is the default (Marco's call)
+- **New npm package: `@antv/g6` 5.1.1** (Marco's decision, flagging it here for the team). Loaded on demand: the main bundle is unchanged (~514 kB); the map chunk (~405 kB gzipped) loads when Map & evidence opens.
+- `src/panels/G6BlastMap.tsx`: a radial tree. Parent firm in the middle; the breached vendor, the reporting company, "Exposed · N" (open) and "Not exposed · N" (folded) around it. Click a company bubble to open its link type, amount held, people and acknowledgement; click again to fold. Clicking a company still loads the evidence panel. Live updates keep open bubbles.
+- **→ Omar (Role 3):** `src/map/` is untouched. Your SVG map is still there at `?map=classic` (also our fallback if anything goes wrong on stage). The map's evidence panel is still yours (`EvidencePanel`).
+- Undo: set `CLASSIC_MAP` default in `PortfolioView.tsx` (or drop `G6BlastMap.tsx` and `@antv/g6`).
+
 ## Dashboard redesign: Vercel look + Render page structure (this PR, merged by Marco)
 Supersedes the "council" layout from #110. Desktop only (Marco's call: no mobile work).
 - **Look (Vercel/Geist):** Geist + Geist Mono, black page, `#0a0a0a` cards with 1px rings, 6px radius, light-grey primary buttons, blue for links and focus only. Amber/red/green are status-only. Values in `src/index.css` override the brand tokens; `brand/` is untouched. References: `docs/specs/ux-refs/vercel.md`, `docs/specs/ux-refs/render.md`.

@@ -3,7 +3,7 @@
 // so both, the tab bar and the top of the map fit on one projected screen.
 import { InvestigationPanel, ResponseSafetyPanel } from "./InvestigationPanel";
 import { useQuery } from "convex/react";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { BlastRadiusMap } from "../map/BlastRadiusMap";
@@ -53,6 +53,10 @@ function savePinned(id: Id<"incidents">) {
     // remembered for this page only
   }
 }
+
+// G6 is large, so the map's code loads only when the firm opens Map & evidence.
+const G6BlastMap = lazy(() => import("./G6BlastMap").then((m) => ({ default: m.G6BlastMap })));
+const CLASSIC_MAP = new URLSearchParams(window.location.search).get("map") === "classic";
 
 // Six tabs so every one fits on a projected laptop screen; related panels share a tab
 // (payment investigation sits under Payments, response safety under Timeline & close-out).
@@ -260,11 +264,20 @@ export function PortfolioView() {
       label: "Map & evidence",
       content: () => (
         <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_400px] lg:grid-cols-[minmax(0,1fr)_360px]">
-          <BlastRadiusMap
-            blast={blast}
-            selected={selected}
-            onSelect={setSelected}
-          />
+          {/* The G6 expandable map by default (loaded on demand); ?map=classic keeps Omar's SVG map. */}
+          {CLASSIC_MAP ? (
+            <BlastRadiusMap
+              blast={blast}
+              selected={selected}
+              onSelect={setSelected}
+            />
+          ) : (
+            <Suspense
+              fallback={<div className="h-[677px] rounded-tile border border-line bg-panel motion-safe:animate-pulse" />}
+            >
+              <G6BlastMap blast={blast} onSelect={setSelected} />
+            </Suspense>
+          )}
           <div className="space-y-6">
             <EvidencePanel exposureId={selectedNode?.exposureId ?? undefined} companyName={selectedNode?.name} />
             {selectedNode && (
