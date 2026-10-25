@@ -85,7 +85,7 @@ Reset is batched; wait for **Ready for the next practice run**, not merely an en
 
 Live DEV verification of automatic Reset passed nine checks, including an independent Okta ACTIVE read-back, unchanged control account, retained pause evidence, cleared practice data and surviving sign-in: [reset evidence](evidence/reset-okta-dev.json).
 
-Open `/?stage`, expand Simulator, enter the existing presenter key and click Reset. The controller can load the office-supply sample bills again after reset. This behavior replaces the earlier blanket reset prohibition; historical evidence documents describe the behavior at the time of their runs.
+Open https://sidecall.vercel.app on every laptop, expand Simulator and confirm the connection is `judicious-tiger-712`. The normal simulator now shows Reset and the presenter-key field without requiring `?stage`. Enter the existing key only on the controlling laptop, click Reset, then Confirm reset; other laptops receive the same reset counter and completion state. A browser refresh does not reset backend data. Localhost currently uses the separate `tangible-koala-842` DEV database. The controller can load the office-supply sample bills again after reset. This behavior replaces the earlier blanket reset prohibition; historical evidence documents describe the behavior at the time of their runs.
 
 The default receiver budget is three new pauses per hour. A reused report or command does not cause another pause. A fresh incident after cleanup still counts toward the budget. Plan rehearsals around that limit; do not remove the limit to disguise a failed demo.
 

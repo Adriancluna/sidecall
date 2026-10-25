@@ -1,5 +1,5 @@
-// Presenter-only UI (Reset, the demo steps) shows when the app is opened with ?stage.
-// The real guard for Reset is DEMO_MODE on the deployment; this just keeps judges from hitting it.
+// Presenter narration steps show with ?stage. Simulator controls are available
+// in normal views too, with backend DEMO_MODE and presenter-key authorization.
 // Remembered for this tab, so a sign-in or reload that drops the query string keeps presenter mode.
 const STAGE_KEY = "sidecall-stage";
 
