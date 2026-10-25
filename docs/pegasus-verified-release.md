@@ -1,6 +1,6 @@
 # Release verification bound to the payment
 
-Author: Pegasus. Implemented contract; live release rehearsal results are pending.
+Author: Pegasus. Standalone implementation based on main `38e0a11`; no dependency on purchasing PR #125.
 
 A note saying “confirmed account 2208” must not release a payment addressed to 7731. Release now requires a structured controller attestation bound to the exact held payment and the records reviewed. The [FBI's business email compromise guidance](https://www.fbi.gov/how-we-can-help-you/common-frauds-and-scams/business-email-compromise) recommends independently contacting the company and verifying changes to account numbers or payment procedures. Sidecall applies that callback pattern using the vendor's stored phone number; a recent email cannot supply the release destination or callback number.
 
@@ -36,4 +36,12 @@ The stored phone is assumed trustworthy; the checkbox records the controller's a
 
 [Backend regressions](../convex/paymentVerification.test.ts) cover old-account prose, omitted/mismatched verification, changed amount/destination/bill/phone/same-suffix bank records, fresh-context bill mismatch, unusable callback numbers, historical destinations, duplicate held-payment races, immutable release evidence and unauthorized actors.
 
-The [focused live rehearsal](../scripts/release/README.md) uses actual authenticated requests on Pegasus's own DEV, including concurrent $480,000 releases, a real synthetic payee-record replacement and Cedar Ridge isolation followed by its separately verified $92,000 payment. Its report records source commit, timestamps, results, contexts, journal entries, audits and session cleanup. Callback assertions are explicitly simulated. **Live pass counts and report conclusions remain pending until that run completes.** Offline mocked harness results do not establish a live backend pass.
+The [focused live rehearsal](../scripts/release/README.md) uses actual authenticated requests on Pegasus's own DEV, including concurrent $480,000 releases, a real synthetic payee-record replacement and Cedar Ridge isolation followed by its separately verified $92,000 payment. Its report records source commit, timestamps, results, contexts, journal entries, audits and session cleanup. Callback assertions are explicitly simulated. **All 10 live checks passed** on standalone source `ce1d593dcd58b0b2d52b59813e9f425f93334185`; all three sessions signed out, with no cleanup failures. Evidence: [redacted report](../scripts/release/report.json). The original full demo rehearsal also passed and reset cleanly before this focused run.
+
+150 app/backend tests plus 46 Node tests pass, both TypeScript checks and lint/build pass (the existing roughly 507 kB chunk warning remains). A peer reviewed the standalone transaction, indexes and fixture; no blocker found.
+
+Desktop and 375 px browser checks on the combined development candidate verified wrong-account blocking, reactive stale-context refusal, keyboard restart clearing the fields, unique input labels and no horizontal overflow. The native confirmation dialog initially blocked automation; after the user handled it, the browser visibly showed the synthetic $180 / 4242 payment released with the saved assertion. [Result screenshot](images/verified-release-result.jpg). This screenshot is the earlier combined-candidate UI check, not an independent-main backend proof; the report above is the independent proof. The temporary tab was closed and viewport restored. No real call or real funds were involved.
+
+### Integration with #125
+
+Each PR targets main independently. A dry merge with approved #125 found conflicts in `convex/payments.ts`, `convex/schema.ts` and generated `api.d.ts`. Keep both purchasing and payment-verification imports; preserve the purchasing request/rejection logic and this release/context logic. Keep `releaseVerification` in the payment schema and `by_billId_and_status`; the older `by_billId` index and its explanatory lint suppression are unnecessary once #125 replaces the old request lookup. Regenerate API types with both modules, then run the full combined checks and rehearsal. Role 1 owns that merge and production deployment.
