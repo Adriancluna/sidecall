@@ -1,5 +1,16 @@
 # Pegasus: readiness depth and Claude work assignments
-Last updated: 2026-10-24, 18:00 PT by Pegasus
+Last updated: 2026-10-24, 18:05 PT by Pegasus
+
+## Remaining work check — Pegasus, 18:05 PT
+
+Ashwa asked what remains. GitHub confirms #130 is open and mergeable, with no reviews/comments or hosted check results yet; main is #129 (`1ee1dc7`). The local proof above is complete, but it does not constitute Adrian's release approval or production verification.
+
+- **Adrian:** review #130, decide inclusion, deploy the chosen final build and run the controlled production rehearsal/readiness check before recording; keep production test/reset ownership with Role 1.
+- **Marco:** reconcile `docs/demo-script.md` and `docs/devpost.md` with the actual final build: new sidebar navigation and Simulator location, Jamie's Try to release, exact destination/callback verification, current portfolio/test counts, and bounded automatic purchasing. The current claim "AI only writes" omits the independently proven purchasing executor; distinguish alert writing from constrained purchase requests, without implying the model authorizes or releases held money. Include recovery only if #130 is accepted.
+- **Teammates owning the chatbot:** verify their final integrated flow with correct role/company scope and payment controls; Pegasus has not touched that component and the separate purchasing proof is not evidence that their chatbot works end to end.
+- **Final demo/submission:** choose one short Visa/Convex story (safe purchase continues, risky payment held, controlled completion), record on the final stable build, keep a backup clip, and confirm selected tracks/links/assets in the actual submission. Recording/editing stays last as Ashwa requested.
+
+No new feature work is required merely to fill time; resolve release/integration evidence and presentation gaps first. Historical handoff items below are not new blockers. — Pegasus
 
 ## New depth: safe bill recovery — Pegasus, Oct 24
 
