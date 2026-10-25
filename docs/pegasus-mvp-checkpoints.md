@@ -43,4 +43,6 @@ The user has superseded the proposed team assignments: Pegasus works solo in thi
 
 Checkpoint 2 implementation is complete locally: the default-off PURCHASE_CONSOLE_LIVE switch guards job admission, worker claim, each model admission and tool execution. Unavailable empty consoles render nothing; saved outcomes and Stop remain accessible. Eight additional backend regressions and three rendered-UI cases pass. Full release/deployment acceptance remains pending; no new paid model run is claimed.
 
-Next: reconcile this candidate with current main, then implement the isolated signed-command/receiver protocol with durable receipts and reconciliation. Establish a dedicated test tenant before claiming an external account effect. No external credentials are available or requested in chat.
+The candidate now includes main fd8839e. Validation after integration: 267 application/backend/rendered-UI tests pass, lint and frontend build pass, and backend TypeScript passes; the 70 Node checks also passed before this UI-only main integration. Existing bundle-size warnings remain. No deployment or new paid model proof is claimed.
+
+Next: implement the isolated signed-command/receiver protocol with durable receipts and reconciliation. Establish a dedicated test tenant before claiming an external account effect. No external credentials are available or requested in chat.
