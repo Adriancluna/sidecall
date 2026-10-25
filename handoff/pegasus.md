@@ -1,5 +1,13 @@
 # Pegasus: release handoff
-Last updated: 2026-10-24, 21:16 PT by Pegasus
+Last updated: 2026-10-24, 21:41 PT by Pegasus
+
+## Active: agreed MVP checkpoints
+
+Ashwa authorized implementation after the brainstorming pause, step by step. [Checkpoint plan and fresh baseline](../docs/pegasus-mvp-checkpoints.md) supersede older release assumptions below. Main is now `fd8839e` (#134); its Vercel commit status succeeds, but production backend/alias and end-to-end acceptance are not freshly verified. #132 remains OPEN at `59cf011`, with no posted GitHub review; the supplied Claude brief's two fixes are accepted as next scope: hide unavailable console and add a dedicated default-off live-execution switch.
+
+Signed outbound identity response remains proposed. Asked for an existing Entra/Okta test tenant and owner; no credential sharing requested. Before implementation, coordinate response/schema ownership with Role 1. Required design corrections: timeouts remain unknown until reconciled, persistent command receipts make retry safe, receiver enforces independent limits/allowlist, restoration cannot override another restriction. No claim that a per-report limit bounds a compromised sender globally.
+
+**Next:** Pegasus takes #132 release-safety fixes; Role 1 owns production review/release and is proposed for external-response integration; Omar/Marco's evidence/presentation assignments await pickup. Existing chatbot boundary remains. Preserve Convex/Hyphenate depth, strengthen Armadin through actual response evidence, keep Visa conditional without new shopping scope. Only checkpoint documentation changed in this pass; no tests, paid calls or deployment run. — Pegasus
 
 ## Team understanding guide completed
 
