@@ -223,7 +223,7 @@ export function FirstStepCell({
   if (row.done > 0)
     return (
       <span className="text-ok">
-        First step done{row.firstStepMs !== null && ` in ${seconds(row.firstStepMs)}`}
+        Done{row.firstStepMs !== null && ` in ${seconds(row.firstStepMs)}`}
       </span>
     );
   if (row.ready > 0) return <span className="text-amber">Ready, one click</span>;

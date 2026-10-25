@@ -91,9 +91,8 @@ h3 {
   text-wrap: balance;
 }
 
-/* No paragraph ends on one stranded word. */
-p,
-li {
+/* No line of copy ends on one stranded word (inherited by every text element; headings balance instead). */
+body {
   text-wrap: pretty;
 }
 

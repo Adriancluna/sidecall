@@ -3,13 +3,13 @@ import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
-export function AcknowledgedBy({ userId }: { userId?: Id<"users"> | null }) {
+export function AcknowledgedBy({ userId, nameOnly = false }: { userId?: Id<"users"> | null; nameOnly?: boolean }) {
   const users = useQuery(api.blastRadius.listUsers, {});
   if (!userId) return null;
   const name = users?.find((u) => u._id === userId)?.name;
   return (
     <span className="text-sm text-ok">
-      Acknowledged by {name ?? "a teammate"}
+      {nameOnly ? (name ?? "A teammate") : `Acknowledged by ${name ?? "a teammate"}`}
     </span>
   );
 }

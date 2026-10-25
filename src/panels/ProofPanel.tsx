@@ -1,5 +1,6 @@
 // Proof for judges (Hyphenate): what's real vs. simulated, and the scorecard against the
 // planted answer key. Copy follows CLAUDE.md "Real vs. simulated".
+import { Fragment } from "react";
 import aiCacheRaw from "../../data/ai_cache.json?raw";
 import { dnsFindings } from "./dnsFindings";
 import { dateTime } from "./format";
@@ -174,10 +175,12 @@ function DnsFindings() {
             <dt className="w-40 shrink-0 text-ash">{d.domain}</dt>
             <dd className="min-w-0 flex-1">
               {d.vendors.map((v, i) => (
-                <span key={v.vendor}>
+                <Fragment key={v.vendor}>
                   {i > 0 && ", "}
-                  {v.vendor} <span className="text-ash">({v.records.join(", ")})</span>
-                </span>
+                  <span className="whitespace-nowrap">
+                    {v.vendor} <span className="text-ash">({v.records.join(", ")})</span>
+                  </span>
+                </Fragment>
               ))}
             </dd>
           </div>
