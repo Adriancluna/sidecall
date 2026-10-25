@@ -119,6 +119,7 @@ describe("Pegasus response-abuse controls", () => {
     expect(
       await as("Rosa Alvarez").mutation(api.payments.releasePayment, {
         paymentId: held.payment._id,
+        verification: { context: held.releaseContext!, confirmedAccountLast4: held.payment.accountLast4, calledPhoneOnFile: true },
         verificationNote:
           "Called the vendor at the trusted number and independently verified the account.",
       }),

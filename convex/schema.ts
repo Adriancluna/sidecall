@@ -3,6 +3,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
+import { releaseVerification } from "./paymentVerification";
 
 export const shareType = v.union(
   v.literal("shared_credential"),
@@ -360,6 +361,7 @@ export default defineSchema({
     flaggedBankChangeId: v.optional(v.id("bankDetailChanges")),
     holdReasons: v.optional(v.array(v.string())),
     verificationNote: v.optional(v.string()),
+    releaseVerification: v.optional(releaseVerification),
     decidedAt: v.optional(v.number()),
     dueDate: v.optional(v.number()), // copied from the bill; drives escalation
     escalatedAt: v.optional(v.number()),
@@ -374,7 +376,10 @@ export default defineSchema({
       "escalatedAt",
       "dueDate",
     ])
-    .index("by_billId", ["billId"]),
+    // Preserve creation-time ordering for the existing bounded request lookup.
+    // eslint-disable-next-line @convex-dev/no-duplicate-indexes
+    .index("by_billId", ["billId"])
+    .index("by_billId_and_status", ["billId", "status"]),
 
   // Double-entry. Bill booked: Dr expense / Cr accounts_payable.
   // Payment released: Dr accounts_payable / Cr cash. Held payments never touch cash.

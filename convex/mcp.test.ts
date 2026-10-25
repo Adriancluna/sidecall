@@ -197,8 +197,11 @@ describe("agent requests a payment", () => {
       (await ctx.db.query("auditLog").take(500)).filter((a) => a.paymentId === result.paymentId).map((a) => a.rule),
     );
     expect(rules).toContain("segregation_of_duties");
-    const rosa = await (await as("Rosa Alvarez")).mutation(api.payments.releasePayment, {
+    const controller = await as("Rosa Alvarez");
+    const held = (await controller.query(api.payments.getHeldPayments, {})).find(r => r.payment._id === result.paymentId)!;
+    const rosa = await controller.mutation(api.payments.releasePayment, {
       paymentId: result.paymentId,
+      verification: { context: held.releaseContext!, confirmedAccountLast4: held.payment.accountLast4, calledPhoneOnFile: true },
       verificationNote: "Called Brightline at number on file, confirmed account",
     });
     expect(rosa).toEqual({ ok: true });

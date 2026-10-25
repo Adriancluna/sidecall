@@ -8,6 +8,7 @@ import { canSeeCompany, getViewer, type Viewer } from "./access";
 import { insertReadyAlert } from "./alerts";
 import { DAY_MS, formatUsd, MAX_FANOUT, memo } from "./shared";
 import { postLedgerEntry } from "./ledger";
+import { checkReleaseAttestation, currentReleaseContext, makeReleaseContext, releaseAttestation } from "./paymentVerification";
 
 const BANK_CHANGE_WINDOW_MS = 30 * DAY_MS;
 const MIN_NOTE_LENGTH = 15;
@@ -357,6 +358,7 @@ export const releasePayment = mutation({
   args: {
     paymentId: v.id("payments"),
     verificationNote: v.string(),
+    verification: v.optional(releaseAttestation),
   },
   returns: decisionValidator,
   handler: async (ctx, args): Promise<Decision> => {
@@ -367,9 +369,32 @@ export const releasePayment = mutation({
     const check = await checkDecision(ctx, payment, actor, "release");
     if (!check.ok) return check;
 
+    const context = await currentReleaseContext(ctx, payment);
+    const verification = checkReleaseAttestation(context, args.verification);
+    if (!verification.ok) {
+      await ctx.db.insert("auditLog", {
+        at: Date.now(), actor, action: "refused", companyId: payment.companyId,
+        paymentId: payment._id, incidentId: payment.heldByIncidentId,
+        rule: verification.rule, reason: verification.reason,
+      });
+      return { ok: false, reason: verification.reason };
+    }
+
+    // The indexed paid range participates in this transaction: two held duplicates cannot
+    // both settle the same bill, even when requests arrive concurrently.
+    const alreadyPaid = await ctx.db.query("payments")
+      .withIndex("by_billId_and_status", q => q.eq("billId", payment.billId).eq("status", "paid")).first();
+    if (alreadyPaid) {
+      const reason = "This bill already has a paid payment; another release would pay it twice.";
+      await ctx.db.insert("auditLog", { at: Date.now(), actor, action: "refused",
+        companyId: payment.companyId, paymentId: payment._id, incidentId: payment.heldByIncidentId,
+        rule: "bill_already_paid", reason });
+      return { ok: false, reason };
+    }
+
     // A release must say who was called and what they confirmed, not just "ok" or an amount.
     const note = args.verificationNote.trim();
-    if (note.length < MIN_NOTE_LENGTH || !/[a-z]{2,}\s+[a-z]{2,}/i.test(note)) {
+    if (note.length < MIN_NOTE_LENGTH || note.length > 2000 || !/[a-z]{2,}\s+[a-z]{2,}/i.test(note)) {
       await ctx.db.insert("auditLog", {
         at: Date.now(),
         actor,
@@ -378,22 +403,16 @@ export const releasePayment = mutation({
         paymentId: payment._id,
         incidentId: payment.heldByIncidentId,
         rule: "verification_required",
-        reason: "Refused release: verification note missing or too short (call the number on file first).",
+        reason: "Refused release: describe the call in a verification note of 15–2,000 characters.",
       });
       return {
         ok: false,
-        reason: "Describe the verification call: who you called at the number on file and what they confirmed.",
+        reason: "Describe who you called at the number on file and what they confirmed, using 15–2,000 characters.",
       };
     }
 
     const now = Date.now();
-    await ctx.db.patch("payments", payment._id, {
-      status: "paid",
-      approvedBy: actor,
-      verificationNote: note,
-      decidedAt: now,
-    });
-    await postLedgerEntry(ctx, {
+    const ledgerEntryId = await postLedgerEntry(ctx, {
       kind: "payment",
       companyId: payment.companyId,
       amountCents: payment.amountCents,
@@ -401,6 +420,12 @@ export const releasePayment = mutation({
       memo: `Payment released after verification: ${note}`,
       paymentId: payment._id,
       billId: payment.billId,
+    });
+    await ctx.db.patch("payments", payment._id, {
+      status: "paid", approvedBy: actor, verificationNote: note, decidedAt: now,
+      releaseVerification: { context, confirmedAccountLast4: args.verification!.confirmedAccountLast4,
+        calledPhoneOnFile: true, attestedBy: actor, attestedAt: now,
+        method: "controller_phone_attestation", identityScope: "masked_demo_account", ledgerEntryId },
     });
     await ctx.db.insert("auditLog", {
       at: now,
@@ -487,6 +512,9 @@ export async function heldPaymentsFor(
   const asset = memo((id: Id<"assets">) => ctx.db.get("assets", id));
   const incident = memo((id: Id<"incidents">) => ctx.db.get("incidents", id));
   const user = memo((id: Id<"users">) => ctx.db.get("users", id));
+  const bill = memo((id: Id<"bills">) => ctx.db.get("bills", id));
+  const latestBank = memo((id: Id<"assets">) => ctx.db.query("bankDetailChanges")
+    .withIndex("by_assetId_and_changedAt", q => q.eq("assetId", id)).order("desc").first());
   // The flagged change plus the vendor's earlier bank details, newest first ("old vs new").
   const bankChange = memo(async (id: Id<"bankDetailChanges">) => {
     const change = await ctx.db.get("bankDetailChanges", id);
@@ -530,8 +558,12 @@ export async function heldPaymentsFor(
       ]);
       const change = bank?.change ?? null;
       const earlier = bank?.earlier ?? [];
+      const releaseContext = payment.status === "held"
+        ? makeReleaseContext(payment, await bill(payment.billId), vendor, await latestBank(payment.assetId))
+        : null;
       return {
         payment,
+        releaseContext,
         companyName: co?.name ?? "",
         vendorName: vendor?.vendorName ?? "",
         phoneOnFile: vendor?.phoneOnFile ?? "",

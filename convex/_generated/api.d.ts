@@ -27,6 +27,8 @@ import type * as mcp from "../mcp.js";
 import type * as notifications from "../notifications.js";
 import type * as notify from "../notify.js";
 import type * as ops from "../ops.js";
+import type * as paymentVerification from "../paymentVerification.js";
+import type * as paymentVerificationLab from "../paymentVerificationLab.js";
 import type * as payments from "../payments.js";
 import type * as responseEvidence from "../responseEvidence.js";
 import type * as responses from "../responses.js";
@@ -61,6 +63,8 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   notify: typeof notify;
   ops: typeof ops;
+  paymentVerification: typeof paymentVerification;
+  paymentVerificationLab: typeof paymentVerificationLab;
   payments: typeof payments;
   responseEvidence: typeof responseEvidence;
   responses: typeof responses;
