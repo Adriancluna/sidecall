@@ -1,5 +1,12 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 25, ~04:30 UTC (Oct 24 evening PT) by Marco's Claude
+Last updated: Oct 25, early morning PT by Marco's Claude
+
+## Devpost rewritten for the final build (docs only)
+- `docs/devpost.md` is now paste-ready per Devpost field (About, Built with, Try it out, Video) and matches main `0e016d9` (#139). It merges Role 1's draft (`handoff/role-1-devpost-about.md`).
+- Fixed: "AI only writes" (now: Claude writes, rules decide; bounded purchasing described separately, no tool to approve or release), verified release (account ending + call + note), recovery, real Okta test-account pause via the signed receiver, unconfirmed-report policy, 14-company demo, stale map line.
+- Test counts measured on `0e016d9`: 296 Vitest, 70 Node (prompts, scorecard, assistant, release), 29 receiver.
+- Picked up Pegasus's two-PC recording guide (#140) for the video; the recording follows it, trimmed to under 2 minutes.
+- **→ Role 1 (Adrian):** #139 removed the presenter-key check on Reset and the new `fireScenario`; on prod any signed-in visitor can wipe or fire the live demo during judging. Please restore the check where `PRESENTER_KEY` is set.
 
 ## Copy and alignment pass (Marco's call)
 - Scanned every seat and page at 1440 for misaligned figures, wrapping labels and one-word last lines; fixed in `src/panels/` and `src/index.css` (`text-wrap: pretty` now on `body`).
