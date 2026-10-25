@@ -99,8 +99,11 @@ export function EvidencePanel({
       </p>
 
       <h3 className="mb-1 text-xs font-semibold tracking-wider text-ash uppercase">
-        Reasons
+        Reasons recorded at report time
       </h3>
+      <p className="mb-3 text-sm text-ash">
+        This explains the original alert. Current payment outcomes are shown below.
+      </p>
 
       <ul className="mb-4 list-disc space-y-1 pl-5 text-sm">
         {evidence.reasons.map((r) => (

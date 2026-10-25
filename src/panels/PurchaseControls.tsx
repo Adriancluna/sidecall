@@ -45,6 +45,17 @@ export function PurchaseControls() {
   if (!overview) return null;
   const eligible = bills.filter((b) => !b.payment);
   const chosen = eligible.filter((b) => selected.includes(b.bill._id));
+  const selectedVendor = chosen[0]?.bill.assetId;
+  const perPurchaseCents = Math.round(Number(perPurchase) * 100);
+  const budgetCents = Math.round(Number(budget) * 100);
+  const validAmount = (value: number) =>
+    Number.isSafeInteger(value) && value > 0 && value <= 100_000_000;
+  const limitsProblem =
+    !validAmount(perPurchaseCents) || !validAmount(budgetCents)
+      ? "Enter positive limits up to $1,000,000."
+      : perPurchaseCents > budgetCents
+        ? "The per-purchase limit must not exceed the total budget."
+        : null;
   const executor = overview.eligibleAgents.find(
     (agent) => agent.id === executorId,
   );
@@ -103,6 +114,13 @@ export function PurchaseControls() {
                   type="checkbox"
                   className="mt-1 accent-amber"
                   checked={selected.includes(b.bill._id)}
+                  disabled={
+                    busy ||
+                    (!selected.includes(b.bill._id) &&
+                      ((selectedVendor !== undefined &&
+                        b.bill.assetId !== selectedVendor) ||
+                        chosen.length >= 25))
+                  }
                   onChange={(e) =>
                     setSelected(
                       e.target.checked
@@ -118,6 +136,21 @@ export function PurchaseControls() {
               </label>
             ))}
           </div>
+          {chosen.length > 0 && (
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <p className="text-xs text-ash">
+                {chosen.length} of 25 bills selected for {chosen[0].vendorName}.
+                Clear this selection to choose a different vendor.
+              </p>
+              <button
+                className={BUTTON_SECONDARY}
+                disabled={busy}
+                onClick={() => setSelected([])}
+              >
+                Clear selection
+              </button>
+            </div>
+          )}
           <div className="grid max-w-lg gap-3 sm:grid-cols-2">
             <label className="text-sm">
               Per purchase (USD)
@@ -125,6 +158,7 @@ export function PurchaseControls() {
                 className={`${FIELD} mt-1 w-full`}
                 type="number"
                 min="0.01"
+                max="1000000"
                 step="0.01"
                 value={perPurchase}
                 onChange={(e) => setPerPurchase(e.target.value)}
@@ -136,12 +170,18 @@ export function PurchaseControls() {
                 className={`${FIELD} mt-1 w-full`}
                 type="number"
                 min="0.01"
+                max="1000000"
                 step="0.01"
                 value={budget}
                 onChange={(e) => setBudget(e.target.value)}
               />
             </label>
           </div>
+          {limitsProblem && (
+            <p role="status" className="mt-2 text-sm text-amber">
+              {limitsProblem}
+            </p>
+          )}
           <label className="mt-4 block max-w-lg text-sm">
             Who may use this approval?
             <select
@@ -171,7 +211,10 @@ export function PurchaseControls() {
           </p>
           <button
             disabled={
-              busy || chosen.length === 0 || (!!executorId && !executor)
+              busy ||
+              chosen.length === 0 ||
+              (!!executorId && !executor) ||
+              !!limitsProblem
             }
             className={`${BUTTON_PRIMARY} mt-4 whitespace-normal text-center`}
             onClick={() =>
@@ -179,8 +222,8 @@ export function PurchaseControls() {
                 () =>
                   approve({
                     billIds: chosen.map((b) => b.bill._id),
-                    perPurchaseCents: Math.round(Number(perPurchase) * 100),
-                    budgetCents: Math.round(Number(budget) * 100),
+                    perPurchaseCents,
+                    budgetCents,
                     expiresAt: Date.now() + 3_600_000,
                     executorAgentId: executor?.id,
                   }),
@@ -342,8 +385,8 @@ export function PurchaseControls() {
               )}{" "}
               automatically settled
             </span>{" "}
-            · {overview.receipts.length - settled.length} automatic purchase refusals ·
-            demo ledger
+            · {overview.receipts.length - settled.length} automatic purchase
+            refusals · demo ledger
           </p>
           <ul className="mt-3 divide-y divide-line">
             {[...grouped.values()].map(({ receipt: r, count }) => (

@@ -33,7 +33,7 @@ export function ResponseRecord({
               response steps · {record.payments.length} payments associated with
               this incident
             </p>
-          <p className="text-ash">Checks below record access to Sidecall's owned sandbox. Simulated steps have no verified external effect; the download includes evidence limits and audit history.</p>
+          <p className="text-ash">Each step identifies its evidence: owned sandbox state, simulation, or an authenticated external receiver receipt. Provider state is historical; downstream application logout is not verified.</p>
             {Object.values(record.limits.truncated).some(Boolean) && (
               <p className="text-amber">
                 Partial record: one or more sections exceed{" "}
@@ -57,6 +57,9 @@ export function ResponseRecord({
                         ? "Simulation only; no external execution verified."
                         : "No execution verification recorded."}
                   </p>
+                  {s.deliveries.map(job => <p key={job.id} className="mt-1 text-ash">
+                    Okta receiver {job.kind}: {job.status}. {job.receipt?.observedState ? `Observed ${job.receipt.observedState} at ${dateTime(job.receipt.observedAt!)}.` : "No provider state confirmed."} {job.reason}
+                  </p>)}
                 </li>
               ))}
             </ul>

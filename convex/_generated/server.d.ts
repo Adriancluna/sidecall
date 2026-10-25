@@ -37,6 +37,13 @@ type Env = {
   readonly INCIDENT_WEBHOOK_SECRET: string | undefined;
   readonly NOTIFY_LIVE: string | undefined;
   readonly PRESENTER_KEY: string | undefined;
+  readonly PURCHASE_CONSOLE_LIVE: string | undefined;
+  readonly RESPONSE_RECEIVER_ASSET_ID: string | undefined;
+  readonly RESPONSE_RECEIVER_COMPANY_ID: string | undefined;
+  readonly RESPONSE_RECEIVER_LIVE: string | undefined;
+  readonly RESPONSE_RECEIVER_SECRET: string | undefined;
+  readonly RESPONSE_RECEIVER_TARGET: string | undefined;
+  readonly RESPONSE_RECEIVER_URL: string | undefined;
   readonly RESPONSE_SANDBOX: string | undefined;
 };
 

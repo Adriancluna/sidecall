@@ -7,8 +7,15 @@ const app = defineApp({
     DEMO_MODE: v.optional(v.string()), // "true" enables seed:resetDemo and unsigned demo incidents
     INCIDENT_WEBHOOK_SECRET: v.optional(v.string()), // HMAC key real senders sign POST /incident with
     INCIDENT_AUTO_RESPONSE: v.optional(v.string()), // enroll the signed detector for confirmed automatic response; off by default
+    RESPONSE_RECEIVER_LIVE: v.optional(v.string()), // explicit opt-in, disposable DEV integration only
+    RESPONSE_RECEIVER_URL: v.optional(v.string()), // HTTPS company receiver, never chosen by incoming reports
+    RESPONSE_RECEIVER_SECRET: v.optional(v.string()), // signing key only; NEVER an Okta token
+    RESPONSE_RECEIVER_COMPANY_ID: v.optional(v.string()),
+    RESPONSE_RECEIVER_ASSET_ID: v.optional(v.string()),
+    RESPONSE_RECEIVER_TARGET: v.optional(v.string()), // receiver-local allowlisted alias
     RESPONSE_SANDBOX: v.optional(v.string()), // "true" applies responses to explicitly provisioned owned test resources
     ANTHROPIC_API_KEY: v.optional(v.string()), // Role 4: only for generating text off stage
+    PURCHASE_CONSOLE_LIVE: v.optional(v.string()), // explicit "true" enables bounded invoice jobs; a provider key alone never enables them
     NOTIFY_LIVE: v.optional(v.string()), // "true" lets notify.dispatch POST to real webhooks; otherwise rows end "simulated"
     AI_LIVE: v.optional(v.string()), // Role 4: "true" lets ai.ts call the model; otherwise cached text only
     PRESENTER_KEY: v.optional(v.string()), // set on prod: Reset and the unsigned stage Fire need it (the demo password is public)

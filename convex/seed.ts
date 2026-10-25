@@ -5,7 +5,7 @@
 //
 // The planted cases (seedRef) are listed in data/answer_key.json, which nothing in convex/ reads.
 import { ConvexError, v } from "convex/values";
-import { env, internalMutation, mutation } from "./_generated/server";
+import { env, internalMutation, mutation, query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id, TableNames } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
@@ -23,6 +23,7 @@ const cents = (dollars: number) => Math.round(dollars * 100); // dollars → int
 
 // Auth tables are cleared too: their rows point at users that a reseed replaces.
 const TABLES: TableNames[] = [
+  "purchaseRuns",
   "paymentRecoveries",
   "purchaseRequests",
   "purchaseReceipts",
@@ -294,6 +295,8 @@ export const SCENARIOS = {
 const CLEAR_BUDGET = 4000;
 
 async function clearSome(ctx: MutationCtx): Promise<boolean> {
+  if (env.RESPONSE_RECEIVER_LIVE === "true" || await ctx.db.query("responseDeliveries").first())
+    throw new ConvexError("Reset blocked: external response evidence exists or its connection is enabled. Reconcile receiver holds and preserve the command ledger; do not reset this connected dataset.");
   let left = CLEAR_BUDGET;
   for (const table of TABLES) {
     const docs = await ctx.db.query(table).take(left);
@@ -335,6 +338,7 @@ export const finishReset = internalMutation({
 });
 
 async function seedAll(ctx: MutationCtx) {
+
   const now = Date.now();
 
   const companyIds = {} as Record<CompanyKey, Id<"companies">>;
@@ -558,6 +562,16 @@ async function seedAll(ctx: MutationCtx) {
 export const run = internalMutation({
   args: {},
   handler: async (ctx) => await resetAll(ctx),
+});
+
+export const resetAvailability = query({
+  args: {},
+  handler: async ctx => {
+    await getViewer(ctx);
+    const external = env.RESPONSE_RECEIVER_LIVE === "true" || !!(await ctx.db.query("responseDeliveries").first());
+    return { allowed: env.DEMO_MODE === "true" && !external,
+      reason: external ? "Reset is disabled to preserve external-command evidence. Contain a completed test incident before the next rehearsal." : env.DEMO_MODE !== "true" ? "Demo reset is disabled on this deployment." : null };
+  },
 });
 
 // "Reset demo" button. Wipes and reseeds, so it only works where DEMO_MODE=true is set

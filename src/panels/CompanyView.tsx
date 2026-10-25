@@ -33,6 +33,7 @@ type Props = {
 };
 
 const PurchaseControls = lazy(() => import("./PurchaseControls").then((m) => ({ default: m.PurchaseControls })));
+const PurchaseConsole = lazy(() => import("./PurchaseConsole").then((m) => ({ default: m.PurchaseConsole })));
 
 type IncidentRow = NonNullable<ReturnType<typeof useIncidents>>[number];
 const useIncidents = () => useQuery(api.blastRadius.listIncidents, {});
@@ -126,7 +127,7 @@ export function CompanyView({ companyId, meId, role }: Props) {
         </div>
       ),
     },
-    { id: "bills", label: "Bills to pay", count: unpaidBills, content: () => <div className="space-y-8"><BillsPanel /><Suspense fallback={<Skeleton />}><PurchaseControls /></Suspense></div> },
+    { id: "bills", label: "Bills to pay", count: unpaidBills, content: () => <div className="space-y-8"><Suspense fallback={<Skeleton />}><PurchaseConsole key={meId} meId={meId} /></Suspense><BillsPanel canRequest={role === "ap_clerk"} /><Suspense fallback={<Skeleton />}><PurchaseControls /></Suspense></div> },
     { id: "playbook", label: "Response playbook", content: () => <PlaybookPanel /> },
     {
       id: "timeline",
@@ -322,7 +323,19 @@ function AlertItem({
             <span className="mt-1 block text-sm font-normal text-ash">{dateTime(incident.createdAt)}</span>
           </h3>
         )}
-        <p className="mt-3 max-w-prose leading-relaxed">
+        {incident?.containedAt != null && (
+          <p className="mt-3 text-sm text-ash">
+            {exposure.observation
+              ? "This unconfirmed report’s review is closed. The observation itself did not authorize payment holds or access changes."
+              : exposure.status === "closed"
+                ? "Vendor incident contained. Your company’s review is marked resolved."
+                : "Vendor incident contained. Your company’s checks remain open until your team marks them resolved."}
+          </p>
+        )}
+        <p className="mt-3 text-xs font-medium text-ash">
+          Original notice · saved when the alert was written
+        </p>
+        <p className="mt-1 max-w-prose leading-relaxed">
           {alert?.status === "ready" ? alert.body : "Writing your alert…"}
         </p>
         {/* The alert text is written once; payments show their state now. */}

@@ -1,3 +1,4 @@
+import { deliverySummary } from "./responseReceiver";
 // A read-only case record for firm reviewers. No tokens, bank details or inferred proof.
 import { v } from "convex/values";
 import { query } from "./_generated/server";
@@ -57,7 +58,7 @@ export const getRecord = query({
         },
       },
       evidenceBoundary:
-        "Reported findings are source claims. Sister-company reachability is inferred, not tested. Sandbox verification reads owned resource authorization state; simulated actions are not external-provider execution. This record is not cryptographically attested.",
+        "Reported findings are source claims. Sister-company reachability is inferred, not tested. Sandbox verification reads owned resource authorization state; simulated actions are not external-provider execution. External receipts are authenticated from the company receiver and record historical Okta state; they are not independent Okta attestations or proof all downstream sessions ended. This exported record is not itself cryptographically signed.",
       incident: {
         id: incident._id,
         externalId: incident.externalId,
@@ -98,9 +99,9 @@ export const getRecord = query({
           path: e.path ?? null,
         })),
       ),
-      steps: steps
+      steps: await Promise.all(steps
         .slice(0, MAX_FANOUT)
-        .map((s) => ({
+        .map(async (s) => ({
           id: s._id,
           companyId: s.companyId,
           action: s.action,
@@ -115,9 +116,10 @@ export const getRecord = query({
           executedAt: s.executedAt ?? null,
           executionMode: s.executionMode ?? null,
           verification: s.verification ?? null,
+          deliveries: s.executionMode === "external" ? await deliverySummary(ctx, s._id) : [],
           undoneAt: s.undoneAt ?? null,
           undoneBy: s.undoneBy ?? null,
-        })),
+        }))),
       payments: payments
         .slice(0, MAX_FANOUT)
         .map((p) => ({

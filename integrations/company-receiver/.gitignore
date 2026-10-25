@@ -1,0 +1,5 @@
+.state/
+*.sqlite*
+*.local
+.env*
+__pycache__/

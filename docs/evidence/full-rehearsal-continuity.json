@@ -1,0 +1,15 @@
+{
+  "startedAt": "2026-10-25T05:32:20.797Z",
+  "deployment": "tangible-koala-842",
+  "sourceCommit": "a06e2341708dce852356ee80b1977e9bde75be84",
+  "scope": "Authenticated synthetic detector observation flood and simultaneous demo-ledger purchases; no reset or external payment",
+  "checks": [],
+  "cleanup": [
+    {
+      "signedOut": true
+    }
+  ],
+  "passed": false,
+  "failure": "Convex auth:signIn failed; raw response withheld.",
+  "finishedAt": "2026-10-25T05:32:23.731Z"
+}

@@ -71,6 +71,7 @@ export function ProofPanel() {
         <ProofList title="Real" items={REAL} />
         <ProofList title="Simulated" items={SIMULATED} />
       </div>
+      <p className="mt-4 text-sm text-ash">Identity responses are labelled per step. Only a confirmed external receiver receipt supports an Okta account-state claim; sandbox and simulated steps do not. A suspension receipt does not prove every downstream app session ended.</p>
       {dnsFindings.length > 0 && <DnsFindings />}
       <div className="mt-6 border-t border-line pt-5">
         <h2 className="mb-3 text-xl font-semibold tracking-[-0.02em]">Scorecard against the planted answer key</h2>

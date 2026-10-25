@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "startedAt": "2026-10-25T05:08:21.162Z",
+  "finishedAt": "2026-10-25T05:08:24.263Z",
+  "provider": "okta",
+  "scope": "local signed HTTP to real disposable Okta users",
+  "checks": [
+    {
+      "name": "initial_states",
+      "target": "ACTIVE",
+      "control": "ACTIVE"
+    },
+    {
+      "name": "forged_signal_refused",
+      "http": 401
+    },
+    {
+      "name": "unlisted_target_refused",
+      "receipt": {
+        "version": 1,
+        "companyId": "cedar-ridge",
+        "commandId": "unlisted-8d8339f7-68c7-4ca6-9b17-6af8d0681426",
+        "target": "unrelated-account",
+        "action": "pause_shared_login",
+        "incidentId": "synthetic-proof-8d8339f7-68c7-4ca6-9b17-6af8d0681426",
+        "commandHash": "05be66426986cdde8e8d3219b17deb4c46af1e4b54fa0f9608c6d86f33b9f4ff",
+        "provider": "okta",
+        "status": "refused",
+        "reason": "target_not_allowed",
+        "observedState": null,
+        "observedAt": null,
+        "sessionRevocation": "not_confirmed",
+        "restoreEligible": false
+      }
+    },
+    {
+      "name": "real_target_suspended_control_active",
+      "receipt": {
+        "version": 1,
+        "companyId": "cedar-ridge",
+        "commandId": "proof-pause-8d8339f7-68c7-4ca6-9b17-6af8d0681426",
+        "target": "disposable-vendor-login",
+        "action": "pause_shared_login",
+        "incidentId": "synthetic-proof-8d8339f7-68c7-4ca6-9b17-6af8d0681426",
+        "commandHash": "775357972eac661beb715a7dd2707c6be909fb9ae53b57d78f4063587fa24501",
+        "provider": "okta",
+        "status": "confirmed",
+        "reason": "suspension_verified",
+        "observedState": "SUSPENDED",
+        "observedAt": 1792904902779,
+        "sessionRevocation": "provider_acknowledged",
+        "restoreEligible": true
+      },
+      "independentReadback": {
+        "target": "SUSPENDED",
+        "control": "ACTIVE"
+      }
+    },
+    {
+      "name": "restart_duplicate_stable",
+      "pauseApiCalls": 1
+    },
+    {
+      "name": "unapproved_restore_refused",
+      "receipt": {
+        "version": 1,
+        "companyId": "cedar-ridge",
+        "commandId": "proof-restore-8d8339f7-68c7-4ca6-9b17-6af8d0681426",
+        "target": "disposable-vendor-login",
+        "action": "restore_shared_login",
+        "incidentId": "synthetic-proof-8d8339f7-68c7-4ca6-9b17-6af8d0681426",
+        "commandHash": "0d1c69df56d5ac935417052f2852c483fa19e367220f05f46e15fcf862d2af6a",
+        "provider": "okta",
+        "status": "refused",
+        "reason": "company_operator_restore_approval_required",
+        "observedState": null,
+        "observedAt": null,
+        "sessionRevocation": "not_confirmed",
+        "restoreEligible": false
+      }
+    },
+    {
+      "name": "approved_test_cleanup_restored",
+      "receipt": {
+        "version": 1,
+        "companyId": "cedar-ridge",
+        "commandId": "proof-restore-8d8339f7-68c7-4ca6-9b17-6af8d0681426",
+        "target": "disposable-vendor-login",
+        "action": "restore_shared_login",
+        "incidentId": "synthetic-proof-8d8339f7-68c7-4ca6-9b17-6af8d0681426",
+        "commandHash": "0d1c69df56d5ac935417052f2852c483fa19e367220f05f46e15fcf862d2af6a",
+        "provider": "okta",
+        "status": "confirmed",
+        "reason": "restoration_verified",
+        "observedState": "ACTIVE",
+        "observedAt": 1792904903930,
+        "sessionRevocation": "not_confirmed",
+        "restoreEligible": false
+      },
+      "independentReadback": {
+        "target": "ACTIVE",
+        "control": "ACTIVE"
+      }
+    },
+    {
+      "name": "disabled_receiver_refuses",
+      "receipt": {
+        "version": 1,
+        "companyId": "cedar-ridge",
+        "commandId": "disabled-8d8339f7-68c7-4ca6-9b17-6af8d0681426",
+        "target": "disposable-vendor-login",
+        "action": "pause_shared_login",
+        "incidentId": "synthetic-proof-8d8339f7-68c7-4ca6-9b17-6af8d0681426",
+        "commandHash": "7537a81a0f978d19760a4925bf39184a11789a645135580dc939b7a3d4590d56",
+        "provider": "okta",
+        "status": "refused",
+        "reason": "receiver_disabled",
+        "observedState": null,
+        "observedAt": null,
+        "sessionRevocation": "not_confirmed",
+        "restoreEligible": false
+      }
+    }
+  ],
+  "passed": true,
+  "limitation": "Provider lifecycle states only; no browser login, real downstream sessions, Convex delivery or website integration tested.",
+  "providerWriteCalls": {
+    "pause": 1,
+    "revokeSessions": 1,
+    "restore": 1
+  },
+  "finalReadback": {
+    "originalAccount": "ACTIVE",
+    "disposableTarget": "ACTIVE",
+    "disposableControl": "ACTIVE"
+  },
+  "deployment": {
+    "convexConnected": false,
+    "websiteConnected": false,
+    "persistentReceiverEnabled": false
+  }
+}

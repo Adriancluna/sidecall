@@ -1,3 +1,4 @@
+import { deliveryState, receiverReceipt } from "./receiverModel";
 // The data contract. Owned by Role 1 (Adrian). Ask before changing anything here.
 // CONTRACT.md describes the same shapes in prose; this file wins if they disagree.
 import { defineSchema, defineTable } from "convex/server";
@@ -5,6 +6,7 @@ import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { paymentRequestResult, purchaseEvidence } from "./purchaseTypes";
 import { releaseContext, releaseVerification } from "./paymentVerification";
+import { runFields } from "./purchaseConsoleTypes";
 
 export const shareType = v.union(
   v.literal("shared_credential"),
@@ -100,6 +102,7 @@ export const responseAction = v.union(v.literal("pause_shared_login"), v.literal
 export const playbookAction = v.union(v.literal("hold_payments"), responseAction);
 export const responseMode = v.union(v.literal("notify"), v.literal("prepare"), v.literal("act"));
 export const stepStatus = v.union(
+  v.literal("pending"), v.literal("unknown"), v.literal("refused"),
   v.literal("awaiting_approval"), // "prepare": one click away
   v.literal("queued"), // "act", or approved: the executor runs it
   v.literal("done"),
@@ -337,6 +340,12 @@ export default defineSchema({
 
   // ---- Money layer ----
 
+  // One-shot execution records, not conversation history; at most 16 bounded audit events per run.
+  purchaseRuns: defineTable(runFields)
+    .index("by_companyId", ["companyId"])
+    .index("by_requestedBy_and_clientRequestId", ["requestedBy", "clientRequestId"])
+    .index("by_requestedBy_and_status", ["requestedBy", "status"]),
+
   // A controller approves a bounded set of saved purchases; never authority derived from AI text.
   purchaseMandates: defineTable({
     companyId: v.id("companies"),
@@ -458,7 +467,8 @@ export default defineSchema({
     paymentId: v.optional(v.id("payments")),
     billId: v.optional(v.id("bills")),
     lines: v.array(ledgerLine),
-  }).index("by_companyId_and_date", ["companyId", "date"]),
+  }).index("by_companyId_and_date", ["companyId", "date"])
+    .index("by_paymentId", ["paymentId"]),
 
   // ---- Notifications (docs/specs/notifications.md) ----
 
@@ -539,7 +549,7 @@ export default defineSchema({
     approvedBy: v.optional(v.id("users")),
     approvedAt: v.optional(v.number()),
     executedAt: v.optional(v.number()),
-    executionMode: v.optional(v.union(v.literal("simulated"), v.literal("sandbox"))),
+    executionMode: v.optional(v.union(v.literal("simulated"), v.literal("sandbox"), v.literal("external"))),
     verification: v.optional(
       v.object({
         method: v.literal("owned_resource_state"),
@@ -563,6 +573,16 @@ export default defineSchema({
       "target",
     ])
     .index("by_incidentId_and_status", ["incidentId", "status"]),
+
+  // Immutable command identity + bounded delivery/reconciliation state. No provider secrets.
+  responseDeliveries: defineTable({
+    stepId: v.id("responseSteps"), companyId: v.id("companies"),
+    kind: v.union(v.literal("pause"), v.literal("restore")),
+    commandId: v.string(), commandJson: v.string(), binding: v.string(),
+    status: deliveryState, reason: v.string(), polls: v.number(), createdAt: v.number(),
+    sentAt: v.optional(v.number()), lastAttemptAt: v.optional(v.number()), updatedAt: v.optional(v.number()),
+    requestedBy: v.optional(v.id("users")), receipt: v.optional(receiverReceipt),
+  }).index("by_stepId_and_kind", ["stepId", "kind"]),
 
   auditLog: defineTable({
     at: v.number(),
