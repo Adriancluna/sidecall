@@ -3,6 +3,7 @@
 // The backend never sends which company reported the incident.
 import { InvestigationPanel } from "./InvestigationPanel";
 import { useQuery } from "convex/react";
+import { lazy, Suspense } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { Tabs, type TabDef } from "../layout/Tabs";
@@ -30,6 +31,8 @@ type Props = {
   meId: Id<"users">;
   role: Doc<"users">["role"];
 };
+
+const PurchaseControls = lazy(() => import("./PurchaseControls").then((m) => ({ default: m.PurchaseControls })));
 
 type IncidentRow = NonNullable<ReturnType<typeof useIncidents>>[number];
 const useIncidents = () => useQuery(api.blastRadius.listIncidents, {});
@@ -115,7 +118,7 @@ export function CompanyView({ companyId, meId, role }: Props) {
         </div>
       ),
     },
-    { id: "bills", label: "Bills to pay", count: unpaidBills, content: () => <BillsPanel /> },
+    { id: "bills", label: "Bills to pay", count: unpaidBills, content: () => <div className="space-y-8"><BillsPanel /><Suspense fallback={<Skeleton />}><PurchaseControls /></Suspense></div> },
     { id: "playbook", label: "Response playbook", content: () => <PlaybookPanel /> },
     {
       id: "timeline",
@@ -150,6 +153,7 @@ export function CompanyView({ companyId, meId, role }: Props) {
   } else if (heroPayment) {
     hero = (
       <PaymentHero
+        key={heroPayment.payment._id}
         row={heroPayment}
         escalation={escalations.get(heroPayment.payment._id)}
         viewer={viewer}
