@@ -53,6 +53,76 @@ describe("agent identity", () => {
     expect(await t.query(internal.agents.authenticate, { tokenHash: await sha256Hex(TOKEN) })).toBeNull();
   });
 
+  test("revoked history cannot hide the active name from collision checks or revocation", async () => {
+    const { t } = await seeded();
+    const name = "Repeatedly rotated assistant";
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 25; i += 1) {
+        await ctx.db.insert("agents", {
+          name, tokenHash: `old-${i}`, onBehalfOfEmail: "jamie.chen@summithomehealth.example",
+          tools: ["list_bills"], createdAt: i, revokedAt: i + 1,
+        });
+      }
+    });
+    const token = "sc_agent_after_history";
+    const args = { name, onBehalfOfEmail: "jamie.chen@summithomehealth.example", tools: ["list_bills"], tokenHash: await sha256Hex(token) };
+    const agentId = await t.mutation(internal.agents.insertAgent, args);
+    expect(await t.query(internal.agents.authenticate, { tokenHash: args.tokenHash })).toMatchObject({ agentId });
+    await expect(t.mutation(internal.agents.insertAgent, { ...args, tokenHash: "collision" })).rejects.toThrow(/active agent/);
+    // Legacy duplicates must also be revoked, even though new registration now rejects them.
+    await t.run(async (ctx) => ctx.db.insert("agents", { ...args, tokenHash: "legacy-duplicate", createdAt: Date.now() }));
+    expect(await t.mutation(internal.agents.revoke, { name })).toEqual({ revoked: 2 });
+    expect(await t.query(internal.agents.authenticate, { tokenHash: args.tokenHash })).toBeNull();
+    expect(await t.query(internal.agents.authenticate, { tokenHash: "legacy-duplicate" })).toBeNull();
+    const response = await t.fetch("/mcp", {
+      method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ping" }),
+    });
+    expect(response.status).toBe(401);
+  });
+
+  test("excessive legacy duplicate names fail revocation explicitly without a partial success", async () => {
+    const { t } = await seeded();
+    const name = "Corrupt duplicate directory";
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 501; i += 1) {
+        await ctx.db.insert("agents", {
+          name, tokenHash: `duplicate-${i}`, onBehalfOfEmail: "jamie.chen@summithomehealth.example",
+          tools: [], createdAt: i,
+        });
+      }
+    });
+    await expect(t.mutation(internal.agents.revoke, { name })).rejects.toThrow(/operator batch revocation/);
+    expect(await t.run(async (ctx) => (await ctx.db.query("agents")
+      .withIndex("by_name_and_revokedAt", q => q.eq("name", name).eq("revokedAt", undefined)).take(502)).length)).toBe(501);
+  });
+
+  test.each(["firm role", "missing company"] as const)("tool execution rechecks %s after authentication", async (change) => {
+    const { t, user, fire } = await seeded(["list_held_payments", "explain_hold", "list_bills", "request_payment"]);
+    await fire();
+    const who = (await t.query(internal.agents.authenticate, { tokenHash: await sha256Hex(TOKEN) }))!;
+    const clerk = await user("Jamie Chen");
+    const foreignPayment = await t.run(async (ctx) => (await ctx.db.query("payments").take(100))
+      .find(p => p.companyId !== who.companyId && p.status === "held")!._id);
+    await t.run(async (ctx) => ctx.db.patch("users", clerk._id,
+      change === "firm role" ? { role: "pe_partner" } : { companyId: undefined }));
+    expect(await t.query(internal.agents.authenticate, { tokenHash: await sha256Hex(TOKEN) })).toBeNull();
+    await expect(t.query(internal.agents.explainHold, { agentId: who.agentId, paymentId: foreignPayment })).rejects.toThrow(/company-scoped/);
+    await expect(t.query(internal.agents.listHeldPayments, { agentId: who.agentId })).rejects.toThrow(/company-scoped/);
+    await expect(t.query(internal.agents.listBills, { agentId: who.agentId })).rejects.toThrow(/company-scoped/);
+    await expect(t.mutation(internal.agents.requestPayment, { agentId: who.agentId, billId: "irrelevant" })).rejects.toThrow(/company-scoped/);
+  });
+
+  test("tool execution rechecks capabilities after authentication", async () => {
+    const { t } = await seeded(["list_held_payments", "explain_hold", "list_bills", "request_payment"]);
+    const who = (await t.query(internal.agents.authenticate, { tokenHash: await sha256Hex(TOKEN) }))!;
+    await t.run(async (ctx) => ctx.db.patch("agents", who.agentId, { tools: [] }));
+    await expect(t.query(internal.agents.explainHold, { agentId: who.agentId, paymentId: "irrelevant" })).rejects.toThrow(/Tool not available/);
+    await expect(t.query(internal.agents.listHeldPayments, { agentId: who.agentId })).rejects.toThrow(/Tool not available/);
+    await expect(t.query(internal.agents.listBills, { agentId: who.agentId })).rejects.toThrow(/Tool not available/);
+    expect(await t.mutation(internal.agents.requestPayment, { agentId: who.agentId, billId: "irrelevant" })).toEqual({ ok: false, reason: "Tool not available to this agent." });
+  });
+
   test("the agent survives a reseed", async () => {
     const { t, company } = await seeded();
     await t.mutation(internal.seed.run, {});

@@ -3,6 +3,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
+import { paymentRequestResult, purchaseEvidence } from "./purchaseTypes";
 
 export const shareType = v.union(
   v.literal("shared_credential"),
@@ -277,6 +278,9 @@ export default defineSchema({
     .index("by_sourceId_and_externalId", ["sourceId", "externalId"])
     .index("by_correlationKey", ["correlationKey"])
     .index("by_lastReportedAt", ["lastReportedAt"])
+    .index("by_assetId_responseClass_containedAt_terminalKind_createdAt", ["assetId", "responseClass", "containedAt", "finding.terminalKind", "createdAt"])
+    // Legacy episode adoption needs creation-time order across all response classes.
+    // eslint-disable-next-line @convex-dev/no-duplicate-indexes
     .index("by_assetId", ["assetId"]),
 
   // Every accepted sender ID has its own receipt, including reports correlated into an episode.
@@ -330,6 +334,56 @@ export default defineSchema({
 
   // ---- Money layer ----
 
+  // A controller approves a bounded set of saved purchases; never authority derived from AI text.
+  purchaseMandates: defineTable({
+    companyId: v.id("companies"),
+    assetId: v.id("assets"),
+    bankDetailId: v.id("bankDetailChanges"),
+    accountLast4: v.string(),
+    bankChangedAt: v.number(),
+    perPurchaseCents: v.number(),
+    budgetCents: v.number(),
+    spentCents: v.number(),
+    approvedBy: v.id("users"),
+    executorAgentId: v.optional(v.id("agents")),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    revokedAt: v.optional(v.number()),
+  }).index("by_companyId_and_assetId", ["companyId", "assetId"]),
+
+  purchaseQuotes: defineTable({
+    mandateId: v.id("purchaseMandates"),
+    billId: v.id("bills"),
+    priorRejectionId: v.optional(v.id("payments")),
+    assetId: v.id("assets"),
+    amountCents: v.number(),
+    description: v.string(),
+    dueDate: v.number(),
+  }).index("by_mandateId_and_billId", ["mandateId", "billId"]),
+
+  purchaseReceipts: defineTable({
+    companyId: v.id("companies"),
+    mandateId: v.id("purchaseMandates"),
+    billId: v.id("bills"),
+    paymentId: v.optional(v.id("payments")),
+    actorId: v.id("users"),
+    agentId: v.optional(v.id("agents")),
+    requestId: v.optional(v.string()),
+    ledgerEntryId: v.optional(v.id("ledgerEntries")),
+    evidence: v.optional(purchaseEvidence),
+    at: v.number(),
+    amountCents: v.number(),
+    outcome: v.union(v.literal("paid_demo"), v.literal("refused")),
+    rule: v.string(),
+    reason: v.string(),
+  }).index("by_companyId", ["companyId"]),
+
+  purchaseRequests: defineTable({
+    companyId: v.id("companies"), executorKey: v.string(), requestId: v.string(),
+    billId: v.id("bills"), expectedMandateId: v.optional(v.id("purchaseMandates")),
+    result: paymentRequestResult, createdAt: v.number(),
+  }).index("by_companyId_and_executorKey_and_requestId", ["companyId", "executorKey", "requestId"]),
+
   bankDetailChanges: defineTable({
     assetId: v.id("assets"),
     changedAt: v.number(),
@@ -355,6 +409,7 @@ export default defineSchema({
     status: paymentStatus,
     requestedBy: v.id("users"),
     approvedBy: v.optional(v.id("users")),
+    purchaseMandateId: v.optional(v.id("purchaseMandates")),
     heldByIncidentId: v.optional(v.id("incidents")),
     bankChangeFlag: v.optional(v.boolean()),
     flaggedBankChangeId: v.optional(v.id("bankDetailChanges")),
@@ -374,7 +429,7 @@ export default defineSchema({
       "escalatedAt",
       "dueDate",
     ])
-    .index("by_billId", ["billId"]),
+    .index("by_billId_and_status", ["billId", "status"]),
 
   // Double-entry. Bill booked: Dr expense / Cr accounts_payable.
   // Payment released: Dr accounts_payable / Cr cash. Held payments never touch cash.
@@ -432,7 +487,8 @@ export default defineSchema({
     revokedAt: v.optional(v.number()),
   })
     .index("by_tokenHash", ["tokenHash"])
-    .index("by_name", ["name"]),
+    .index("by_onBehalfOfEmail_and_revokedAt", ["onBehalfOfEmail", "revokedAt"])
+    .index("by_name_and_revokedAt", ["name", "revokedAt"]),
 
   // One row per (company, step): the mode in force. Upgrading to "act" takes two different people:
   // the first call stores proposedMode, a second person confirms it.

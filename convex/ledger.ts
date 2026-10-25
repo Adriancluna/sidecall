@@ -21,7 +21,7 @@ export async function postLedgerEntry(
   },
 ) {
   const [debit, credit] = POSTINGS[entry.kind];
-  await ctx.db.insert("ledgerEntries", {
+  return await ctx.db.insert("ledgerEntries", {
     companyId: entry.companyId,
     date: entry.date,
     memo: entry.memo,
