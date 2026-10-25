@@ -133,7 +133,7 @@ function RecoveryDetails({ paymentId, data }: { paymentId: Id<"payments">; data:
             <p className="text-ash">{expired ? "Expired" : "Expires"} {dateTime(proposal.expiresAt)}.</p>
           )}
           {proposal.status === "requested" && (
-            <p className="text-ash">The replacement was created on hold and requires its own controller release.</p>
+            <p className="text-ash">The replacement has its own hold, decision and audit record; check it for the current payment status.</p>
           )}
         </div>
       )}

@@ -1,0 +1,675 @@
+{
+  "format": "sidecall-recovery-proof-v1",
+  "author": "Pegasus",
+  "sourceCommit": "dce7ed2d498d55ab9adc42090c64c662177fa5e2",
+  "deployment": "tangible-koala-842",
+  "startedAt": "2026-10-25T00:57:41.196Z",
+  "passed": true,
+  "checks": [
+    {
+      "name": "Rejecting the changed destination preserves cash and offers the known 2208 record",
+      "passed": true,
+      "at": "2026-10-25T00:57:46.826Z",
+      "evidence": {
+        "sourcePaymentId": "mn7efznzq0yw6r42knxtw8rysd8gyrr5",
+        "rejectedPayment": {
+          "_creationTime": 1792889857942.0073,
+          "_id": "mn7efznzq0yw6r42knxtw8rysd8gyrr5",
+          "accountLast4": "7731",
+          "amountCents": 48000000,
+          "approvedBy": "n577a9j3zcjcgaxhadmxyvwrp18gyjhf",
+          "assetId": "jd7f6qz47sy7w3c35zsw9eek1s8gzfxk",
+          "bankChangeFlag": true,
+          "billId": "kh7d8r7y9xprw64ds493ce10798gy3g9",
+          "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+          "decidedAt": 1792889866165,
+          "dueDate": 1792961857941,
+          "escalatedAt": 1792889865801,
+          "flaggedBankChangeId": "kd7bt7a3m4faa7hgrfmvz2qhh18gz1ks",
+          "heldByIncidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+          "holdReasons": [
+            "Brightline Payroll Inc. is under an active security incident. Payment held until verified.",
+            "Bank details for Brightline Payroll Inc. changed 2 days before the incident via email. Verify by calling the number on file."
+          ],
+          "requestedBy": "n57a19f57bsg16nba75kcyxn618gz9bk",
+          "seedRef": "pay_C_brightline_480k",
+          "status": "rejected",
+          "verificationNote": "Synthetic vendor callback confirmed the older destination; reject the changed account."
+        },
+        "view": {
+          "amountCents": 48000000,
+          "blockedReason": null,
+          "canPropose": true,
+          "canRequest": false,
+          "canRevoke": false,
+          "context": {
+            "accountLast4": "7731",
+            "amountCents": 48000000,
+            "assetId": "jd7f6qz47sy7w3c35zsw9eek1s8gzfxk",
+            "bill": {
+              "amountCents": 48000000,
+              "assetId": "jd7f6qz47sy7w3c35zsw9eek1s8gzfxk",
+              "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+              "description": "Q4 payroll funding and service fees",
+              "dueDate": 1792961857941
+            },
+            "billId": "kh7d8r7y9xprw64ds493ce10798gy3g9",
+            "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+            "dueDate": 1792961857941,
+            "flaggedBankChangeId": "kd7bt7a3m4faa7hgrfmvz2qhh18gz1ks",
+            "heldByIncidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+            "latestBankRecord": {
+              "accountLast4": "7731",
+              "changedAt": 1792717057941,
+              "id": "kd7bt7a3m4faa7hgrfmvz2qhh18gz1ks",
+              "requestChannel": "email"
+            },
+            "paymentId": "mn7efznzq0yw6r42knxtw8rysd8gyrr5",
+            "requestedBy": "n57a19f57bsg16nba75kcyxn618gz9bk",
+            "vendor": {
+              "phoneOnFile": "+1 (415) 555-0142",
+              "vendorName": "Brightline Payroll Inc."
+            },
+            "version": 1
+          },
+          "destination": {
+            "accountLast4": "2208",
+            "changedAt": 1779929857941,
+            "id": "kd79nd53k40ceqypkvfc0724n18gy4vz"
+          },
+          "latestProposal": null,
+          "phoneOnFile": "+1 (415) 555-0142"
+        },
+        "cashCents": 500000000
+      }
+    },
+    {
+      "name": "Wrong destination, self-approval and cross-company access cannot prepare a correction",
+      "passed": true,
+      "at": "2026-10-25T00:57:49.214Z",
+      "evidence": {
+        "invalid": {
+          "outcome": {
+            "ok": false,
+            "reason": "The confirmed account must match this payment's destination. Leave it held or reject it if the vendor confirmed another account."
+          },
+          "unchangedState": true,
+          "audit": [
+            {
+              "_creationTime": 1792889867249.41,
+              "_id": "jh75rjzh6yvr7z1xk2vtxje8358gyay4",
+              "action": "refused",
+              "actor": "n577a9j3zcjcgaxhadmxyvwrp18gyjhf",
+              "actorName": "Rosa Alvarez",
+              "at": 1792889867249,
+              "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+              "incidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+              "paymentId": "mn7efznzq0yw6r42knxtw8rysd8gyrr5",
+              "reason": "The confirmed account must match this payment's destination. Leave it held or reject it if the vendor confirmed another account.",
+              "rule": "payment_recovery_refused"
+            }
+          ]
+        },
+        "selfApproved": {
+          "outcome": {
+            "ok": false,
+            "reason": "A different controller at this company must verify the correction."
+          },
+          "unchangedState": true,
+          "audit": [
+            {
+              "_creationTime": 1792889868069.0513,
+              "_id": "jh78q736mdfq5fyr26r4v5jab18gy852",
+              "action": "refused",
+              "actor": "n57a19f57bsg16nba75kcyxn618gz9bk",
+              "actorName": "Jamie Chen",
+              "at": 1792889868069,
+              "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+              "incidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+              "paymentId": "mn7efznzq0yw6r42knxtw8rysd8gyrr5",
+              "reason": "A different controller at this company must verify the correction.",
+              "rule": "payment_recovery_refused"
+            }
+          ]
+        },
+        "foreignPrepare": {
+          "outcome": {
+            "ok": false,
+            "reason": "This payment is unavailable to your company."
+          },
+          "unchangedState": true,
+          "audit": []
+        },
+        "foreign": null
+      }
+    },
+    {
+      "name": "Only a separate company AP clerk can request the prepared replacement",
+      "passed": true,
+      "at": "2026-10-25T00:57:51.024Z",
+      "evidence": {
+        "controllerRequest": {
+          "outcome": {
+            "ok": false,
+            "reason": "A separate AP clerk must request the corrected payment."
+          },
+          "unchangedState": true,
+          "audit": [
+            {
+              "_creationTime": 1792889870213.88,
+              "_id": "jh71t8g4ch831y9fx8vmmsgs6s8gzc93",
+              "action": "refused",
+              "actor": "n577a9j3zcjcgaxhadmxyvwrp18gyjhf",
+              "actorName": "Rosa Alvarez",
+              "at": 1792889870213,
+              "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+              "incidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+              "paymentId": "mn7efznzq0yw6r42knxtw8rysd8gyrr5",
+              "reason": "A separate AP clerk must request the corrected payment.",
+              "rule": "payment_recovery_refused"
+            }
+          ]
+        },
+        "foreignRequest": {
+          "outcome": {
+            "ok": false,
+            "reason": "This correction is unavailable to your company."
+          },
+          "unchangedState": true,
+          "audit": []
+        }
+      }
+    },
+    {
+      "name": "Withdrawing the correction stops execution with no cash movement",
+      "passed": true,
+      "at": "2026-10-25T00:57:51.887Z",
+      "evidence": {
+        "revoked": {
+          "ok": true
+        },
+        "revokedState": {
+          "accountLast4": "2208",
+          "amountCents": 48000000,
+          "expiresAt": 1792890769519,
+          "id": "p17asmg9qtte0npxfn1gkna53n8gyth9",
+          "proposedByName": "Rosa Alvarez",
+          "replacementPaymentId": null,
+          "status": "revoked"
+        },
+        "withdrawn": {
+          "outcome": {
+            "ok": false,
+            "reason": "The correction expired, was revoked or was replaced. Ask the controller to verify again."
+          },
+          "unchangedState": true,
+          "audit": [
+            {
+              "_creationTime": 1792889871578.989,
+              "_id": "jh7b9w8cv47ppaqm0m5bfdz0ah8gy5cz",
+              "action": "refused",
+              "actor": "n57a19f57bsg16nba75kcyxn618gz9bk",
+              "actorName": "Jamie Chen",
+              "at": 1792889871578,
+              "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+              "incidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+              "paymentId": "mn7efznzq0yw6r42knxtw8rysd8gyrr5",
+              "reason": "The correction expired, was revoked or was replaced. Ask the controller to verify again.",
+              "rule": "payment_recovery_refused"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "A replacement approval invalidates the previous proposal",
+      "passed": true,
+      "at": "2026-10-25T00:57:53.554Z",
+      "evidence": {
+        "superseded": {
+          "outcome": {
+            "ok": false,
+            "reason": "The correction expired, was revoked or was replaced. Ask the controller to verify again."
+          },
+          "unchangedState": true,
+          "audit": [
+            {
+              "_creationTime": 1792889873097.1343,
+              "_id": "jh7aqvvwgp8jwxcx7hgthk93z98gzqag",
+              "action": "refused",
+              "actor": "n57a19f57bsg16nba75kcyxn618gz9bk",
+              "actorName": "Jamie Chen",
+              "at": 1792889873097,
+              "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+              "incidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+              "paymentId": "mn7efznzq0yw6r42knxtw8rysd8gyrr5",
+              "reason": "The correction expired, was revoked or was replaced. Ask the controller to verify again.",
+              "rule": "payment_recovery_refused"
+            }
+          ]
+        },
+        "activeProposalId": "p178arpajdmzmwkyp3ztth8sy58gz83k"
+      }
+    },
+    {
+      "name": "Eight concurrent retries create one held 2208 replacement and no debit",
+      "passed": true,
+      "at": "2026-10-25T00:57:54.648Z",
+      "evidence": {
+        "attempts": [
+          {
+            "ok": true,
+            "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4"
+          },
+          {
+            "ok": true,
+            "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4"
+          },
+          {
+            "ok": true,
+            "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4"
+          },
+          {
+            "ok": true,
+            "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4"
+          },
+          {
+            "ok": true,
+            "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4"
+          },
+          {
+            "ok": true,
+            "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4"
+          },
+          {
+            "ok": true,
+            "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4"
+          },
+          {
+            "ok": true,
+            "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4"
+          }
+        ],
+        "consumed": {
+          "accountLast4": "2208",
+          "amountCents": 48000000,
+          "expiresAt": 1792890772580,
+          "id": "p178arpajdmzmwkyp3ztth8sy58gz83k",
+          "proposedByName": "Rosa Alvarez",
+          "replacementPaymentId": "mn7942d4f5dewffp1dggzeev358gzbk4",
+          "status": "requested"
+        },
+        "replacement": {
+          "_creationTime": 1792889873634.0854,
+          "_id": "mn7942d4f5dewffp1dggzeev358gzbk4",
+          "accountLast4": "2208",
+          "amountCents": 48000000,
+          "assetId": "jd7f6qz47sy7w3c35zsw9eek1s8gzfxk",
+          "bankChangeFlag": false,
+          "billId": "kh7d8r7y9xprw64ds493ce10798gy3g9",
+          "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+          "dueDate": 1792961857941,
+          "escalatedAt": 1792889873634,
+          "heldByIncidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+          "holdReasons": [
+            "Corrected request for a rejected payment. A controller must verify and release this exact destination before any money moves."
+          ],
+          "recoveryFromPaymentId": "mn7efznzq0yw6r42knxtw8rysd8gyrr5",
+          "recoveryProposalId": "p178arpajdmzmwkyp3ztth8sy58gz83k",
+          "requestedBy": "n57a19f57bsg16nba75kcyxn618gz9bk",
+          "status": "held"
+        },
+        "cashCents": 500000000
+      }
+    },
+    {
+      "name": "An unrelated pre-approved $180 purchase completes automatically while payroll stays held",
+      "passed": true,
+      "at": "2026-10-25T00:57:55.970Z",
+      "evidence": {
+        "ordinaryPaid": {
+          "automatic": true,
+          "flagged": false,
+          "held": false,
+          "ok": true,
+          "paymentId": "mn73my1qs5qa4c2c33g9bd4mm18gy1gm",
+          "receiptId": "nn7c13tfyebaecr7t5srkahe5h8gyd7p"
+        },
+        "ordinaryPayment": {
+          "_id": "mn73my1qs5qa4c2c33g9bd4mm18gy1gm",
+          "purchaseMandateId": "nd78xh2p95jrt8fwrhghxkz5v58gyaa0",
+          "status": "paid"
+        },
+        "ordinaryPosting": [
+          {
+            "_creationTime": 1792889875363.0422,
+            "_id": "m57bxmy66a79d2rrdm8xz74g2h8gyf6d",
+            "billId": "kh77a0kz6vhbd8jfnr3xrgbsrs8gy45y",
+            "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+            "date": 1792889875363,
+            "lines": [
+              {
+                "account": "accounts_payable",
+                "creditCents": 0,
+                "debitCents": 18000
+              },
+              {
+                "account": "cash",
+                "creditCents": 18000,
+                "debitCents": 0
+              }
+            ],
+            "memo": "Automatic purchase under approval nd78xh2p95jrt8fwrhghxkz5v58gyaa0 (demo ledger)",
+            "paymentId": "mn73my1qs5qa4c2c33g9bd4mm18gy1gm"
+          }
+        ],
+        "payrollStatus": "held",
+        "unrelatedPurchaseCents": 18000
+      }
+    },
+    {
+      "name": "Recovery does not bypass requester segregation or final destination verification",
+      "passed": true,
+      "at": "2026-10-25T00:57:57.042Z",
+      "evidence": {
+        "requester": {
+          "outcome": {
+            "ok": false,
+            "reason": "The person who requested a payment cannot also approve it."
+          },
+          "unchangedState": true,
+          "audit": [
+            {
+              "_creationTime": 1792889876266.6875,
+              "_id": "jh79sben1xeqqt17p8dk6t4hf58gzj6x",
+              "action": "refused",
+              "actor": "n57a19f57bsg16nba75kcyxn618gz9bk",
+              "actorName": "Jamie Chen",
+              "at": 1792889876266,
+              "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+              "incidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+              "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4",
+              "reason": "Refused release: The person who requested a payment cannot also approve it.",
+              "rule": "segregation_of_duties"
+            }
+          ]
+        },
+        "wrong": {
+          "outcome": {
+            "ok": false,
+            "reason": "The confirmed account must match this payment's destination. Leave it held or reject it if the vendor confirmed another account."
+          },
+          "unchangedState": true,
+          "audit": [
+            {
+              "_creationTime": 1792889876784.741,
+              "_id": "jh75cdrfby6k8a006jjw92hw018gz2aa",
+              "action": "refused",
+              "actor": "n577a9j3zcjcgaxhadmxyvwrp18gyjhf",
+              "actorName": "Rosa Alvarez",
+              "at": 1792889876784,
+              "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+              "incidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+              "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4",
+              "reason": "The confirmed account must match this payment's destination. Leave it held or reject it if the vendor confirmed another account.",
+              "rule": "verified_account_mismatch"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Verified recovery settles $480K once with an auditable rejected-to-corrected ledger chain",
+      "passed": true,
+      "at": "2026-10-25T00:57:57.854Z",
+      "evidence": {
+        "releases": [
+          {
+            "ok": true
+          },
+          {
+            "ok": false,
+            "reason": "Payment is paid, not held."
+          }
+        ],
+        "originalPaymentId": "mn7efznzq0yw6r42knxtw8rysd8gyrr5",
+        "replacement": {
+          "_creationTime": 1792889873634.0854,
+          "_id": "mn7942d4f5dewffp1dggzeev358gzbk4",
+          "accountLast4": "2208",
+          "amountCents": 48000000,
+          "approvedBy": "n577a9j3zcjcgaxhadmxyvwrp18gyjhf",
+          "assetId": "jd7f6qz47sy7w3c35zsw9eek1s8gzfxk",
+          "bankChangeFlag": false,
+          "billId": "kh7d8r7y9xprw64ds493ce10798gy3g9",
+          "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+          "decidedAt": 1792889877308,
+          "dueDate": 1792961857941,
+          "escalatedAt": 1792889873634,
+          "heldByIncidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+          "holdReasons": [
+            "Corrected request for a rejected payment. A controller must verify and release this exact destination before any money moves."
+          ],
+          "recoveryFromPaymentId": "mn7efznzq0yw6r42knxtw8rysd8gyrr5",
+          "recoveryProposalId": "p178arpajdmzmwkyp3ztth8sy58gz83k",
+          "releaseVerification": {
+            "attestedAt": 1792889877308,
+            "attestedBy": "n577a9j3zcjcgaxhadmxyvwrp18gyjhf",
+            "calledPhoneOnFile": true,
+            "confirmedAccountLast4": "2208",
+            "context": {
+              "accountLast4": "2208",
+              "amountCents": 48000000,
+              "assetId": "jd7f6qz47sy7w3c35zsw9eek1s8gzfxk",
+              "bill": {
+                "amountCents": 48000000,
+                "assetId": "jd7f6qz47sy7w3c35zsw9eek1s8gzfxk",
+                "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+                "description": "Q4 payroll funding and service fees",
+                "dueDate": 1792961857941
+              },
+              "billId": "kh7d8r7y9xprw64ds493ce10798gy3g9",
+              "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+              "dueDate": 1792961857941,
+              "flaggedBankChangeId": null,
+              "heldByIncidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+              "latestBankRecord": {
+                "accountLast4": "7731",
+                "changedAt": 1792717057941,
+                "id": "kd7bt7a3m4faa7hgrfmvz2qhh18gz1ks",
+                "requestChannel": "email"
+              },
+              "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4",
+              "requestedBy": "n57a19f57bsg16nba75kcyxn618gz9bk",
+              "vendor": {
+                "phoneOnFile": "+1 (415) 555-0142",
+                "vendorName": "Brightline Payroll Inc."
+              },
+              "version": 1
+            },
+            "identityScope": "masked_demo_account",
+            "ledgerEntryId": "m57096sx94rar7w62bx38g8s218gz7wr",
+            "method": "controller_phone_attestation"
+          },
+          "requestedBy": "n57a19f57bsg16nba75kcyxn618gz9bk",
+          "status": "paid",
+          "verificationNote": "Synthetic final callback: Alex confirmed this corrected 2208 request and full amount; no real call occurred."
+        },
+        "posting": [
+          {
+            "_creationTime": 1792889877308.5972,
+            "_id": "m57096sx94rar7w62bx38g8s218gz7wr",
+            "billId": "kh7d8r7y9xprw64ds493ce10798gy3g9",
+            "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+            "date": 1792889877308,
+            "lines": [
+              {
+                "account": "accounts_payable",
+                "creditCents": 0,
+                "debitCents": 48000000
+              },
+              {
+                "account": "cash",
+                "creditCents": 48000000,
+                "debitCents": 0
+              }
+            ],
+            "memo": "Payment released after verification: Synthetic final callback: Alex confirmed this corrected 2208 request and full amount; no real call occurred.",
+            "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4"
+          }
+        ],
+        "releaseAudit": [
+          {
+            "_creationTime": 1792889873634.0857,
+            "_id": "jh78vs84c2hz43nr30yeqejz5x8gzyhs",
+            "action": "hold",
+            "actor": "system",
+            "actorName": "System",
+            "at": 1792889873634,
+            "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+            "incidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+            "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4",
+            "reason": "Corrected request for a rejected payment. A controller must verify and release this exact destination before any money moves.",
+            "rule": "payment_recovery_requires_release"
+          },
+          {
+            "_creationTime": 1792889873634.087,
+            "_id": "jh7616a96my6afptz2cwt3t61h8gycbe",
+            "action": "escalate",
+            "actor": "system",
+            "actorName": "System",
+            "at": 1792889873634,
+            "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+            "incidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+            "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4",
+            "reason": "Held payment is due in about 20 hours; escalated to Rosa Alvarez.",
+            "rule": "undecided_hold_near_due_date"
+          },
+          {
+            "_creationTime": 1792889873634.0876,
+            "_id": "jh71zf5tx5b3xav7f1g5tzwc358gzfxz",
+            "action": "request",
+            "actor": "n57a19f57bsg16nba75kcyxn618gz9bk",
+            "actorName": "Jamie Chen",
+            "at": 1792889873634,
+            "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+            "incidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+            "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4",
+            "reason": "AP requested the bill-specific correction from account ending 7731 to 2208. Original request remains rejected; replacement is held, with no cash movement.",
+            "rule": "payment_recovery_requested"
+          },
+          {
+            "_creationTime": 1792889876266.6875,
+            "_id": "jh79sben1xeqqt17p8dk6t4hf58gzj6x",
+            "action": "refused",
+            "actor": "n57a19f57bsg16nba75kcyxn618gz9bk",
+            "actorName": "Jamie Chen",
+            "at": 1792889876266,
+            "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+            "incidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+            "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4",
+            "reason": "Refused release: The person who requested a payment cannot also approve it.",
+            "rule": "segregation_of_duties"
+          },
+          {
+            "_creationTime": 1792889876784.741,
+            "_id": "jh75cdrfby6k8a006jjw92hw018gz2aa",
+            "action": "refused",
+            "actor": "n577a9j3zcjcgaxhadmxyvwrp18gyjhf",
+            "actorName": "Rosa Alvarez",
+            "at": 1792889876784,
+            "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+            "incidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+            "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4",
+            "reason": "The confirmed account must match this payment's destination. Leave it held or reject it if the vendor confirmed another account.",
+            "rule": "verified_account_mismatch"
+          },
+          {
+            "_creationTime": 1792889877308.5974,
+            "_id": "jh74gr41z6ybew2wgk0zrz9shs8gya5h",
+            "action": "release",
+            "actor": "n577a9j3zcjcgaxhadmxyvwrp18gyjhf",
+            "actorName": "Rosa Alvarez",
+            "at": 1792889877308,
+            "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+            "incidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+            "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4",
+            "reason": "Synthetic final callback: Alex confirmed this corrected 2208 request and full amount; no real call occurred.",
+            "rule": "controller_release_after_verification"
+          },
+          {
+            "_creationTime": 1792889877425.0962,
+            "_id": "jh76gz0psqc5y3wq41cm9jfg1n8gytcx",
+            "action": "refused",
+            "actor": "n577a9j3zcjcgaxhadmxyvwrp18gyjhf",
+            "actorName": "Rosa Alvarez",
+            "at": 1792889877425,
+            "companyId": "kn7acqxtj1d2abg6081cnkm7zd8gytrm",
+            "incidentId": "kx78gws4958jmv587bqdkpn3sh8gz3jb",
+            "paymentId": "mn7942d4f5dewffp1dggzeev358gzbk4",
+            "reason": "Refused release: Payment is paid, not held.",
+            "rule": "only_held_payments"
+          }
+        ],
+        "balancesBefore": {
+          "accounts_payable": 51833000,
+          "cash": 499982000,
+          "equity": 500000000,
+          "expense": 51851000
+        },
+        "balancesAfter": {
+          "accounts_payable": 3833000,
+          "cash": 451982000,
+          "equity": 500000000,
+          "expense": 51851000
+        }
+      }
+    },
+    {
+      "name": "Vendor master remains 7731 and another company's ledger is unchanged",
+      "passed": true,
+      "at": "2026-10-25T00:57:58.046Z",
+      "evidence": {
+        "vendorMasterSuffix": "7731",
+        "otherCompanyUnchanged": true
+      }
+    }
+  ],
+  "cleanup": [
+    {
+      "kind": "purchase_approval",
+      "mandateId": "nd78xh2p95jrt8fwrhghxkz5v58gyaa0",
+      "approvalRevoked": true,
+      "revokedAt": 1792889878236,
+      "resolvedUnknownOutcome": false
+    },
+    {
+      "kind": "payment_recovery",
+      "sourcePaymentId": "mn7efznzq0yw6r42knxtw8rysd8gyrr5",
+      "proposalId": "p178arpajdmzmwkyp3ztth8sy58gz83k",
+      "storedStatus": "requested",
+      "unusedAuthorityInactive": true,
+      "resolvedUnknownOutcome": false
+    },
+    {
+      "email": "elena.ruiz@cedarridge.example",
+      "signedOut": true
+    },
+    {
+      "email": "jamie.chen@summithomehealth.example",
+      "signedOut": true
+    },
+    {
+      "email": "rosa.alvarez@summithomehealth.example",
+      "signedOut": true
+    }
+  ],
+  "scope": "Synthetic payments and simulated callback assertions on Pegasus DEV. No real bank/Visa integration, model calls, external notifications or real funds. Stale-context and expiry challenges are unit-only, not exercised by this live run.",
+  "retainedFixtures": "Synthetic incident, rejected/corrected payments, sample bills, journals and audits remain as evidence. Cleanup withdraws unused recovery authority, revokes the routine purchase approval and signs out test sessions; it never resets or deletes fixtures.",
+  "environment": {
+    "demoMode": true,
+    "aiLive": false,
+    "notifyLive": false
+  },
+  "completedAt": "2026-10-25T00:57:58.909Z"
+}

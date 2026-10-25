@@ -28,13 +28,19 @@ The stored phone and `verified_call` record are trusted inputs in this prototype
 
 Seventeen backend regression cases cover the completed chain, concurrent request/release, wrong actors and company scope, wrong account/no callback/short note/unverified record, changed invoice/contact/bank/proposer, in-place provenance timestamp changes, expiry/withdrawal/supersession, containment and disabled hold policy, and an ordinary request racing the correction.
 
-The live runner, `scripts/recovery/rehearse.mjs`, requires explicit Pegasus DEV selection and a matching local selector/cloud URL, refuses deployment-key/self-hosted overrides, does not reset/deploy/call a model, signs out issued sessions and revokes its routine-purchase mandate. It uses the original rehearsal's clean seeded data and the configured presenter key for synthetic sample setup. Run:
+The live runner, `scripts/recovery/rehearse.mjs`, requires explicit Pegasus DEV selection and a matching local selector/cloud URL, refuses deployment-key/self-hosted overrides, requires live AI and notifications off, does not reset/deploy/call a model, signs out issued sessions and verifies that its routine-purchase mandate and unused recovery authority are inactive. Cleanup is registered before creation and attempts to resolve unknown response outcomes. It uses the original rehearsal's clean seeded data and the configured presenter key for synthetic sample setup. Run:
 
 ```sh
 node scripts/recovery/rehearse.mjs --deployment tangible-koala-842 --report scripts/recovery/report.json
 ```
 
-Run the original own-DEV rehearsal separately first. Never pass a key on a command line or commit an env file. Live evidence and browser validation will be recorded after execution; no pending result is a claimed pass.
+Run the original own-DEV rehearsal separately first. Never pass a key on a command line or commit an env file.
+
+**Completed Oct 24, 2026 on Pegasus DEV:** 207 app/backend tests and 70 Node tests pass, both TypeScript checks, lint and build pass, and the original full live rehearsal passes. The build retains the existing large-main-chunk warning (about 519 kB).
+
+All ten recovery live checks pass at source `dce7ed2d498d55ab9adc42090c64c662177fa5e2`; evidence is in [`scripts/recovery/report.json`](../scripts/recovery/report.json). Eight concurrent requests produce one held 2208 replacement. While it is held, an independently approved $180 purchase settles automatically. Two concurrent controller release attempts settle the $480,000 correction once, with one exact AP-debit/cash-credit posting, one release audit and an immutable matching attestation. Cash reconciles $5,000,000 → $4,999,820 → $4,519,820. The original remains rejected, the latest vendor-master record remains 7731, and Cedar's ledger is unchanged. All five cleanup records pass: routine approval revoked, correction consumed/inactive, three sessions signed out. An independent reviewer confirmed the evidence and found no credential leaks. Stale-context and expiry challenges are covered by backend tests, not this live run.
+
+Browser QA exercised the controller's wrong-suffix disabled state, completed preparation, AP-only corrected request, and the held replacement. The hero and list synchronize when a proposal is saved. The result fits 375 px without horizontal page overflow. The final live outcome was inspected in the browser and saved as [`payment-recovery-result.jpg`](images/payment-recovery-result.jpg). The browser showed two expected seeded-auth sign-in fallback errors after resets; no recovery mutation/UI error occurred. Final release was verified through authenticated API calls, not a browser confirmation dialog. A later copy-only refinement clarifies that the historical correction has its own decision record. Temporary browser sessions are signed out and the viewport restored.
 
 ## Why this adds depth
 
