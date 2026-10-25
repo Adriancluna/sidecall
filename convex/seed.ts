@@ -688,6 +688,9 @@ export const resetAvailability = query({
     const state = await ctx.db.query("demoResetState").first();
     const resetting = state?.running === true;
     return { allowed: env.DEMO_MODE === "true" && !resetting, preservesExternal: external,
+      presenterKeyRequired: !!env.PRESENTER_KEY, running: resetting,
+      resetNumber: state?.generation ?? 0, resetError: state?.error ?? null,
+      deployment: (env.CONVEX_CLOUD_URL ?? "").replace(/^https?:\/\//, "").split(".")[0] || "Unknown connection",
       reason: resetting ? (state.phase === "restoring" ? "Reset in progress: restoring and verifying the disposable Okta account…" : "Okta recovery checked. Clearing practice payments and AI tests…")
         : state?.error ? `Reset stopped: ${state.error}`
         : env.DEMO_MODE !== "true" ? "Demo reset is disabled on this deployment."
