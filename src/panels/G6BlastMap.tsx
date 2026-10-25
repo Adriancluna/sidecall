@@ -1,6 +1,6 @@
-// EXPERIMENT (branch proto/g6-map, open with ?map=g6): the blast radius as an expandable radial
-// tree drawn by AntV G6. Click a bubble to open or fold its children; click a company to load its
-// evidence on the right. Remove this file, the ?map=g6 switch in PortfolioView and @antv/g6 to undo.
+// The firm's blast radius as an expandable radial tree drawn by AntV G6 (Marco's call, Oct 24).
+// Click a bubble to open or fold it; click a company to load its evidence on the right. Live updates
+// keep whatever is open. Omar's SVG map is still one URL flag away: ?map=classic (PortfolioView).
 import { Graph, NodeEvent, treeToGraphData, type IPointerEvent, type TreeData } from "@antv/g6";
 import { useEffect, useRef } from "react";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -26,7 +26,10 @@ const SHARE: Record<string, string> = {
 
 type Node = BlastRadius["nodes"][number];
 
-function companyBranch(blast: BlastRadius, n: Node): TreeData {
+// Bubbles the viewer has opened; the exposed group starts open, every company starts folded.
+type Open = ReadonlySet<string>;
+
+function companyBranch(blast: BlastRadius, n: Node, open: Open): TreeData {
   const link = blast.edges.find((e) => e.companyId === n.companyId && e.compromised);
   const details = [
     link && (SHARE[link.shareType] ?? link.shareType.replace(/_/g, " ")),
@@ -38,12 +41,12 @@ function companyBranch(blast: BlastRadius, n: Node): TreeData {
   return {
     id: n.companyId,
     data: { label: n.name, kind: "company", urgency: n.urgency, companyId: n.companyId },
-    style: { collapsed: true },
+    style: { collapsed: !open.has(n.companyId) },
     children: details.map((text, i) => ({ id: `${n.companyId}-${i}`, data: { label: text, kind: "detail" } })),
   };
 }
 
-function toTree(blast: BlastRadius): TreeData {
+function toTree(blast: BlastRadius, open: Open): TreeData {
   const exposed = blast.nodes.filter((n) => n.exposed);
   const quiet = blast.nodes.filter((n) => !n.exposed && n.name !== blast.incident.reportedByName);
   return {
@@ -57,12 +60,13 @@ function toTree(blast: BlastRadius): TreeData {
       {
         id: "exposed",
         data: { label: `Exposed · ${exposed.length}`, kind: "group" },
-        children: exposed.map((n) => companyBranch(blast, n)),
+        style: { collapsed: !open.has("exposed") },
+        children: exposed.map((n) => companyBranch(blast, n, open)),
       },
       {
         id: "quiet",
         data: { label: `Not exposed · ${quiet.length}`, kind: "group" },
-        style: { collapsed: true },
+        style: { collapsed: !open.has("quiet") },
         children: quiet.map((n) => ({ id: n.companyId, data: { label: n.name, kind: "quiet" } })),
       },
     ],
@@ -87,22 +91,31 @@ export function G6BlastMap({
   const box = useRef<HTMLDivElement>(null);
   const pick = useRef(onSelect);
   const latest = useRef(blast);
+  const open = useRef(new Set<string>(["exposed"]));
+  const graphRef = useRef<Graph | null>(null);
+  const incidentId = blast.incident._id;
   useEffect(() => {
     pick.current = onSelect;
+  }, [onSelect]);
+  // Live data (an acknowledgement, a release) redraws the tree with the same bubbles open.
+  useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph || latest.current === blast) return;
     latest.current = blast;
-  }, [onSelect, blast]);
-  // Build once per incident: live updates (an acknowledgement) don't reset what's been opened.
-  // ponytail: the tree shows the data from when it was built; rebuild on data change if that matters.
-  const incidentId = blast.incident._id;
+    graph.setData(treeToGraphData(toTree(blast, open.current)));
+    graph.render().catch(() => undefined);
+  }, [blast]);
 
   useEffect(() => {
     if (!box.current) return;
+    open.current = new Set(["exposed"]);
+    latest.current = blast;
     const refit = () => window.setTimeout(() => void graph.fitView(undefined, { duration: 300 }), 450);
     const graph = new Graph({
       container: box.current,
       autoFit: "view",
       background: C.panel,
-      data: treeToGraphData(toTree(latest.current)),
+      data: treeToGraphData(toTree(blast, open.current)),
       node: {
         style: {
           size: (d) => (d.data?.kind === "root" ? 44 : d.data?.kind === "detail" ? 8 : 22),
@@ -112,7 +125,7 @@ export function G6BlastMap({
           labelText: (d) => (typeof d.data?.label === "string" ? d.data.label : ""),
           labelFill: (d) => (d.data?.kind === "detail" || d.data?.kind === "quiet" ? C.ash : C.paper),
           labelFontFamily: "Geist, system-ui, sans-serif",
-          labelFontSize: (d) => (d.data?.kind === "detail" ? 12 : 13),
+          labelFontSize: (d) => (d.data?.kind === "detail" ? 13 : 14),
           labelFontWeight: (d) => (d.data?.kind === "company" || d.data?.kind === "root" ? 600 : 400),
           labelBackground: true,
           labelBackgroundFill: C.panel,
@@ -130,7 +143,19 @@ export function G6BlastMap({
         "drag-canvas",
         "zoom-canvas",
         // Opening or folding a bubble re-runs the layout; then bring the whole tree back into view.
-        { type: "collapse-expand", trigger: "click", align: false, onExpand: refit, onCollapse: refit },
+        {
+          type: "collapse-expand",
+          trigger: "click",
+          align: false,
+          onExpand: (id: string) => {
+            open.current.add(id);
+            refit();
+          },
+          onCollapse: (id: string) => {
+            open.current.delete(id);
+            refit();
+          },
+        },
       ],
       animation: true,
     });
@@ -139,21 +164,33 @@ export function G6BlastMap({
       const data = id ? graph.getNodeData(id)?.data : undefined;
       if (data?.kind === "company") pick.current(data.companyId as Id<"companies">);
     });
+    graphRef.current = graph;
     let alive = true;
     graph.render().catch((e: unknown) => {
       if (alive) console.error(e);
     });
     return () => {
       alive = false;
+      graphRef.current = null;
       graph.destroy();
     };
+    // Rebuilt only when the incident changes; data updates go through setData above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentId]);
 
   return (
     <section className="overflow-hidden rounded-tile border border-line bg-panel">
       <header className="flex min-h-14 items-center justify-between border-b border-line py-3 pr-3 pl-4">
-        <h2 className="text-sm font-medium tracking-[-0.02em]">Blast radius · {blast.asset.vendorName} (G6 experiment)</h2>
-        <span className="text-sm text-ash">Click a bubble to open it · drag to pan · scroll to zoom</span>
+        <h2 className="text-sm font-medium tracking-[-0.02em]">Blast radius · {blast.asset.vendorName}</h2>
+        <span className="flex items-center gap-4 text-sm text-ash">
+          <span className="flex items-center gap-1.5">
+            <span aria-hidden className="size-2.5 rounded-full border-2 border-[#ff6b6b]" /> Urgent
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span aria-hidden className="size-2.5 rounded-full border-2 border-[#f5a524]" /> Advisory
+          </span>
+          <span>Click a bubble to open it · drag to pan · scroll to zoom</span>
+        </span>
       </header>
       <div ref={box} className="h-[620px] w-full" />
     </section>
