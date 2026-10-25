@@ -10,6 +10,7 @@
     "lint": "npm run typecheck && eslint .  --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:receiver": "node --test integrations/company-receiver/receiver.test.mjs",
     "rehearse": "node scripts/rehearsal/run.mjs"
   },
   "dependencies": {
