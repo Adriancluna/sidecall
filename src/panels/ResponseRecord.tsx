@@ -42,7 +42,7 @@ export function ResponseRecord({
             )}
             <ul className="space-y-3">
               {record.steps.map((s) => (
-                <li key={s.id} className="border-l-2 border-line pl-3">
+                <li key={s.id} className="border-l border-line pl-3">
                   <p>
                   {record.companies.find((c) => c.companyId === s.companyId)?.name ?? "Company"} · {s.action.replace(/_/g, " ")} · {s.status.replace(/_/g, " ")}
                   </p>
