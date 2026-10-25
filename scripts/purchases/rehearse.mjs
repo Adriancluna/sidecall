@@ -409,6 +409,7 @@ try {
   }
   const report = {
     generatedAt: new Date().toISOString(),
+    sourceCommit: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
     deployment: cloud,
     settlement: "demo_ledger",
     source:

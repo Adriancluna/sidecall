@@ -65,3 +65,9 @@ The redacted source/tool traces and server evidence are committed in [`scripts/a
 ## Limits
 
 The portfolio, invoices, payee-verification rows and money are synthetic. The receipts are database evidence, not cryptographic attestations. No Visa API, AP2 network, bank verification service or external payment processor is connected. The assistant proof is separate from the team's chatbot. No changes to the four existing stage scenarios or the $480K verification flow are intended; Role 1 reviews and owns production release. Demo recording and editing remain the last step.
+
+## Role 1 review corrections verified
+
+Pegasus implemented all six review requests in `42ee174`: rejection invalidates automatic authority, ordinary approval misses preserve pending/manual handling, sample setup fails closed, active confirmed incidents prevent new grants, agent selection is owner-indexed, and all public purchasing endpoints validate returns. Hard refusals also take precedence over an active incident; tampered invoices do not become payable held requests.
+
+The revised 17-case purchasing rehearsal passed on Pegasus DEV with the combined candidate at `2bce124`, including one automatic settlement plus one pending request in the budget race and selected-agent authority with a separate pending fallback. The previous real-Claude proof remains the recorded run at `cb01f79`; it was not rerun for these deterministic corrections. Role 1 must recheck, and Adrian’s final purchasing go/no-go remains outstanding.
