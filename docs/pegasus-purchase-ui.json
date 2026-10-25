@@ -1,0 +1,27 @@
+{
+  "author": "Pegasus",
+  "checkedAt": "2026-10-25T00:17:33.386921+00:00",
+  "commit": "891999a",
+  "environment": "localhost frontend + tangible-koala-842 DEV",
+  "viewports": [
+    {
+      "width": 1280,
+      "scrollWidth": 1280
+    },
+    {
+      "width": 375,
+      "scrollWidth": 375
+    }
+  ],
+  "consoleErrors": 0,
+  "checks": [
+    "Controller saved one $210 sample bill with $250 individual/$300 total approval",
+    "AP clerk preview showed eligibility without changing spent budget",
+    "UI request settled $210 in demo ledger and live preview changed to unavailable",
+    "Receipt retained $0 before / $210 after and $300 limit plus linked ledger evidence",
+    "Keyboard Return expanded receipt checks and approved/requested comparisons",
+    "Receipt comparison remained within 375px viewport"
+  ],
+  "liveModelRun": false,
+  "scope": "Synthetic DEV data only; screenshots are local workspace artifacts."
+}

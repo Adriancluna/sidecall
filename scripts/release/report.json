@@ -1,0 +1,736 @@
+{
+  "format": "sidecall.release-proof.v1",
+  "author": "Pegasus",
+  "runId": "release-7480ac62-eceb-4b0b-be9f-f52b8f748bac",
+  "startedAt": "2026-10-25T00:43:49.568Z",
+  "deployment": "tangible-koala-842",
+  "sourceCommit": "ce1d593dcd58b0b2d52b59813e9f425f93334185",
+  "source": "Live authenticated Convex queries/mutations with synthetic fixtures and concurrent release HTTP requests.",
+  "scope": "Demo ledger only; phone confirmations are simulated assertions, not evidence of real telephone calls or bank verification.",
+  "passed": true,
+  "checks": [
+    {
+      "name": "Legacy release without structured verification is audited and refused",
+      "passed": true,
+      "at": "2026-10-25T00:43:55.434Z",
+      "evidence": {
+        "outcome": {
+          "ok": false,
+          "reason": "Confirm the exact destination account and the call to the number on file before releasing."
+        },
+        "cashBeforeCents": 500000000,
+        "cashAfterCents": 500000000,
+        "unchangedLedger": true,
+        "refusal": {
+          "_creationTime": 1792889034772.0288,
+          "_id": "jh795dp8hvw5arhpgtg1tbp9mn8gz93f",
+          "action": "refused",
+          "actor": "n57ca1zt6bpz7mzfyxb2rk6n0h8gz3yr",
+          "actorName": "Rosa Alvarez",
+          "at": 1792889034772,
+          "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+          "incidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+          "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+          "reason": "Confirm the exact destination account and the call to the number on file before releasing.",
+          "rule": "structured_verification_required"
+        },
+        "accountLast4": "7731"
+      }
+    },
+    {
+      "name": "Confirming account 2208 cannot release the payment addressed to 7731",
+      "passed": true,
+      "at": "2026-10-25T00:43:56.190Z",
+      "evidence": {
+        "outcome": {
+          "ok": false,
+          "reason": "The confirmed account must match this payment's destination. Leave it held or reject it if the vendor confirmed another account."
+        },
+        "cashBeforeCents": 500000000,
+        "cashAfterCents": 500000000,
+        "unchangedLedger": true,
+        "refusal": {
+          "_creationTime": 1792889035822.5076,
+          "_id": "jh7essy1he0bjtr3e1ggga4vsh8gyw2r",
+          "action": "refused",
+          "actor": "n57ca1zt6bpz7mzfyxb2rk6n0h8gz3yr",
+          "actorName": "Rosa Alvarez",
+          "at": 1792889035822,
+          "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+          "incidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+          "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+          "reason": "The confirmed account must match this payment's destination. Leave it held or reject it if the vendor confirmed another account.",
+          "rule": "verified_account_mismatch"
+        },
+        "accountLast4": "7731"
+      }
+    },
+    {
+      "name": "The stored vendor phone must be confirmed",
+      "passed": true,
+      "at": "2026-10-25T00:43:57.229Z",
+      "evidence": {
+        "outcome": {
+          "ok": false,
+          "reason": "Confirm that you called the stored number on file. A usable stored callback number is required."
+        },
+        "cashBeforeCents": 500000000,
+        "cashAfterCents": 500000000,
+        "unchangedLedger": true,
+        "refusal": {
+          "_creationTime": 1792889036869.9463,
+          "_id": "jh7c7s2hm0sfaj4kvd49pmr0y58gzqgz",
+          "action": "refused",
+          "actor": "n57ca1zt6bpz7mzfyxb2rk6n0h8gz3yr",
+          "actorName": "Rosa Alvarez",
+          "at": 1792889036869,
+          "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+          "incidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+          "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+          "reason": "Confirm that you called the stored number on file. A usable stored callback number is required.",
+          "rule": "trusted_callback_required"
+        },
+        "accountLast4": "7731"
+      }
+    },
+    {
+      "name": "The requesting AP clerk cannot authorize its own release",
+      "passed": true,
+      "at": "2026-10-25T00:43:57.850Z",
+      "evidence": {
+        "outcome": {
+          "ok": false,
+          "reason": "The person who requested a payment cannot also approve it."
+        },
+        "cashBeforeCents": 500000000,
+        "cashAfterCents": 500000000,
+        "unchangedLedger": true,
+        "refusal": {
+          "_creationTime": 1792889037503.3262,
+          "_id": "jh71xqsz8gscgvn16kx80cmeas8gz3xd",
+          "action": "refused",
+          "actor": "n570by293t89exe63stxrc8dr58gz2ws",
+          "actorName": "Jamie Chen",
+          "at": 1792889037503,
+          "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+          "incidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+          "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+          "reason": "Refused release: The person who requested a payment cannot also approve it.",
+          "rule": "segregation_of_duties"
+        },
+        "accountLast4": "7731"
+      }
+    },
+    {
+      "name": "Another company's controller cannot release Summit's payment",
+      "passed": true,
+      "at": "2026-10-25T00:43:58.709Z",
+      "evidence": {
+        "outcome": {
+          "ok": false,
+          "reason": "Only a controller at this company can decide a held payment."
+        },
+        "cashBeforeCents": 500000000,
+        "cashAfterCents": 500000000,
+        "unchangedLedger": true,
+        "refusal": {
+          "_creationTime": 1792889038225.43,
+          "_id": "jh7dfjf82776ny4nj953hh8cy58gyxqg",
+          "action": "refused",
+          "actor": "n574b9gcvts0zx7qdt12dcgd718gzs95",
+          "actorName": "Elena Ruiz",
+          "at": 1792889038225,
+          "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+          "incidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+          "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+          "reason": "Refused release: Only a controller at this company can decide a held payment.",
+          "rule": "controller_at_company"
+        },
+        "accountLast4": "7731"
+      }
+    },
+    {
+      "name": "A new same-suffix payee record changes the server's release context",
+      "passed": true,
+      "at": "2026-10-25T00:43:59.934Z",
+      "evidence": {
+        "oldContext": {
+          "accountLast4": "7731",
+          "amountCents": 48000000,
+          "assetId": "jd702h9afz1t8sdabee6z5scrh8gz4yg",
+          "bill": {
+            "amountCents": 48000000,
+            "assetId": "jd702h9afz1t8sdabee6z5scrh8gz4yg",
+            "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+            "description": "Q4 payroll funding and service fees",
+            "dueDate": 1792961024971
+          },
+          "billId": "kh78589nt0a6rx2txawz1gazyx8gytj7",
+          "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+          "dueDate": 1792961024971,
+          "flaggedBankChangeId": "kd77c3hwrb5g3bk73j1rm4btpd8gy4rt",
+          "heldByIncidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+          "latestBankRecord": {
+            "accountLast4": "7731",
+            "changedAt": 1792716224971,
+            "id": "kd77c3hwrb5g3bk73j1rm4btpd8gy4rt",
+            "requestChannel": "email"
+          },
+          "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+          "requestedBy": "n570by293t89exe63stxrc8dr58gz2ws",
+          "vendor": {
+            "phoneOnFile": "+1 (415) 555-0142",
+            "vendorName": "Brightline Payroll Inc."
+          },
+          "version": 1
+        },
+        "newContext": {
+          "accountLast4": "7731",
+          "amountCents": 48000000,
+          "assetId": "jd702h9afz1t8sdabee6z5scrh8gz4yg",
+          "bill": {
+            "amountCents": 48000000,
+            "assetId": "jd702h9afz1t8sdabee6z5scrh8gz4yg",
+            "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+            "description": "Q4 payroll funding and service fees",
+            "dueDate": 1792961024971
+          },
+          "billId": "kh78589nt0a6rx2txawz1gazyx8gytj7",
+          "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+          "dueDate": 1792961024971,
+          "flaggedBankChangeId": "kd77c3hwrb5g3bk73j1rm4btpd8gy4rt",
+          "heldByIncidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+          "latestBankRecord": {
+            "accountLast4": "7731",
+            "changedAt": 1792889039657,
+            "id": "kd753gxaf37vdh8n0b7jkz29md8gzg23",
+            "requestChannel": "email"
+          },
+          "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+          "requestedBy": "n570by293t89exe63stxrc8dr58gz2ws",
+          "vendor": {
+            "phoneOnFile": "+1 (415) 555-0142",
+            "vendorName": "Brightline Payroll Inc."
+          },
+          "version": 1
+        },
+        "unchangedPaymentAccount": "7731"
+      }
+    },
+    {
+      "name": "A genuinely stale payee context cannot authorize release",
+      "passed": true,
+      "at": "2026-10-25T00:44:00.780Z",
+      "evidence": {
+        "outcome": {
+          "ok": false,
+          "reason": "Payment, bill or vendor details changed since verification began. Review the updated details and verify again."
+        },
+        "cashBeforeCents": 500000000,
+        "cashAfterCents": 500000000,
+        "unchangedLedger": true,
+        "refusal": {
+          "_creationTime": 1792889040303.75,
+          "_id": "jh7eq91t0yt9ae5td2qnzx08g98gygar",
+          "action": "refused",
+          "actor": "n57ca1zt6bpz7mzfyxb2rk6n0h8gz3yr",
+          "actorName": "Rosa Alvarez",
+          "at": 1792889040303,
+          "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+          "incidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+          "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+          "reason": "Payment, bill or vendor details changed since verification began. Review the updated details and verify again.",
+          "rule": "verification_context_changed"
+        },
+        "accountLast4": "7731"
+      }
+    },
+    {
+      "name": "Concurrent valid $480K releases settle once to the verified 7731 destination",
+      "passed": true,
+      "at": "2026-10-25T00:44:01.774Z",
+      "evidence": {
+        "race": [
+          {
+            "ok": true
+          },
+          {
+            "ok": false,
+            "reason": "Payment is paid, not held."
+          }
+        ],
+        "payment": {
+          "_creationTime": 1792889024971.231,
+          "_id": "mn72hy3v5hx45pf0j695gedt918gyhej",
+          "accountLast4": "7731",
+          "amountCents": 48000000,
+          "approvedBy": "n57ca1zt6bpz7mzfyxb2rk6n0h8gz3yr",
+          "assetId": "jd702h9afz1t8sdabee6z5scrh8gz4yg",
+          "bankChangeFlag": true,
+          "billId": "kh78589nt0a6rx2txawz1gazyx8gytj7",
+          "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+          "decidedAt": 1792889041165,
+          "dueDate": 1792961024971,
+          "escalatedAt": 1792889033513,
+          "flaggedBankChangeId": "kd77c3hwrb5g3bk73j1rm4btpd8gy4rt",
+          "heldByIncidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+          "holdReasons": [
+            "Brightline Payroll Inc. is under an active security incident. Payment held until verified.",
+            "Bank details for Brightline Payroll Inc. changed 2 days before the incident via email. Verify by calling the number on file."
+          ],
+          "releaseVerification": {
+            "attestedAt": 1792889041165,
+            "attestedBy": "n57ca1zt6bpz7mzfyxb2rk6n0h8gz3yr",
+            "calledPhoneOnFile": true,
+            "confirmedAccountLast4": "7731",
+            "context": {
+              "accountLast4": "7731",
+              "amountCents": 48000000,
+              "assetId": "jd702h9afz1t8sdabee6z5scrh8gz4yg",
+              "bill": {
+                "amountCents": 48000000,
+                "assetId": "jd702h9afz1t8sdabee6z5scrh8gz4yg",
+                "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+                "description": "Q4 payroll funding and service fees",
+                "dueDate": 1792961024971
+              },
+              "billId": "kh78589nt0a6rx2txawz1gazyx8gytj7",
+              "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+              "dueDate": 1792961024971,
+              "flaggedBankChangeId": "kd77c3hwrb5g3bk73j1rm4btpd8gy4rt",
+              "heldByIncidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+              "latestBankRecord": {
+                "accountLast4": "7731",
+                "changedAt": 1792889039657,
+                "id": "kd753gxaf37vdh8n0b7jkz29md8gzg23",
+                "requestChannel": "email"
+              },
+              "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+              "requestedBy": "n570by293t89exe63stxrc8dr58gz2ws",
+              "vendor": {
+                "phoneOnFile": "+1 (415) 555-0142",
+                "vendorName": "Brightline Payroll Inc."
+              },
+              "version": 1
+            },
+            "identityScope": "masked_demo_account",
+            "ledgerEntryId": "m571wts9tmwsamgca8ns8dq9ph8gzsgv",
+            "method": "controller_phone_attestation"
+          },
+          "requestedBy": "n570by293t89exe63stxrc8dr58gz2ws",
+          "seedRef": "pay_C_brightline_480k",
+          "status": "paid",
+          "verificationNote": "Synthetic rehearsal: Alex Morgan confirmed the displayed destination using the stored vendor phone; no real call occurred."
+        },
+        "posting": {
+          "_creationTime": 1792889041165.0767,
+          "_id": "m571wts9tmwsamgca8ns8dq9ph8gzsgv",
+          "billId": "kh78589nt0a6rx2txawz1gazyx8gytj7",
+          "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+          "date": 1792889041165,
+          "lines": [
+            {
+              "account": "accounts_payable",
+              "creditCents": 0,
+              "debitCents": 48000000
+            },
+            {
+              "account": "cash",
+              "creditCents": 48000000,
+              "debitCents": 0
+            }
+          ],
+          "memo": "Payment released after verification: Synthetic rehearsal: Alex Morgan confirmed the displayed destination using the stored vendor phone; no real call occurred.",
+          "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej"
+        },
+        "cashBeforeCents": 500000000,
+        "cashAfterCents": 452000000,
+        "audit": [
+          {
+            "_creationTime": 1792889033513.5647,
+            "_id": "jh74rp8ehmhnccceyang01yqdx8gz93j",
+            "action": "hold",
+            "actor": "system",
+            "actorName": "System",
+            "at": 1792889033513,
+            "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+            "incidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+            "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+            "reason": "Brightline Payroll Inc. is under an active security incident. Payment held until verified.",
+            "rule": "hold_payments_to_compromised_vendor"
+          },
+          {
+            "_creationTime": 1792889033513.565,
+            "_id": "jh71kgw813bttqcnz0zzxeqkyx8gzz9y",
+            "action": "flag",
+            "actor": "system",
+            "actorName": "System",
+            "at": 1792889033513,
+            "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+            "incidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+            "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+            "reason": "Bank details for Brightline Payroll Inc. changed 2 days before the incident via email. Verify by calling the number on file.",
+            "rule": "bank_change_within_30_days"
+          },
+          {
+            "_creationTime": 1792889033513.5662,
+            "_id": "jh7416qyckj569kjkkdzs9znkh8gzy5m",
+            "action": "escalate",
+            "actor": "system",
+            "actorName": "System",
+            "at": 1792889033513,
+            "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+            "incidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+            "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+            "reason": "Held payment is due in about 20 hours; escalated to Rosa Alvarez.",
+            "rule": "undecided_hold_near_due_date"
+          },
+          {
+            "_creationTime": 1792889034772.0288,
+            "_id": "jh795dp8hvw5arhpgtg1tbp9mn8gz93f",
+            "action": "refused",
+            "actor": "n57ca1zt6bpz7mzfyxb2rk6n0h8gz3yr",
+            "actorName": "Rosa Alvarez",
+            "at": 1792889034772,
+            "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+            "incidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+            "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+            "reason": "Confirm the exact destination account and the call to the number on file before releasing.",
+            "rule": "structured_verification_required"
+          },
+          {
+            "_creationTime": 1792889035822.5076,
+            "_id": "jh7essy1he0bjtr3e1ggga4vsh8gyw2r",
+            "action": "refused",
+            "actor": "n57ca1zt6bpz7mzfyxb2rk6n0h8gz3yr",
+            "actorName": "Rosa Alvarez",
+            "at": 1792889035822,
+            "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+            "incidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+            "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+            "reason": "The confirmed account must match this payment's destination. Leave it held or reject it if the vendor confirmed another account.",
+            "rule": "verified_account_mismatch"
+          },
+          {
+            "_creationTime": 1792889036869.9463,
+            "_id": "jh7c7s2hm0sfaj4kvd49pmr0y58gzqgz",
+            "action": "refused",
+            "actor": "n57ca1zt6bpz7mzfyxb2rk6n0h8gz3yr",
+            "actorName": "Rosa Alvarez",
+            "at": 1792889036869,
+            "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+            "incidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+            "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+            "reason": "Confirm that you called the stored number on file. A usable stored callback number is required.",
+            "rule": "trusted_callback_required"
+          },
+          {
+            "_creationTime": 1792889037503.3262,
+            "_id": "jh71xqsz8gscgvn16kx80cmeas8gz3xd",
+            "action": "refused",
+            "actor": "n570by293t89exe63stxrc8dr58gz2ws",
+            "actorName": "Jamie Chen",
+            "at": 1792889037503,
+            "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+            "incidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+            "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+            "reason": "Refused release: The person who requested a payment cannot also approve it.",
+            "rule": "segregation_of_duties"
+          },
+          {
+            "_creationTime": 1792889038225.43,
+            "_id": "jh7dfjf82776ny4nj953hh8cy58gyxqg",
+            "action": "refused",
+            "actor": "n574b9gcvts0zx7qdt12dcgd718gzs95",
+            "actorName": "Elena Ruiz",
+            "at": 1792889038225,
+            "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+            "incidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+            "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+            "reason": "Refused release: Only a controller at this company can decide a held payment.",
+            "rule": "controller_at_company"
+          },
+          {
+            "_creationTime": 1792889040303.75,
+            "_id": "jh7eq91t0yt9ae5td2qnzx08g98gygar",
+            "action": "refused",
+            "actor": "n57ca1zt6bpz7mzfyxb2rk6n0h8gz3yr",
+            "actorName": "Rosa Alvarez",
+            "at": 1792889040303,
+            "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+            "incidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+            "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+            "reason": "Payment, bill or vendor details changed since verification began. Review the updated details and verify again.",
+            "rule": "verification_context_changed"
+          },
+          {
+            "_creationTime": 1792889041165.077,
+            "_id": "jh742160r81n581xphev8jbmgd8gyg15",
+            "action": "release",
+            "actor": "n57ca1zt6bpz7mzfyxb2rk6n0h8gz3yr",
+            "actorName": "Rosa Alvarez",
+            "at": 1792889041165,
+            "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+            "incidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+            "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+            "reason": "Synthetic rehearsal: Alex Morgan confirmed the displayed destination using the stored vendor phone; no real call occurred.",
+            "rule": "controller_release_after_verification"
+          },
+          {
+            "_creationTime": 1792889041256.6033,
+            "_id": "jh78cmsp9tf0jge3d1wgk7tqw58gy2vx",
+            "action": "refused",
+            "actor": "n57ca1zt6bpz7mzfyxb2rk6n0h8gz3yr",
+            "actorName": "Rosa Alvarez",
+            "at": 1792889041256,
+            "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+            "incidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+            "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+            "reason": "Refused release: Payment is paid, not held.",
+            "rule": "only_held_payments"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Summit refusals and release leave Cedar Ridge payments and ledger unchanged",
+      "passed": true,
+      "at": "2026-10-25T00:44:02.345Z",
+      "evidence": {
+        "before": {
+          "ledger": {
+            "balances": {
+              "accounts_payable": 9200000,
+              "cash": 495900000,
+              "equity": 500000000,
+              "expense": 13300000
+            },
+            "entryIds": [
+              "m5718dtzdvccnqa80cz2w83z318gyn1c",
+              "m5734my067fm45vpd6wjf7v7518gztqh",
+              "m57aftapf03z9bndth8d9bhv4n8gy2ae",
+              "m57djfz9hgvcf3s3za8v6gap918gza50"
+            ]
+          },
+          "payments": [
+            {
+              "id": "mn7c7grat175tgc3pe3e2qrj3d8gzj7t",
+              "companyId": "kn79449pc895kf10hhhxea7rbh8gy3zm",
+              "billId": "kh77mfyv1fx3ajgpx00f2z27k58gzbck",
+              "status": "held",
+              "amountCents": 9200000,
+              "accountLast4": "2208",
+              "heldByIncidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse"
+            }
+          ]
+        },
+        "after": {
+          "ledger": {
+            "balances": {
+              "accounts_payable": 9200000,
+              "cash": 495900000,
+              "equity": 500000000,
+              "expense": 13300000
+            },
+            "entryIds": [
+              "m5718dtzdvccnqa80cz2w83z318gyn1c",
+              "m5734my067fm45vpd6wjf7v7518gztqh",
+              "m57aftapf03z9bndth8d9bhv4n8gy2ae",
+              "m57djfz9hgvcf3s3za8v6gap918gza50"
+            ]
+          },
+          "payments": [
+            {
+              "id": "mn7c7grat175tgc3pe3e2qrj3d8gzj7t",
+              "companyId": "kn79449pc895kf10hhhxea7rbh8gy3zm",
+              "billId": "kh77mfyv1fx3ajgpx00f2z27k58gzbck",
+              "status": "held",
+              "amountCents": 9200000,
+              "accountLast4": "2208",
+              "heldByIncidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "A separately verified historical 2208 payment settles without account redirection",
+      "passed": true,
+      "at": "2026-10-25T00:44:03.701Z",
+      "evidence": {
+        "outcome": {
+          "ok": true
+        },
+        "payment": {
+          "_creationTime": 1792889024971.2317,
+          "_id": "mn7c7grat175tgc3pe3e2qrj3d8gzj7t",
+          "accountLast4": "2208",
+          "amountCents": 9200000,
+          "approvedBy": "n574b9gcvts0zx7qdt12dcgd718gzs95",
+          "assetId": "jd702h9afz1t8sdabee6z5scrh8gz4yg",
+          "bankChangeFlag": false,
+          "billId": "kh77mfyv1fx3ajgpx00f2z27k58gzbck",
+          "companyId": "kn79449pc895kf10hhhxea7rbh8gy3zm",
+          "decidedAt": 1792889042928,
+          "dueDate": 1793148224971,
+          "heldByIncidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+          "holdReasons": [
+            "Brightline Payroll Inc. is under an active security incident. Payment held until verified."
+          ],
+          "releaseVerification": {
+            "attestedAt": 1792889042928,
+            "attestedBy": "n574b9gcvts0zx7qdt12dcgd718gzs95",
+            "calledPhoneOnFile": true,
+            "confirmedAccountLast4": "2208",
+            "context": {
+              "accountLast4": "2208",
+              "amountCents": 9200000,
+              "assetId": "jd702h9afz1t8sdabee6z5scrh8gz4yg",
+              "bill": {
+                "amountCents": 9200000,
+                "assetId": "jd702h9afz1t8sdabee6z5scrh8gz4yg",
+                "companyId": "kn79449pc895kf10hhhxea7rbh8gy3zm",
+                "description": "Payroll processing, October",
+                "dueDate": 1793148224971
+              },
+              "billId": "kh77mfyv1fx3ajgpx00f2z27k58gzbck",
+              "companyId": "kn79449pc895kf10hhhxea7rbh8gy3zm",
+              "dueDate": 1793148224971,
+              "flaggedBankChangeId": null,
+              "heldByIncidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+              "latestBankRecord": {
+                "accountLast4": "7731",
+                "changedAt": 1792889039657,
+                "id": "kd753gxaf37vdh8n0b7jkz29md8gzg23",
+                "requestChannel": "email"
+              },
+              "paymentId": "mn7c7grat175tgc3pe3e2qrj3d8gzj7t",
+              "requestedBy": "n578y572jzs0rtv7add5gcwkbd8gyt87",
+              "vendor": {
+                "phoneOnFile": "+1 (415) 555-0142",
+                "vendorName": "Brightline Payroll Inc."
+              },
+              "version": 1
+            },
+            "identityScope": "masked_demo_account",
+            "ledgerEntryId": "m5760z08p0brzdspvrh3nxdajx8gzsma",
+            "method": "controller_phone_attestation"
+          },
+          "requestedBy": "n578y572jzs0rtv7add5gcwkbd8gyt87",
+          "seedRef": "pay_B_brightline_92k",
+          "status": "paid",
+          "verificationNote": "Synthetic rehearsal: Alex Morgan confirmed the displayed destination using the stored vendor phone; no real call occurred."
+        },
+        "context": {
+          "accountLast4": "2208",
+          "amountCents": 9200000,
+          "assetId": "jd702h9afz1t8sdabee6z5scrh8gz4yg",
+          "bill": {
+            "amountCents": 9200000,
+            "assetId": "jd702h9afz1t8sdabee6z5scrh8gz4yg",
+            "companyId": "kn79449pc895kf10hhhxea7rbh8gy3zm",
+            "description": "Payroll processing, October",
+            "dueDate": 1793148224971
+          },
+          "billId": "kh77mfyv1fx3ajgpx00f2z27k58gzbck",
+          "companyId": "kn79449pc895kf10hhhxea7rbh8gy3zm",
+          "dueDate": 1793148224971,
+          "flaggedBankChangeId": null,
+          "heldByIncidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+          "latestBankRecord": {
+            "accountLast4": "7731",
+            "changedAt": 1792889039657,
+            "id": "kd753gxaf37vdh8n0b7jkz29md8gzg23",
+            "requestChannel": "email"
+          },
+          "paymentId": "mn7c7grat175tgc3pe3e2qrj3d8gzj7t",
+          "requestedBy": "n578y572jzs0rtv7add5gcwkbd8gyt87",
+          "vendor": {
+            "phoneOnFile": "+1 (415) 555-0142",
+            "vendorName": "Brightline Payroll Inc."
+          },
+          "version": 1
+        },
+        "posting": {
+          "_creationTime": 1792889042928.1904,
+          "_id": "m5760z08p0brzdspvrh3nxdajx8gzsma",
+          "billId": "kh77mfyv1fx3ajgpx00f2z27k58gzbck",
+          "companyId": "kn79449pc895kf10hhhxea7rbh8gy3zm",
+          "date": 1792889042928,
+          "lines": [
+            {
+              "account": "accounts_payable",
+              "creditCents": 0,
+              "debitCents": 9200000
+            },
+            {
+              "account": "cash",
+              "creditCents": 9200000,
+              "debitCents": 0
+            }
+          ],
+          "memo": "Payment released after verification: Synthetic rehearsal: Alex Morgan confirmed the displayed destination using the stored vendor phone; no real call occurred.",
+          "paymentId": "mn7c7grat175tgc3pe3e2qrj3d8gzj7t"
+        },
+        "cashBeforeCents": 495900000,
+        "cashAfterCents": 486700000
+      }
+    }
+  ],
+  "cleanup": [
+    {
+      "role": "otherController",
+      "signedOut": true
+    },
+    {
+      "role": "clerk",
+      "signedOut": true
+    },
+    {
+      "role": "controller",
+      "signedOut": true
+    }
+  ],
+  "environment": {
+    "demoMode": true,
+    "aiLive": false
+  },
+  "payment": {
+    "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+    "billId": "kh78589nt0a6rx2txawz1gazyx8gytj7",
+    "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+    "amountCents": 48000000,
+    "accountLast4": "7731",
+    "releaseContext": {
+      "accountLast4": "7731",
+      "amountCents": 48000000,
+      "assetId": "jd702h9afz1t8sdabee6z5scrh8gz4yg",
+      "bill": {
+        "amountCents": 48000000,
+        "assetId": "jd702h9afz1t8sdabee6z5scrh8gz4yg",
+        "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+        "description": "Q4 payroll funding and service fees",
+        "dueDate": 1792961024971
+      },
+      "billId": "kh78589nt0a6rx2txawz1gazyx8gytj7",
+      "companyId": "kn7evxh5pf6mz6vpdc89pynbgh8gzwks",
+      "dueDate": 1792961024971,
+      "flaggedBankChangeId": "kd77c3hwrb5g3bk73j1rm4btpd8gy4rt",
+      "heldByIncidentId": "kx71bjxbnkftvxmzz0d697gtfh8gykse",
+      "latestBankRecord": {
+        "accountLast4": "7731",
+        "changedAt": 1792716224971,
+        "id": "kd77c3hwrb5g3bk73j1rm4btpd8gy4rt",
+        "requestChannel": "email"
+      },
+      "paymentId": "mn72hy3v5hx45pf0j695gedt918gyhej",
+      "requestedBy": "n570by293t89exe63stxrc8dr58gz2ws",
+      "vendor": {
+        "phoneOnFile": "+1 (415) 555-0142",
+        "vendorName": "Brightline Payroll Inc."
+      },
+      "version": 1
+    }
+  },
+  "completedAt": "2026-10-25T00:44:04.268Z"
+}

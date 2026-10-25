@@ -4,7 +4,7 @@
 // Release / Reject; anyone else gets a quiet "Try to release" (the backend refuses the requester
 // and non-controllers, which is demo beat 2). The PE firm only reads (no viewer).
 import { useQuery } from "convex/react";
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { dateTime, humanize, money } from "./format";
@@ -143,16 +143,21 @@ export function Signatures({
       </SignatureLine>
       {done ? (
         <SignatureLine
-          label={done.status === "paid" ? "Verified by phone, then released by" : "Rejected by"}
+          label={done.status === "paid" ? (payment.releaseVerification ? "Call attested and payment released by" : "Released by (legacy note)") : "Rejected by"}
           signed
           tone={done.status === "paid" ? "ok" : "danger"}
         >
           {done.byName ?? "A controller"}
           {done.at !== null && <span className="font-normal text-ash"> · {dateTime(done.at)}</span>}
           {done.note && <span className="mt-1 block text-sm font-normal text-ash">“{done.note}”</span>}
+          {payment.releaseVerification && <span className="mt-2 block text-sm font-normal text-ash">
+            Controller recorded a call to {payment.releaseVerification.context.vendor?.phoneOnFile},
+            confirming {money(payment.releaseVerification.context.amountCents)} to account ending {payment.releaseVerification.confirmedAccountLast4}.
+            <span className="mt-1 block">Saved with this payment’s ledger entry. Demo uses masked account details.</span>
+          </span>}
         </SignatureLine>
       ) : (
-        <SignatureLine label="Verified by phone, then released by">
+        <SignatureLine label="Call attested and payment released by">
           {decision?.isDecider ? "You, after the call" : controller ? `${controller.name}, controller` : "A controller"}
           <span className="font-normal text-ash"> · Not yet signed</span>
         </SignatureLine>
@@ -201,7 +206,7 @@ function Refusal({ text }: { text: string }) {
   );
 }
 
-// For the controller: the note, then Release / Reject. Release waits for a note: the call is the control.
+// The controller records the exact destination and a callback attestation before release.
 export function DecisionForm({
   paymentId,
   decision,
@@ -211,17 +216,47 @@ export function DecisionForm({
   decision: Decision;
   large?: boolean;
 }) {
-  const { note, setNote, busy, refusal, decide } = decision;
+  const formId = useId();
+  const { note, setNote, busy, refusal, decide, confirmedAccountLast4, setConfirmedAccountLast4,
+    calledPhoneOnFile, setCalledPhoneOnFile, contextChanged, accountMismatch, canRelease,
+    restartVerification, destination, callbackPhone } = decision;
   return (
     <div className="space-y-3">
+      <p className="text-sm text-ash">This payment goes to account ending <strong className="text-paper">{destination}</strong>.</p>
+      <label className="block text-sm font-medium" htmlFor={`account-${paymentId}-${formId}`}>
+        Account ending confirmed by the vendor
+      </label>
+      <input id={`account-${paymentId}-${formId}`} name="confirmedAccountLast4" type="text" inputMode="numeric"
+        autoComplete="off" maxLength={4} value={confirmedAccountLast4}
+        aria-describedby={`verification-help-${paymentId}-${formId}`}
+        onChange={e => setConfirmedAccountLast4(e.target.value.replace(/[^0-9]/g, ""))}
+        placeholder="Four digits" className="w-full rounded-chip border border-line bg-graphite px-3 py-2 text-base tabular-nums" />
+      <p id={`verification-help-${paymentId}-${formId}`} className="text-sm text-ash">
+        Enter what the vendor confirmed. Releasing keeps the destination shown above.
+      </p>
+      {accountMismatch && <p role="status" className="text-sm text-danger">
+        The confirmed account differs from this payment. Keep it held or reject it; no money will move.
+      </p>}
+      <label className="flex items-start gap-3 text-sm leading-relaxed">
+        <input type="checkbox" name="calledPhoneOnFile" checked={calledPhoneOnFile}
+          onChange={e => setCalledPhoneOnFile(e.target.checked)} className="mt-1 size-4 shrink-0 accent-amber" />
+        <span>I called {callbackPhone} from the stored vendor record and confirmed this payment’s amount and destination.</span>
+      </label>
+      {contextChanged && <div role="status" className="space-y-2 rounded-chip border border-amber/50 p-3 text-sm">
+        <p>Payment or vendor details changed while you were verifying. Review the updated details and call again before releasing.</p>
+        <button type="button" onClick={restartVerification} disabled={busy !== undefined} className={BUTTON_SECONDARY}>
+          Start verification again
+        </button>
+      </div>}
       {/* In the hero the step title already asks the question, so the label is for screen readers. */}
-      <label className={large ? "sr-only" : "block text-sm font-medium text-paper"} htmlFor={`note-${paymentId}`}>
+      <label className={large ? "sr-only" : "block text-sm font-medium text-paper"} htmlFor={`note-${paymentId}-${formId}`}>
         Who did you speak to, and what did they confirm?
       </label>
       <textarea
-        id={`note-${paymentId}`}
+        id={`note-${paymentId}-${formId}`}
         name="verificationNote"
         autoComplete="off"
+        maxLength={2000}
         value={note}
         onChange={(e) => setNote(e.target.value)}
         rows={large ? 3 : 2}
@@ -231,7 +266,7 @@ export function DecisionForm({
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          disabled={busy !== undefined || note.trim() === ""}
+          disabled={busy !== undefined || !canRelease}
           onClick={() => void decide("release")}
           className={large ? BUTTON_PRIMARY_LG : BUTTON_PRIMARY}
         >

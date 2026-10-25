@@ -7,6 +7,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { refusalOf } from "../layout/errors";
 import { humanize, money } from "./format";
 import type { HeldPaymentRow } from "./types";
+import type { ReleaseContext } from "../../convex/paymentVerification";
 
 // Who is looking, so the instructions address the right person (the backend enforces the rules).
 export type Viewer = { id: Id<"users">; isController: boolean };
@@ -28,7 +29,29 @@ export function usePaymentDecision(row: HeldPaymentRow, viewer?: Viewer) {
   const { payment } = row;
   const release = useMutation(api.payments.releasePayment);
   const reject = useMutation(api.payments.rejectPayment);
-  const [note, setNote] = useState("");
+  type Draft = { paymentId: Id<"payments">; context: ReleaseContext | null;
+    note: string; confirmedAccountLast4: string; calledPhoneOnFile: boolean };
+  const freshDraft = (): Draft => ({ paymentId: payment._id, context: row.releaseContext,
+    note: "", confirmedAccountLast4: "", calledPhoneOnFile: false });
+  const [savedDraft, setDraft] = useState<Draft>(freshDraft);
+  // Freeze the facts when the form first appears. A live query may update the page during the call;
+  // it must not silently update what the controller is attesting to.
+  const draft = savedDraft?.paymentId === payment._id ? savedDraft : {
+    paymentId: payment._id, context: row.releaseContext,
+    note: "", confirmedAccountLast4: "", calledPhoneOnFile: false,
+  };
+  const { note, confirmedAccountLast4, calledPhoneOnFile } = draft;
+  const update = (change: Partial<Pick<Draft, "note" | "confirmedAccountLast4" | "calledPhoneOnFile">>) =>
+    setDraft({ ...draft, ...change });
+  const setNote = (note: string) => update({ note });
+  const setConfirmedAccountLast4 = (confirmedAccountLast4: string) => update({ confirmedAccountLast4 });
+  const setCalledPhoneOnFile = (calledPhoneOnFile: boolean) => update({ calledPhoneOnFile });
+  const contextChanged = !!savedDraft && savedDraft.paymentId === payment._id &&
+    JSON.stringify(draft.context) !== JSON.stringify(row.releaseContext);
+  const accountMismatch = confirmedAccountLast4.length === 4 && confirmedAccountLast4 !== payment.accountLast4;
+  const canRelease = !!draft.context && !contextChanged && calledPhoneOnFile &&
+    /^\d{4}$/.test(confirmedAccountLast4) && !accountMismatch &&
+    note.trim().length >= 15 && /[a-z]{2,}\s+[a-z]{2,}/i.test(note);
   const [busy, setBusy] = useState<"release" | "reject">();
   const [refusal, setRefusal] = useState<string>();
   // Mirrors the backend rule (controller, not the requester) only to word the screen and skip a
@@ -52,12 +75,18 @@ export function usePaymentDecision(row: HeldPaymentRow, viewer?: Viewer) {
     setRefusal(
       await refusalOf(() =>
         action === "release"
-          ? release({ ...args, verificationNote: trimmed })
+          ? release({ ...args, verificationNote: trimmed, ...(draft.context ? {
+            verification: { context: draft.context, confirmedAccountLast4, calledPhoneOnFile },
+          } : {}) })
           : reject(trimmed ? { ...args, note: trimmed } : args),
       ),
     );
     setBusy(undefined);
   };
-  return { note, setNote, busy, refusal, decide, isRequester, isDecider };
+  const restartVerification = () => { setDraft(freshDraft()); setRefusal(undefined); };
+  return { note, setNote, busy, refusal, decide, isRequester, isDecider,
+    confirmedAccountLast4, setConfirmedAccountLast4, calledPhoneOnFile, setCalledPhoneOnFile,
+    contextChanged, accountMismatch, canRelease, restartVerification,
+    destination: payment.accountLast4, callbackPhone: draft.context?.vendor?.phoneOnFile ?? row.phoneOnFile };
 }
 
