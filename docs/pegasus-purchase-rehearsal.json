@@ -1,0 +1,93 @@
+{
+  "generatedAt": "2026-10-25T00:14:27.358Z",
+  "deployment": "https://tangible-koala-842.convex.cloud",
+  "settlement": "demo_ledger",
+  "source": "live Convex API, real authenticated sessions, concurrent HTTP requests; fixture tampering through internal demo-only functions",
+  "cases": [
+    {
+      "name": "Concurrent split-budget attack",
+      "passed": true,
+      "observed": "$180 and $210 raced against $300; exactly one settled"
+    },
+    {
+      "name": "Unconfirmed-report flood preserves purchasing",
+      "passed": true,
+      "observed": "18000 cents settled after five unconfirmed reports"
+    },
+    {
+      "name": "Duplicate payment replay",
+      "passed": true,
+      "observed": "No second settlement or budget consumption"
+    },
+    {
+      "name": "Twenty exact retries return the original receipt",
+      "passed": true,
+      "observed": "Same authenticated request ID returns its committed result without another debit or quota lockout"
+    },
+    {
+      "name": "A request ID cannot be reused for a different bill",
+      "passed": true,
+      "observed": "A conflicting purchase cannot inherit the earlier result"
+    },
+    {
+      "name": "Invoice instruction tampering",
+      "passed": true,
+      "observed": "Changed description refused; invoice text cannot alter approval"
+    },
+    {
+      "name": "Read-only preview explains changed approval facts",
+      "passed": true,
+      "observed": "The same decision evaluator exposes saved/current differences without writing a decision or payment"
+    },
+    {
+      "name": "Payee substitution with the same suffix",
+      "passed": true,
+      "observed": "New bank record refused even though both end in 4242"
+    },
+    {
+      "name": "Historical receipt survives later revocation",
+      "passed": true,
+      "observed": "Retry retrieves the earlier completed decision; it does not consume revoked authority again"
+    },
+    {
+      "name": "Revoked approval replay",
+      "passed": true,
+      "observed": "No old approval reactivated"
+    },
+    {
+      "name": "Requester cannot self-authorize",
+      "passed": true,
+      "observed": "AP clerk cannot create purchasing authority"
+    },
+    {
+      "name": "Company record privacy",
+      "passed": true,
+      "observed": "Firm and unrelated company cannot read Summit receipts"
+    },
+    {
+      "name": "Compromised agent request flood",
+      "passed": true,
+      "observed": "Convex component refused excess requests under this agent's own key"
+    },
+    {
+      "name": "Unrelated business continues",
+      "passed": true,
+      "observed": "Another company's $120 purchase settled automatically during the attack"
+    },
+    {
+      "name": "Human caller isolated from agent flood",
+      "passed": true,
+      "observed": "Human reached the purchase policy; agent throttle did not lock out its owner"
+    },
+    {
+      "name": "Only the controller-selected agent can consume its approval",
+      "passed": true,
+      "observed": "Another valid agent for the same clerk cannot inherit the selected agent's purchase authority"
+    },
+    {
+      "name": "Decision record binds executor, facts, budget and ledger",
+      "passed": true,
+      "observed": "The authorized $120 settlement retains its exact decision evidence and ledger reference"
+    }
+  ]
+}
