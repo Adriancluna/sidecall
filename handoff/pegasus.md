@@ -1,5 +1,5 @@
 # Pegasus: release handoff
-Last updated: 2026-10-24, 18:32 PT by Pegasus
+Last updated: 2026-10-24, 19:07 PT by Pegasus
 
 ## Ready for Role 1 review: [PR #132](https://github.com/Adriancluna/sidecall/pull/132)
 
@@ -10,6 +10,8 @@ Ashwa explicitly requested both proposed upgrades, necessary UI fixes and finish
 **Actual browser acceptance:** a separate $120 invoice was submitted through the UI, completed with two real Opus calls and one posting, and its eight visible challenges passed with debit $120 → $120. Controller/AP permissions, budget validation, single-vendor selection and desktop/375px layout were checked; document width is 375px with no overflowing main form fields. Cash reconciles $5M → $4,999,820 → $4,999,700. Browser export/observations: `scripts/console/ui-report.json`; screenshots: `docs/images/purchase-console-result.png`, `purchase-console-challenges.png`, `purchase-console-mobile.png`. The later UI-only polish clears/collapses a successfully submitted form and prioritizes already-requested guidance; types/lint/build pass, with no second paid browser run claimed. All test approvals revoked, no active jobs, browser signed out, temporary tab/server closed, viewport restored. Synthetic evidence remains.
 
 **Key/configuration:** Ashwa added the server API key and it is verified working on Pegasus DEV `tangible-koala-842`. `DEMO_MODE=true`, background `AI_LIVE` and external `NOTIFY_LIVE` remain off. Explicit console submission uses the server key plus presenter capability and existing rate limits. Production configuration has not been inspected or changed; DEV success is not a production claim. Details: `docs/pegasus-purchase-console.md` and CONTRACT.md.
+
+**Website opened for Ashwa:** https://sidecall.vercel.app is loaded at its private-demo password screen. No login, production change or deployment verification performed; latest #118 checked with no new incoming request. — Pegasus
 
 ## Needs from others
 
