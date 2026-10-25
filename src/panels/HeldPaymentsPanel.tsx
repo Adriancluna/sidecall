@@ -23,7 +23,7 @@ export function HeldPaymentsPanel({
   return (
     // The tab already names the list, so the title is for screen readers; cards sit on the page,
     // not in a card around them (no boxes inside boxes).
-    <section aria-label={title}>
+    <section id="other-held" aria-label={title} className="scroll-mt-20">
       {intro && <p className="mb-5 max-w-3xl text-ash">{intro}</p>}
       <div>
         {rows === undefined ? (

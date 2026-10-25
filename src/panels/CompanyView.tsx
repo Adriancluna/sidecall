@@ -83,8 +83,11 @@ export function CompanyView({ companyId, meId, role }: Props) {
     : undefined;
 
   const tabIds = ["alerts", "payments", "bills", "playbook", "timeline", "controls", "ledger", "notifications"] as const;
-  const fallback = isController ? "payments" : role === "ap_clerk" ? "bills" : "alerts";
-  const { active, select } = useTabs(tabIds, fallback);
+  // The hero's page, and where everyone lands: finance on Held payments, IT on the incident.
+  const leadTab = handlesPayments ? "payments" : "alerts";
+  const { active, select } = useTabs(tabIds, leadTab);
+  // The hero already shows this payment in full (decision and all), so its page lists only the others.
+  const otherHeld = held?.filter((r) => r.payment._id !== heroPayment?.payment._id);
 
   const tabs: TabDef[] = [
     {
@@ -108,12 +111,17 @@ export function CompanyView({ companyId, meId, role }: Props) {
       // Payment investigation (Pegasus, #103) lives under the held payments, not as its own tab.
       content: () => (
         <div className="space-y-8">
-          <HeldPaymentsPanel
-            title="Held payments"
-            rows={held}
-            escalations={handlesPayments ? escalations : undefined}
-            viewer={viewer}
-          />
+          {!(heroPayment && otherHeld?.length === 0) && (
+            <div>
+              {heroPayment && <h2 className="mb-4 text-xl font-semibold tracking-[-0.02em]">Other held payments</h2>}
+              <HeldPaymentsPanel
+              title={heroPayment ? "Other held payments" : "Held payments"}
+              rows={otherHeld}
+              escalations={handlesPayments ? escalations : undefined}
+              viewer={viewer}
+            />
+            </div>
+          )}
           <InvestigationPanel />
         </div>
       ),
@@ -158,7 +166,11 @@ export function CompanyView({ companyId, meId, role }: Props) {
         escalation={escalations.get(heroPayment.payment._id)}
         viewer={viewer}
         others={stillHeld.length - 1}
-        onOpenTab={(t) => select(t, true)}
+        onOpenTab={(t) =>
+          t === "payments"
+            ? document.getElementById("other-held")?.scrollIntoView({ behavior: "smooth", block: "start" })
+            : select(t)
+        }
       />
     );
   } else if (leadExposure) {
@@ -171,7 +183,7 @@ export function CompanyView({ companyId, meId, role }: Props) {
         incident={incident}
         phone={phoneFor(incident)}
         heldForIncident={{ count: heldHere.length, cents: heldHere.reduce((s, r) => s + r.payment.amountCents, 0) }}
-        onOpenTab={(t) => select(t, true)}
+        onOpenTab={(t) => select(t)}
       />
     );
   } else {
@@ -185,10 +197,14 @@ export function CompanyView({ companyId, meId, role }: Props) {
   }
 
   return (
-    <div className="space-y-14">
-      {hero}
-      <Tabs tabs={tabs} active={active} onSelect={(t) => select(t)} label={`${company?.name ?? "Company"} details`} />
-    </div>
+    <Tabs
+      tabs={tabs}
+      active={active}
+      onSelect={(t) => select(t)}
+      label={`${company?.name ?? "Company"} details`}
+      lead={hero}
+      leadTab={leadTab}
+    />
   );
 }
 

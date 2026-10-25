@@ -11,7 +11,7 @@ import { dateTime, humanize, money } from "./format";
 import { actionLabel, paymentLook, ruleLabel } from "./labels";
 import type { HeldPaymentRow } from "./types";
 import { LookChip } from "./ui";
-import { BUTTON_PRIMARY, BUTTON_PRIMARY_LG, BUTTON_SECONDARY, BUTTON_SECONDARY_LG } from "./styles";
+import { BUTTON_PRIMARY, BUTTON_PRIMARY_LG, BUTTON_SECONDARY, BUTTON_SECONDARY_LG, FIELD } from "./styles";
 import { dueIn, usePaymentDecision, type Viewer } from "./usePaymentDecision";
 
 type Decision = ReturnType<typeof usePaymentDecision>;
@@ -68,11 +68,11 @@ export function AccountChange({ row, size = "large" }: { row: HeldPaymentRow; si
   );
 }
 
-// "••2208": Manrope's bullets sit far apart, so they're pulled together.
+// "••2208": Geist spaces its bullets evenly, so they keep normal tracking and a small gap.
 function Last4({ digits }: { digits: string }) {
   return (
     <>
-      <span aria-hidden className="mr-[0.14em] tracking-[-0.34em]">
+      <span aria-hidden className="mr-[0.08em] tracking-normal">
         ••
       </span>
       <span className="sr-only">ending </span>
@@ -108,7 +108,7 @@ export function PhoneOnFile({ phone, large = false }: { phone: string; large?: b
   return (
     <a
       href={`tel:${phone.replace(/[^\d+]/g, "")}`}
-      className={`whitespace-nowrap text-amber tabular-nums underline-offset-4 hover:underline ${
+      className={`whitespace-nowrap text-link tabular-nums underline-offset-4 hover:underline ${
         large ? "text-2xl font-semibold tracking-tight md:text-[1.75rem]" : "font-semibold"
       }`}
     >
@@ -261,7 +261,7 @@ export function DecisionForm({
         onChange={(e) => setNote(e.target.value)}
         rows={large ? 3 : 2}
         placeholder="e.g. Called the number on file, spoke to …"
-        className="w-full resize-y rounded-chip border border-line bg-graphite px-3 py-2 text-sm leading-relaxed placeholder:text-ash/70 hover:border-ash/60 focus:border-ash"
+        className={`w-full resize-y leading-relaxed ${FIELD}`}
       />
       <div className="flex flex-wrap gap-2">
         <button

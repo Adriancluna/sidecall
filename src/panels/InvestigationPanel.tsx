@@ -59,6 +59,8 @@ export function InvestigationPanel({ firm = false }: { firm?: boolean }) {
           Invoice / email text
           <textarea
             className={`${FIELD} mt-2 min-h-48 w-full`}
+            name="sourceText"
+            autoComplete="off"
             maxLength={32000}
             value={sourceText}
             onChange={(e) => setSourceText(e.target.value)}
@@ -190,45 +192,50 @@ export function ResponseSafetyPanel() {
   const [busy, setBusy] = useState(false);
   return (
     <Card title="Response safety and continuity">
-      <p className="mb-4 text-sm text-ash">
-        Repeated reports are correlated without restarting actions or review
-        deadlines. Unconfirmed reports notify linked companies without holding
-        payments or changing access. Confirmed incidents hold new payments for
-        30 days; payments already held still require a controller decision.
-      </p>
+      <p className="text-sm text-ash">Every report the firm has received, and whether it can hold payments.</p>
+      <details className="mt-2 mb-4 text-sm text-ash">
+        <summary>How reports are handled</summary>
+        <p className="mt-2 max-w-prose leading-relaxed text-pretty">
+          A repeat of the same report joins the open one; it doesn't restart steps or deadlines. An
+          unconfirmed report only notifies linked companies: no holds, no access changes. A confirmed
+          incident holds new payments to the vendor for 30 days; payments already held still wait for a
+          controller.
+        </p>
+      </details>
       <p role="status" className="mb-3 text-sm">
         {message}
       </p>
-      <ul className="space-y-4">
+      <ul className="divide-y divide-line border-t border-line">
         {reports?.map((r) => (
-          <li key={r.incidentId} className="rounded-lg border border-line p-4">
+          <li key={r.incidentId} className="py-4">
             <p className="font-semibold">{r.assetName}</p>
             <p className="mt-1 text-sm">
               {r.responseClass === "observation"
-                ? "Unconfirmed — notify only"
-                : "Confirmed response episode"}{" "}
-              · {r.correlatedReports} related reports absorbed
+                ? "Unconfirmed: companies notified, nothing held"
+                : "Confirmed incident"}
+              {r.correlatedReports > 0 &&
+                ` · ${r.correlatedReports} repeat report${r.correlatedReports === 1 ? "" : "s"} merged into this one`}
             </p>
             <p className="mt-1 text-sm text-ash">
               {r.reviewDueAt
-                ? `Original review deadline: ${dateTime(r.reviewDueAt)}`
-                : "Legacy episode"}
-              {r.reviewEscalatedAt ? " · scheduled review requested" : ""}
+                ? `Review due ${dateTime(r.reviewDueAt)}`
+                : "No review deadline"}
+              {r.reviewEscalatedAt ? " · review reminder sent" : ""}
               {r.containedAt ? " · contained" : ""}
               {r.reviewedAt ? " · reviewed" : ""}
             </p>
             {r.summary && (
               <p className="mt-2 break-words text-sm">
-                Reported summary (unverified input): {r.summary}
+                What the reporter said (not verified): {r.summary}
               </p>
             )}
             <p className="mt-1 text-xs text-ash">
-              Latest related report: {dateTime(r.lastReportedAt)}
+              Last reported {dateTime(r.lastReportedAt)}
             </p>
             {r.evidenceRefs.length > 0 && (
               <details className="mt-2 text-sm">
                 <summary>
-                  Reported evidence references (not independent proof)
+                  Evidence the reporter sent (not independent proof)
                 </summary>
                 <ul className="mt-2 space-y-1">
                   {r.evidenceRefs.map((ref) => (
@@ -246,7 +253,9 @@ export function ResponseSafetyPanel() {
                   <label className="block text-sm">
                     Independent evidence checked
                     <textarea
-                    className={`${FIELD} mt-1 w-full`}
+                      name="evidenceNote"
+                      autoComplete="off"
+                      className={`${FIELD} mt-1 w-full`}
                     value={notes[r.incidentId] ?? ""}
                     onChange={(e) =>
                       setNotes({ ...notes, [r.incidentId]: e.target.value })

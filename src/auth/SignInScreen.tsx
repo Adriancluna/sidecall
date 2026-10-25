@@ -108,19 +108,19 @@ export function SignInScreen() {
                       disabled={busy}
                       onClick={() => void run(seatEmail)}
                       className={`group flex h-full w-full flex-col rounded-tile border p-4 text-left transition-colors hover:bg-panel disabled:cursor-wait md:p-5 ${
-                        start ? "border-amber/70 bg-panel" : "border-line"
+                        start ? "border-[#454545] bg-panel" : "border-line"
                       }`}
                     >
                       <span className="flex w-full items-center justify-between gap-2 text-sm text-ash">
                         <span>{ROLE_LABEL[person.role]}</span>
-                        {start && <span className="font-semibold text-amber">Start here</span>}
+                        {start && <span className="rounded-full bg-[oklch(22.17%_0.069_259.89)] px-2 text-xs leading-6 font-medium text-link">Start here</span>}
                       </span>
                       <span className="mt-3 text-lg font-semibold tracking-tight">
                         {person.name.replace(/\s*\(.*\)$/, "")}
                       </span>
                       <span className="text-sm text-ash">{person.company === "PE firm" ? "Northpass Capital" : person.company}</span>
                       <span className="mt-3 text-sm leading-relaxed text-paper/90">{sees}</span>
-                      <span className="mt-4 text-sm font-semibold text-amber group-hover:underline group-disabled:text-ash">
+                      <span className="mt-4 text-sm font-medium text-link group-hover:underline group-disabled:text-ash">
                         {pending === seatEmail ? "Signing in…" : `Sign in as ${person.name.split(" ")[0]}`}
                       </span>
                     </button>
