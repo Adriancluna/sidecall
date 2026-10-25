@@ -3,6 +3,8 @@ Last updated: 2026-10-24 by Pegasus
 
 ## Current work: purchasing intent and decision evidence
 
+**Model preference (Oct 24, Pegasus):** Ashwa explicitly selected Claude Opus 5.5. The project default was already `claude-opus-5-5`, and the successful ten-call proof used it. The private local launcher now pins that model explicitly in preflight and execution, overriding any `ANTHROPIC_MODEL` setting. Shell syntax and option precedence were checked without another paid run; no chatbot or backend changes.
+
 **Ready for Adrian's review: [PR #125](https://github.com/Adriancluna/sidecall/pull/125), source implementation `891999a`, verified live at `cb01f79`.** Based on main `79192b4` after #120 merged. The real-Claude acceptance step now passes and the draft restriction is removed. No production deployment or self-merge. Pegasus DEV `tangible-koala-842` runs this candidate; its synthetic receipts/held payment remain available for inspection.
 
 The existing Bills panel now supports exact saved-bill/payee approvals, optional controller-selected agent scope, per-purchase and atomic total budgets, stable executor-scoped request IDs, immutable decision snapshots with ledger references, and a live read-only preview using the same evaluator. Exact retries retrieve historical decisions without a second debit, receipt, audit or quota charge; revoked agents still fail authentication. A new approval supersedes older ones, and revocation cannot reactivate them. No chatbot changes, new dashboard, package addition, Visa/bank connector, or claim of AP2/TAP integration.

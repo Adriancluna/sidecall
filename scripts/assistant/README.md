@@ -23,6 +23,8 @@ node scripts/assistant/rehearse.mjs --deployment tangible-koala-842 --report scr
 
 The model defaults to the project's `MODEL` in `prompts/writing.ts`, currently `claude-opus-5-5`, verified against the official [model overview](https://platform.claude.com/docs/en/models/overview). `--model` or `ANTHROPIC_MODEL` can override it. Opus 5.5 and Sonnet 5.5 have recorded standard input/output prices; another model requires both `--input-usd-per-million` and `--output-usd-per-million` so cost estimates are explicit.
 
+Ashwa selected Opus 5.5 on October 24. Pegasus's local `pegasus-assistant-proof.command` launcher explicitly passes `--model claude-opus-5-5` for preflight and execution, so an environment override cannot silently select another model. The recorded passing run already used Opus 5.5.
+
 Defaults are eight rounds per case, 4,096 output tokens per model call, a 60,000-input-token ceiling and a $5 application budget for all three cases. Options `--max-rounds`, `--max-output-tokens` and `--max-budget-usd` remain bounded. The [token-count endpoint](https://platform.claude.com/docs/en/api/messages/count_tokens) runs before each generation; budget admission reserves counted input plus maximum output and 25%, then tracks actual returned usage. This estimate is not a provider billing cap. There is no hidden automatic retry of model or payment calls.
 
 The sequence is:
