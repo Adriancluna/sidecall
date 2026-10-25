@@ -10,7 +10,7 @@ import { postLedgerEntry } from "./ledger";
 import { livePaymentForBill } from "./paymentLookup";
 import { activeIncidentFor } from "./payments";
 import type { Infer } from "convex/values";
-import { purchaseEvidence } from "./purchaseTypes";
+import { purchaseEvidence, purchaseOverview, purchasePreview, purchaseRecord } from "./purchaseTypes";
 
 function cents(value: number) {
   return Number.isSafeInteger(value) && value > 0 && value <= 100_000_000;
@@ -24,6 +24,7 @@ export const approve = mutation({
     expiresAt: v.number(),
     executorAgentId: v.optional(v.id("agents")),
   },
+  returns: v.id("purchaseMandates"),
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
     if (viewer.firm || viewer.user.role !== "controller")
@@ -71,6 +72,8 @@ export const approve = mutation({
     const assetId = bills[0].assetId;
     if (bills.some((b) => b.assetId !== assetId))
       throw new ConvexError("Each approval covers exactly one vendor.");
+    if (await activeIncidentFor(ctx, assetId, now))
+      throw new ConvexError("A confirmed vendor incident is active. Resolve it before granting automatic purchasing authority.");
     const bank = await ctx.db
       .query("bankDetailChanges")
       .withIndex("by_assetId_and_changedAt", (q) => q.eq("assetId", assetId))
@@ -94,7 +97,10 @@ export const approve = mutation({
       createdAt: now,
       expiresAt: args.expiresAt,
     });
-    for (const bill of bills)
+    for (const bill of bills) {
+      // A fresh controller approval explicitly restores authority after the latest rejection.
+      // Capture its identity, rather than comparing timestamps that can tie in one millisecond.
+      const priorRejection = await rejectedPaymentForBill(ctx, bill._id);
       await ctx.db.insert("purchaseQuotes", {
         mandateId,
         billId: bill._id,
@@ -102,7 +108,9 @@ export const approve = mutation({
         amountCents: bill.amountCents,
         description: bill.description,
         dueDate: bill.dueDate,
+        priorRejectionId: priorRejection?._id,
       });
+    }
     await ctx.db.insert("auditLog", {
       at: now,
       actor: viewer.user._id,
@@ -117,6 +125,7 @@ export const approve = mutation({
 
 export const revoke = mutation({
   args: { mandateId: v.id("purchaseMandates") },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
     const mandate = await ctx.db.get("purchaseMandates", args.mandateId);
@@ -161,6 +170,34 @@ async function eligibleAgent(ctx: QueryCtx, id: Id<"agents">, companyId: Id<"com
 const billFacts = (bill: Doc<"bills"> | Doc<"purchaseQuotes">) => ({ assetId: bill.assetId,
   amountCents: bill.amountCents, description: bill.description, dueDate: bill.dueDate });
 
+async function rejectedPaymentForBill(ctx: QueryCtx, billId: Id<"bills">) {
+  return ctx.db.query("payments").withIndex("by_billId_and_status", q => q.eq("billId", billId).eq("status", "rejected"))
+    .order("desc").first();
+}
+
+// Rejection overrides the current effective grant. Quotes remain immutable evidence; no older
+// grant can reactivate because evaluation always chooses the newest mandate for the vendor.
+export async function invalidatePurchaseApprovalForBill(ctx: MutationCtx, payment: Doc<"payments">,
+  actor: Id<"users">, now: number): Promise<void> {
+  const mandate = await ctx.db.query("purchaseMandates")
+    .withIndex("by_companyId_and_assetId", q => q.eq("companyId", payment.companyId).eq("assetId", payment.assetId))
+    .order("desc").first();
+  if (!mandate || mandate.revokedAt !== undefined) return;
+  const quote = await ctx.db.query("purchaseQuotes")
+    .withIndex("by_mandateId_and_billId", q => q.eq("mandateId", mandate._id).eq("billId", payment.billId)).unique();
+  if (!quote) return;
+  await ctx.db.patch("purchaseMandates", mandate._id, { revokedAt: now });
+  await ctx.db.insert("auditLog", { at: now, actor, action: "policy", companyId: payment.companyId,
+    paymentId: payment._id, rule: "purchase_mandate_revoked_after_rejection",
+    reason: `Controller rejected payment ${payment._id}; revoked automatic approval ${mandate._id}. Saved quotes and earlier receipts are retained.` });
+}
+
+const MANUAL_FALLBACK_CHECKS = new Set(["bill_not_approved", "purchase_limit", "total_budget", "approval_inactive", "executor_scope"]);
+export function purchaseCanFallBackToManual(decision: PurchaseDecision, allowIncidentHold = false): boolean {
+  return decision.kind === "refused" && decision.evidence.checks.filter(c => !c.passed)
+    .every(c => MANUAL_FALLBACK_CHECKS.has(c.code) || (allowIncidentHold && c.code === "confirmed_incident"));
+}
+
 // Read-only evaluator shared by preview and execution. Every execution read and write stays in
 // one mutation, so mandate replacement/revocation, bank changes and concurrent spending serialize.
 export async function evaluatePurchase(
@@ -175,6 +212,7 @@ export async function evaluatePurchase(
   const approver = await ctx.db.get("users", mandate.approvedBy);
   const quote = await ctx.db.query("purchaseQuotes")
     .withIndex("by_mandateId_and_billId", q => q.eq("mandateId", mandate._id).eq("billId", bill._id)).unique();
+  const priorRejection = await rejectedPaymentForBill(ctx, bill._id);
   const executor = agentId ? await eligibleAgent(ctx, agentId, viewer.companyId) : null;
   const checks: Evidence["checks"] = [];
   const check = (code: string, passed: boolean, reason: string) => checks.push({ code, passed, reason });
@@ -184,11 +222,13 @@ export async function evaluatePurchase(
     "The original controller must retain authority and be different from the requester.");
   check("executor_authority", !agentId || (!!executor && executor.user._id === viewer.user._id), "The requesting agent must remain active for this company's AP clerk and payment tool.");
   check("executor_scope", !mandate.executorAgentId || mandate.executorAgentId === agentId, "Requester must match the approval’s company-wide or selected-agent scope.");
+  check("controller_rejected", !priorRejection || quote?.priorRejectionId === priorRejection._id,
+    "A controller rejected this bill. A fresh controller approval is required before it can be paid automatically.");
   check("approval_inactive", mandate.revokedAt === undefined && now < mandate.expiresAt, "The purchasing approval must not be expired or revoked.");
   check("approval_changed", expectedMandateId === undefined || expectedMandateId === mandate._id, "The request must use the current purchasing approval.");
   check("confirmed_incident", incident === null, "A confirmed vendor incident requires a separate controller decision.");
   check("bill_not_approved", !!quote, "This bill must be in the controller's approved purchases.");
-  check("bill_changed", !!quote && quote.assetId === bill.assetId && quote.amountCents === bill.amountCents && quote.description === bill.description && quote.dueDate === bill.dueDate,
+  check("bill_changed", !quote || (quote.assetId === bill.assetId && quote.amountCents === bill.amountCents && quote.description === bill.description && quote.dueDate === bill.dueDate),
     "The bill must match the saved amount, vendor, description and due date.");
   check("payee_changed", !!bank && bank._id === mandate.bankDetailId && bank.accountLast4 === mandate.accountLast4 && bank.changedAt === mandate.bankChangedAt && bank.requestChannel === "verified_call",
     "The payee must match the independently verified record approved by the controller, not only its last four digits.");
@@ -246,6 +286,7 @@ export async function settlePurchase(ctx: MutationCtx, viewer: CompanyViewer, bi
 
 export const preview = query({
   args: { billId: v.id("bills"), asOf: v.number(), executorAgentId: v.optional(v.id("agents")) },
+  returns: purchasePreview,
   handler: async (ctx, args) => {
     if (!Number.isSafeInteger(args.asOf) || args.asOf < 0) throw new ConvexError("asOf must be a nonnegative safe timestamp.");
     const viewer = await getViewer(ctx);
@@ -269,6 +310,7 @@ export const preview = query({
 
 export const overview = query({
   args: {},
+  returns: purchaseOverview,
   handler: async (ctx) => {
     const viewer = await getViewer(ctx);
     if (viewer.firm) return null;
@@ -291,16 +333,22 @@ export const overview = query({
       .withIndex("by_companyId", (q) => q.eq("companyId", viewer.companyId))
       .order("desc")
       .take(50);
-    const agentRows = await ctx.db.query("agents").order("desc").take(100);
+    const companyUsers = await ctx.db.query("users")
+      .withIndex("by_companyId", q => q.eq("companyId", viewer.companyId)).take(501);
+    if (companyUsers.length > 500) throw new ConvexError("Too many company users to list purchase executors safely.");
     const eligibleAgents = [];
-    for (const row of agentRows) {
-      const match = await eligibleAgent(ctx, row._id, viewer.companyId);
-      if (match) eligibleAgents.push({ id: row._id, name: row.name, onBehalfOfName: match.user.name });
+    for (const user of companyUsers) {
+      if (user.role !== "ap_clerk" || !user.email) continue;
+      const agents = await ctx.db.query("agents")
+        .withIndex("by_onBehalfOfEmail_and_revokedAt", q => q.eq("onBehalfOfEmail", user.email!).eq("revokedAt", undefined)).take(101);
+      if (agents.length > 100) throw new ConvexError("Too many active payment agents for one clerk. Revoke unused credentials first.");
+      for (const agent of agents) if (agent.tools.includes("request_payment"))
+        eligibleAgents.push({ id: agent._id, name: agent.name, onBehalfOfName: user.name });
     }
     return {
       eligibleAgents,
       canApprove: viewer.user.role === "controller",
-      demoOnly: true,
+      demoOnly: true as const,
       enabled: env.DEMO_MODE === "true",
       mandates: await Promise.all(
         current.map(async (m) => ({
@@ -330,13 +378,14 @@ export const overview = query({
 // Optional stage fixture, separate from reset/seed so the original four demo scenarios stay exact.
 export const loadSamples = mutation({
   args: { presenterKey: v.optional(v.string()) },
+  returns: v.object({ created: v.boolean() }),
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
     if (
       viewer.firm ||
       viewer.user.role !== "controller" ||
       env.DEMO_MODE !== "true" ||
-      (env.PRESENTER_KEY && args.presenterKey !== env.PRESENTER_KEY)
+      !env.PRESENTER_KEY || args.presenterKey !== env.PRESENTER_KEY
     )
       throw new ConvexError(
         "Only an authorized demo controller can load these sample purchases.",
@@ -395,6 +444,7 @@ export const loadSamples = mutation({
 // approval supersedes them. Current settings alone cannot explain an earlier settlement.
 export const getRecord = query({
   args: {},
+  returns: purchaseRecord,
   handler: async (ctx) => {
     const viewer = await getViewer(ctx);
     if (viewer.firm) return null;
@@ -419,8 +469,8 @@ export const getRecord = query({
       });
     }
     return {
-      format: "sidecall.purchase-record.v1",
-      settlement: "demo_ledger",
+      format: "sidecall.purchase-record.v1" as const,
+      settlement: "demo_ledger" as const,
       companyId: viewer.companyId,
       receipts,
       approvals,

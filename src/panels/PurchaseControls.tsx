@@ -342,7 +342,7 @@ export function PurchaseControls() {
               )}{" "}
               automatically settled
             </span>{" "}
-            · {overview.receipts.length - settled.length} refused attempts ·
+            · {overview.receipts.length - settled.length} automatic purchase refusals ·
             demo ledger
           </p>
           <ul className="mt-3 divide-y divide-line">

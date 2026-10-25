@@ -59,6 +59,8 @@ export function preflight(options, { env = process.env, cwd = process.cwd(), own
   // This happens before sign-in, minting, fixture setup, or any other mutation.
   requireProof(typeof env.ANTHROPIC_API_KEY === "string" && env.ANTHROPIC_API_KEY.trim().length > 0,
     "ANTHROPIC_API_KEY is missing; no model call or setup mutation was made.");
+  requireProof(typeof env.PRESENTER_KEY === "string" && env.PRESENTER_KEY.trim().length > 0,
+    "PRESENTER_KEY is missing; sample setup requires the configured DEV presenter key. No setup mutation was made.");
   const guard = () => owned({ argv: ["--deployment", options.deployment], cwd, env });
   requireProof(guard().deployment === options.deployment, "The guarded DEV does not match the requested target.");
   return { guard, cloud: `https://${options.deployment}.convex.cloud`, site: `https://${options.deployment}.convex.site` };

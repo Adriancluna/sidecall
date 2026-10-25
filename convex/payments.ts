@@ -9,7 +9,7 @@ import { insertReadyAlert } from "./alerts";
 import { DAY_MS, formatUsd, MAX_FANOUT, memo } from "./shared";
 import { postLedgerEntry } from "./ledger";
 import { purchaseLimits } from "./purchaseLimits";
-import { evaluatePurchase, recordPurchaseRefusal, settlePurchase } from "./purchases";
+import { evaluatePurchase, recordPurchaseRefusal, settlePurchase, purchaseCanFallBackToManual, invalidatePurchaseApprovalForBill } from "./purchases";
 import { livePaymentForBill } from "./paymentLookup";
 import { paymentRequestResult } from "./purchaseTypes";
 import type { Infer } from "convex/values";
@@ -269,7 +269,8 @@ async function executePaymentRequest(ctx: MutationCtx, viewer: Exclude<Viewer, {
   if (decision.kind === "refused") {
     receiptId = await recordPurchaseRefusal(ctx, viewer, bill, decision, agentId, options.requestId);
     // A confirmed incident retains the existing hold path, with separate human release authority.
-    if (!(incident && company?.holdRuleEnabled)) return { ok: false, reason: decision.reason, receiptId };
+    if (!purchaseCanFallBackToManual(decision, !!(incident && company?.holdRuleEnabled)))
+      return { ok: false, reason: decision.reason, receiptId };
   }
   if (!latestChange) return { ok: false, reason: "No bank details on file for this vendor.", ...(receiptId ? { receiptId } : {}) };
   const paymentId = await ctx.db.insert("payments", { billId: bill._id, companyId: bill.companyId, assetId: asset._id,
@@ -278,7 +279,10 @@ async function executePaymentRequest(ctx: MutationCtx, viewer: Exclude<Viewer, {
     receiptId = await settlePurchase(ctx, viewer, bill, paymentId, decision, agentId, options.requestId);
     return { ok: true, paymentId, held: false, flagged: false, automatic: true, receiptId };
   }
-  if (!incident || !company?.holdRuleEnabled) return { ok: true, paymentId, held: false, flagged: false };
+  if (!incident || !company?.holdRuleEnabled) {
+    if (receiptId) await ctx.db.patch("purchaseReceipts", receiptId, { paymentId });
+    return { ok: true, paymentId, held: false, flagged: false, ...(receiptId ? { receiptId } : {}) };
+  }
   const flagged = await holdNewPayment(ctx, { payment: (await ctx.db.get("payments", paymentId))!, incident, asset, at: now,
     rule: "hold_payments_requested_during_incident", reason: `Requested while ${asset.vendorName} is under an active security incident. Payment held until verified.` });
   if (receiptId) await ctx.db.patch("purchaseReceipts", receiptId, { paymentId });
@@ -441,6 +445,7 @@ export const rejectPayment = mutation({
     if (!check.ok) return check;
 
     const now = Date.now();
+    await invalidatePurchaseApprovalForBill(ctx, payment, actor, now);
     await ctx.db.patch("payments", payment._id, {
       status: "rejected",
       approvedBy: actor,

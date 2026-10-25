@@ -354,6 +354,7 @@ export default defineSchema({
   purchaseQuotes: defineTable({
     mandateId: v.id("purchaseMandates"),
     billId: v.id("bills"),
+    priorRejectionId: v.optional(v.id("payments")),
     assetId: v.id("assets"),
     amountCents: v.number(),
     description: v.string(),
@@ -486,6 +487,7 @@ export default defineSchema({
     revokedAt: v.optional(v.number()),
   })
     .index("by_tokenHash", ["tokenHash"])
+    .index("by_onBehalfOfEmail_and_revokedAt", ["onBehalfOfEmail", "revokedAt"])
     .index("by_name_and_revokedAt", ["name", "revokedAt"]),
 
   // One row per (company, step): the mode in force. Upgrading to "act" takes two different people:

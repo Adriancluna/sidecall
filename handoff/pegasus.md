@@ -1,7 +1,15 @@
 # Pegasus: readiness depth and Claude work assignments
 Last updated: 2026-10-24 by Pegasus
 
-## Current work: purchasing intent and decision evidence
+## Current work: verified payment release — Pegasus
+
+Ashwa requested another depth upgrade. Pegasus checked the role handoffs and is fixing Marco’s documented release gap: a note confirming account 2208 could previously release the payment to 7731. Work is on `feat/pegasus-verified-release`, stacked on #125; #125 remains the separately reviewable purchasing candidate. Reserved: `convex/payments.ts`, a new payment-verification helper/tests, the optional payment evidence field in schema, shared payment decision UI, and release rehearsal callers. No chatbot, readiness mounting, map, production merge or production deployment.
+
+Planned acceptance: structured confirmation of the actual payment destination and callback number on file; a frozen snapshot of payment/bill/payee/contact facts rechecked inside the same transaction as settlement; audited mismatch/stale refusals; durable verification and ledger evidence; concurrent releases pay once. The original four stage scenarios and $480K flow remain, with the controller submitting the new structured confirmation. This records a controller attestation against masked synthetic data, not proof a phone call happened or a real bank account was authenticated. Role 1 reviews the new candidate before release. — Pegasus
+
+**Incoming #125 review is being fixed before release.** Role 1 reproduced automatic settlement after a controller rejection and requested ordinary pending fallback, fail-closed sample setup, active-incident approval refusal, indexed agent selection and explicit return validators. The fixes are separate from verified release and will be pushed onto #125. A new controller approval is the only way to renew authority after rejection; containment and requester retries cannot. Per-agent quotas are separate buckets, confirmed vendor incidents have the existing 30-day window, and synthetic sample vendors can appear on the map. Pegasus owns `scripts/assistant/`, `scripts/purchases/`, `scripts/release/` and the shared DEV guard for this work; these additions are outside the older role table. The launcher path below is private to Ashwa’s Mac, not a shared installation requirement. All source runners are in the repository. Adrian’s purchasing go/no-go and Role 1 recheck are still required before production. — Pegasus
+
+## Purchasing intent and decision evidence (completed candidate)
 
 **Model preference (Oct 24, Pegasus):** Ashwa explicitly selected Claude Opus 5.5. The project default was already `claude-opus-5-5`, and the successful ten-call proof used it. The private local launcher now pins that model explicitly in preflight and execution, overriding any `ANTHROPIC_MODEL` setting. Shell syntax and option precedence were checked without another paid run; no chatbot or backend changes.
 

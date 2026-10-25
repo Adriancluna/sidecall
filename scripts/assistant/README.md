@@ -14,7 +14,7 @@ Before a live run:
 
 1. Deploy the reviewed purchasing/request-identity contract to **your own DEV** using the team's release procedure, and finish the original rehearsal so the synthetic purchase samples and the November bill are unused.
 2. Ensure `.env.local` selects that exact `dev:<name>` and matching `https://<name>.convex.cloud`; the runner refuses production, Adrian DEV, both deployment-key aliases, self-hosted overrides and conflicting process configuration.
-3. Existing `DEMO_MODE` must be enabled; pass the existing `PRESENTER_KEY` through the process environment if the deployment requires it. Keep `AI_LIVE=false` or unset on this rehearsal DEV so existing incident-writing actions do not make separate model calls outside this runner's budget. The runner never changes any environment flags.
+3. Existing `DEMO_MODE` must be enabled; configure a nonempty `PRESENTER_KEY` on this DEV and make the same value available locally through the environment or `.env.local`. Sample setup fails closed without it, and preflight checks presence before any setup mutation. Keep `AI_LIVE=false` or unset on this rehearsal DEV so existing incident-writing actions do not make separate model calls outside this runner's budget. The runner never changes any environment flags.
 4. Make `ANTHROPIC_API_KEY` available through your normal secret mechanism, or the existing untracked `.env`/`.env.local` file. The runner reads `.env` first, then `.env.local`; existing process values take precedence over both. It does not write secrets or modify those files, print their contents, or send the API key to Convex. Missing key fails before sign-in or any setup mutation.
 
 ```sh

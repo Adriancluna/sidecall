@@ -7,6 +7,7 @@ import { resolve } from "node:path";
 import { createOwnedDev } from "../scorecard/ownedDev.mjs";
 if (existsSync(".env.local")) process.loadEnvFile(".env.local");
 const { deployment } = createOwnedDev();
+if (!process.env.PRESENTER_KEY?.trim()) throw Error("A configured matching PRESENTER_KEY is required before sample setup; no sessions or fixtures created.");
 const cloud = `https://${deployment}.convex.cloud`;
 const run = (path, args) => {
   createOwnedDev({ argv: ["--deployment", deployment] });
@@ -143,8 +144,8 @@ try {
   check(
     "Concurrent split-budget attack",
     results.filter((r) => r.ok && r.automatic).length === 1 &&
-      results.filter((r) => !r.ok).length === 1,
-    "$180 and $210 raced against $300; exactly one settled",
+      results.filter((r) => r.ok && !r.automatic && !r.held).length === 1,
+    "$180 and $210 raced against $300; exactly one settled, the other remained pending for manual handling",
   );
   let state = await overview();
   check(
@@ -346,13 +347,13 @@ try {
       boundAgents.push({
         ...run("agents:mint", {
           name,
-          onBehalfOfEmail: "jamie.chen@summithomehealth.example",
+          onBehalfOfEmail: "tom.becker@cedarridge.example",
           tools: ["request_payment"],
         }),
         name,
       });
     }
-    const eligibleAgents = (await overview()).eligibleAgents;
+    const eligibleAgents = (await query("purchases:overview", {}, elena)).eligibleAgents;
     for (const agent of boundAgents) {
       agent.agentId = eligibleAgents.find((row) => row.name === agent.name)?.id;
       if (!agent.agentId)
@@ -362,33 +363,33 @@ try {
     await mutation(
       "purchases:approve",
       {
-        billIds: [bills[0].bill._id],
-        perPurchaseCents: 12000,
-        budgetCents: 12000,
+        billIds: [otherBills[1].bill._id, otherBills[2].bill._id],
+        perPurchaseCents: 21000,
+        budgetCents: 39000,
         expiresAt: Date.now() + 3600000,
         executorAgentId: chosen.agentId,
       },
-      rosa,
+      elena,
     );
     const denied = await agentRequest(
       other,
-      bills[0].bill._id,
+      otherBills[1].bill._id,
       "wrong-executor",
     );
     check(
       "Only the controller-selected agent can consume its approval",
-      !denied.ok &&
-        (await overview()).receipts[0].evidence.checks.some(
+      denied.ok && !denied.automatic && !denied.held &&
+        (await query("purchases:overview", {}, elena)).receipts[0].evidence.checks.some(
           (c) => c.code === "executor_scope" && !c.passed,
         ),
-      "Another valid agent for the same clerk cannot inherit the selected agent's purchase authority",
+      "Another valid agent creates a pending request without consuming automatic purchase authority",
     );
     const paid = await agentRequest(
       chosen,
-      bills[0].bill._id,
+      otherBills[2].bill._id,
       "chosen-executor",
     );
-    const record = await query("purchases:getRecord", {}, rosa);
+    const record = await query("purchases:getRecord", {}, elena);
     const receipt = record.receipts.find((r) => r._id === paid.receiptId);
     check(
       "Decision record binds executor, facts, budget and ledger",
@@ -398,8 +399,8 @@ try {
         receipt.ledgerEntryId &&
         receipt.evidence.currency === "USD" &&
         receipt.evidence.checks.every((c) => c.passed) &&
-        receipt.evidence.budget.afterCents === 12000,
-      "The authorized $120 settlement retains its exact decision evidence and ledger reference",
+        receipt.evidence.budget.afterCents === 21000,
+      "The selected agent’s authorized $210 settlement retains its exact decision evidence and ledger reference",
     );
   } finally {
     const cleanup = await Promise.allSettled(boundAgents.map(revokeAgent));

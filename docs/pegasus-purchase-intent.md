@@ -21,10 +21,12 @@ The useful combination is selective continuity: show which purchase still has au
 1. In the existing Bills panel, a demo controller loads the optional Northstar samples and approves selected bills with a per-purchase limit, total budget and expiry within 24 hours.
 2. Approval can cover the company's AP users and their agents, or one explicitly selected active agent; the selected scope is visible before approval.
 3. The AP clerk or scoped MCP agent requests payment. Opening the eligibility inspector never requests payment or reserves money.
-4. A valid request settles in the demo ledger; an invalid automatic request records the failed checks and spends nothing. A vendor with no purchasing approval keeps the existing manual request/hold behavior.
+4. A valid request settles in the demo ledger; an invalid automatic request records the failed checks and spends nothing. A vendor with no purchasing approval keeps the existing manual request/hold behavior. Ordinary expiry, scope, bill-inclusion and budget misses also create a normal pending or held request without settling; changed bill/payee/approval facts and rejected-bill authority do not get that fallback.
 5. The controller can inspect the immutable decision snapshot or export the latest 50 decisions with their original approvals and saved quotes; truncation is explicit.
 
-The newest approval for a company/vendor supersedes older grants. Revoking or expiring it does not reactivate an older grant. Human and assistant quotas are separate. A confirmed vendor incident removes automatic purchase eligibility even if the company's ordinary hold rule is disabled; the independent controller path remains available. Unconfirmed reports alone do not grant payment-hold authority.
+The newest approval for a company/vendor supersedes older grants. Revoking or expiring it does not reactivate an older grant. Human and assistant quotas are separate; each agent has its own bucket, so several agents for one clerk have several buckets while the shared approval still caps spending. A confirmed vendor incident removes automatic purchase eligibility even if the company's ordinary hold rule is disabled; the independent controller path remains available. Unconfirmed reports alone do not grant payment-hold authority. The confirmed-incident window expires after 30 days from original creation even without containment; an existing hold still needs a controller decision.
+
+A controller rejection revokes the current applicable mandate atomically. An independent indexed check on rejected payments also protects legacy grants. The bill can regain automatic authority only through a new controller approval that records the prior rejection ID in its immutable quote; incident containment or a clerk retry cannot restore it. New approval during an active confirmed vendor incident is refused.
 
 ## Receipt and retry boundaries
 
@@ -40,7 +42,7 @@ Preview uses the same evaluator but an explicit client-supplied `asOf`; it is ad
 
 ## Reproducible verification
 
-Use only your own DEV. Pegasus uses `tangible-koala-842`. `scripts/scorecard/ownedDev.mjs` rejects production, Adrian's DEV, deploy-key/token aliases, self-hosted overrides and conflicting deployment/URL selectors. Neither purchase nor assistant proof deploys or resets; prepare a clean DEV with the original rehearsal first.
+Use only your own DEV. Pegasus uses `tangible-koala-842`. `scripts/scorecard/ownedDev.mjs` rejects production, Adrian's DEV, deploy-key/token aliases, self-hosted overrides and conflicting deployment/URL selectors. Neither purchase nor assistant proof deploys or resets; prepare a clean DEV with the original rehearsal first. Sample setup now requires a configured matching `PRESENTER_KEY`; both runners fail before setup when the local value is missing. Sample assets can appear on the firm map and are cleared by Reset.
 
 ```sh
 npm test

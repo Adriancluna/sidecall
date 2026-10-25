@@ -38,6 +38,10 @@ function caseArgs(model, invoke, extra = {}) {
 const options = optionsFor(["--deployment", "tangible-koala-842"]);
 const fakeOwned = () => ({ deployment: options.deployment });
 
+test("missing presenter configuration fails before any rehearsal setup", () => {
+  assert.throws(() => preflight(options, { env: { ANTHROPIC_API_KEY: "fake-key" }, owned: () => assert.fail("No DEV call expected") }), /PRESENTER_KEY is missing/);
+});
+
 test("source documents have deterministic hashes and preserve untrusted provenance", () => {
   const a = documentRecord(fixture);
   assert.match(a.sha256, /^[a-f0-9]{64}$/);
@@ -184,7 +188,7 @@ test("dotenv loading is nonmutating and uses process > local > base precedence w
 test("exact owned DEV guard rejects mismatches, production, Adrian and both deployment keys", () => {
   const cwd = mkdtempSync(join(tmpdir(), "assistant-guard-"));
   const local = (selector, url, extra = "") => writeFileSync(join(cwd, ".env.local"), `CONVEX_DEPLOYMENT=${selector}\nVITE_CONVEX_URL=${url}\n${extra}`);
-  const env = { ANTHROPIC_API_KEY: "fake-key" };
+  const env = { ANTHROPIC_API_KEY: "fake-key", PRESENTER_KEY: "fake-presenter" };
   try {
     local("dev:tangible-koala-842", "https://tangible-koala-842.convex.cloud");
     assert.equal(preflight(options, { env, cwd }).cloud, "https://tangible-koala-842.convex.cloud");
@@ -205,7 +209,7 @@ test("transport revalidates before every request and sanitizes operator errors/n
   let validations = 0;
   let switched = false;
   let operatorMode = "null";
-  const env = { ANTHROPIC_API_KEY: "fake-key" };
+  const env = { ANTHROPIC_API_KEY: "fake-key", PRESENTER_KEY: "fake-presenter" };
   const transport = createTransport({ options, env,
     owned: () => { validations++; if (switched) throw new Error("switched"); return fakeOwned(); },
     fetchImpl: async () => new Response(JSON.stringify({ status: "success", value: 42 })),
@@ -306,7 +310,7 @@ function fakeSetup({ malformedMint = false, failRevoke = false } = {}) {
 
 test("model failure after authorized setup revokes mandate and every minted agent, and signs out both sessions", async () => {
   const transport = fakeSetup();
-  const report = await runProof({ options, env: { ANTHROPIC_API_KEY: "fake-key" }, owned: fakeOwned,
+  const report = await runProof({ options, env: { ANTHROPIC_API_KEY: "fake-key", PRESENTER_KEY: "fake-presenter" }, owned: fakeOwned,
     transport, fixtures: [fixture], model: { usage: { calls: 0 }, next: async () => { throw new Error("private model failure"); } } });
   assert.equal(report.passed, false);
   assert.equal(report.failure, "Unexpected failure; details withheld to protect credentials.");
@@ -319,7 +323,7 @@ test("model failure after authorized setup revokes mandate and every minted agen
 test("malformed mint response still revokes by tracked name; cleanup failure fails the report", async () => {
   for (const failRevoke of [false, true]) {
     const transport = fakeSetup({ malformedMint: true, failRevoke });
-    const report = await runProof({ options, env: { ANTHROPIC_API_KEY: "fake-key" }, owned: fakeOwned,
+    const report = await runProof({ options, env: { ANTHROPIC_API_KEY: "fake-key", PRESENTER_KEY: "fake-presenter" }, owned: fakeOwned,
       transport, fixtures: [fixture], model: { usage: {}, next: async () => assert.fail("No model expected") } });
     assert.equal(report.passed, false);
     assert.ok(transport.calls.includes("operator:agents:revoke"));
@@ -388,7 +392,7 @@ async function runMockedProof({ corruptPaidEvidence = () => {}, finalHeldText = 
     ...(index === 2 ? [response(tool("explain", "explain_hold", { paymentId: "payment-held" }))] : []),
     done(["$180 was settled in the demo ledger.", "The changed bill was refused.", finalHeldText][index]),
   ]);
-  return await runProof({ options, env: { ANTHROPIC_API_KEY: "fake-key" }, owned: fakeOwned,
+  return await runProof({ options, env: { ANTHROPIC_API_KEY: "fake-key", PRESENTER_KEY: "fake-presenter" }, owned: fakeOwned,
     transport, fixtures, model: sequence(turns), runId: "fixed-run" });
 }
 
