@@ -12,7 +12,7 @@ import { Card, Empty, LookChip, Skeleton } from "./ui";
 
 const TEXT_TONE = { amber: "text-amber", danger: "text-danger", ok: "text-ok" };
 
-export function BillsPanel() {
+export function BillsPanel({ canRequest = false }: { canRequest?: boolean }) {
   const bills = useQuery(api.payments.getMyBills, {});
   // Bill rows only carry the payment's status; the held-payments query (same subscription as the
   // company view's) says which ones went through a hold, so those read "Released", not "Paid".
@@ -24,6 +24,11 @@ export function BillsPanel() {
   );
   return (
     <Card title="Bills to pay">
+      <p className="mb-4 max-w-prose text-sm text-ash">
+        {canRequest
+          ? "Request a payment directly here. The same server checks apply; this route does not run Claude."
+          : "Your company’s AP clerk requests payments. Controllers set purchasing approvals and verify held payments."}
+      </p>
       {bills === undefined ? (
         <Skeleton />
       ) : bills.length === 0 ? (
@@ -38,6 +43,7 @@ export function BillsPanel() {
               vendorName={b.vendorName}
               amountCents={b.bill.amountCents}
               dueDate={b.bill.dueDate}
+              canRequest={canRequest}
               payment={
                 b.payment
                   ? (heldPath.get(b.payment._id) ?? b.payment)
@@ -57,7 +63,11 @@ type RowProps = {
   vendorName: string;
   amountCents: number;
   dueDate: number;
-  payment?: Pick<Doc<"payments">, "status" | "heldByIncidentId" | "purchaseMandateId">;
+  canRequest: boolean;
+  payment?: Pick<
+    Doc<"payments">,
+    "status" | "heldByIncidentId" | "purchaseMandateId"
+  >;
 };
 
 function BillRow({
@@ -66,6 +76,7 @@ function BillRow({
   vendorName,
   amountCents,
   dueDate,
+  canRequest,
   payment,
 }: RowProps) {
   const requestPayment = useMutation(api.payments.requestPayment);
@@ -92,7 +103,12 @@ function BillRow({
           }.`,
         });
       } else {
-        setResult({ tone: "ok", text: res.automatic ? "Automatically paid under your controller’s approval (demo ledger)." : "Payment requested." });
+        setResult({
+          tone: "ok",
+          text: res.automatic
+            ? "Automatically paid under your controller’s approval (demo ledger)."
+            : "Payment requested.",
+        });
       }
     } catch (err) {
       setResult({ tone: "danger", text: friendlyError(err) });
@@ -109,7 +125,11 @@ function BillRow({
           <p className="text-sm text-ash">
             {vendorName}, due {shortDate(dueDate)}
           </p>
-          {payment?.purchaseMandateId && <p className="mt-1 text-xs text-ok">Automatically settled · demo ledger</p>}
+          {payment?.purchaseMandateId && (
+            <p className="mt-1 text-xs text-ok">
+              Automatically settled · demo ledger
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <span className="font-semibold tabular-nums">
@@ -117,7 +137,7 @@ function BillRow({
           </span>
           {payment ? (
             <LookChip look={paymentLook(payment)} />
-          ) : (
+          ) : canRequest ? (
             <button
               type="button"
               disabled={busy}
@@ -126,6 +146,8 @@ function BillRow({
             >
               {busy ? "Requesting…" : "Request payment"}
             </button>
+          ) : (
+            <span className="text-sm text-ash">Awaiting AP request</span>
           )}
         </div>
       </div>

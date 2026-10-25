@@ -5,6 +5,7 @@ import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { paymentRequestResult, purchaseEvidence } from "./purchaseTypes";
 import { releaseContext, releaseVerification } from "./paymentVerification";
+import { runFields } from "./purchaseConsoleTypes";
 
 export const shareType = v.union(
   v.literal("shared_credential"),
@@ -337,6 +338,12 @@ export default defineSchema({
 
   // ---- Money layer ----
 
+  // One-shot execution records, not conversation history; at most 16 bounded audit events per run.
+  purchaseRuns: defineTable(runFields)
+    .index("by_companyId", ["companyId"])
+    .index("by_requestedBy_and_clientRequestId", ["requestedBy", "clientRequestId"])
+    .index("by_requestedBy_and_status", ["requestedBy", "status"]),
+
   // A controller approves a bounded set of saved purchases; never authority derived from AI text.
   purchaseMandates: defineTable({
     companyId: v.id("companies"),
@@ -458,7 +465,8 @@ export default defineSchema({
     paymentId: v.optional(v.id("payments")),
     billId: v.optional(v.id("bills")),
     lines: v.array(ledgerLine),
-  }).index("by_companyId_and_date", ["companyId", "date"]),
+  }).index("by_companyId_and_date", ["companyId", "date"])
+    .index("by_paymentId", ["paymentId"]),
 
   // ---- Notifications (docs/specs/notifications.md) ----
 

@@ -1,6 +1,12 @@
 # Pegasus: readiness depth and Claude work assignments
 Last updated: 2026-10-24, 18:14 PT by Pegasus
 
+## Active build: visible Claude purchases and defense checks — Pegasus
+
+Ashwa explicitly requested both proposed upgrades, necessary UI fixes and finishing the project. #130 is now merged and Role 1 independently passed its rehearsal. Work is on `feat/pegasus-purchase-console` from main `0ea25c2`: a one-shot AP purchase job with actual Claude tool calls, server-owned bill/approval/request identity, reactive execution evidence, cancellation and deterministic attack challenges. This is not a chatbot or a resumable conversation. Reserved: new purchase-console backend/types/tests, schema/seed additions, purchase controls/Bills UI and a new console panel. No teammate chatbot/map edits, no new package, no production self-merge. Latest main includes G6; its ownership remains with Omar/Role 1.
+
+The new paid model action will require the existing presenter capability, explicit user submission and bounded per-user/company rate limits; company-scoped jobs/receipts remain auditable. API key is absent from Pegasus DEV; Ashwa was asked to add ANTHROPIC_API_KEY in its dashboard without sharing it in chat. Other work continues. — Pegasus
+
 ## Review fixes and AI UI status — Pegasus, 18:14 PT
 
 **All three #130 review requests are addressed at source `36d1d9a`:** the form and hold evidence disclose historical destination age/later changes and require a current callback assertion; every authenticated validly typed prepare/request/revoke refusal is audited (inaccessible targets get a caller-scoped row without foreign IDs/details); preparation is `prepare` / **Prepared**, not payment approval. The same controller may prepare and release, with a separate AP requester. Adrian's latest direction is **Q&A only, not the main video**. Role 1 still owns merge/release and requires his own merged-code rehearsal by 10pm PT.
