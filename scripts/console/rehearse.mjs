@@ -46,7 +46,9 @@ try {
   const flags = await t.flags(); requireProof(flags.demoMode && !flags.aiLive, "DEMO_MODE=true and background AI_LIVE off required.");
   const childEnv = { ...env }; delete childEnv.ANTHROPIC_API_KEY;
   t.guard();
-  const notify = (await exec("npx", ["--no-install", "convex", "env", "get", "NOTIFY_LIVE", "--deployment-name", options.deployment, "--env-file", resolve(".env.local")], { env: childEnv, timeout: 30_000 })).stdout.trim();
+  let notify;
+  try { notify = (await exec("npx", ["--no-install", "convex", "env", "get", "NOTIFY_LIVE", "--deployment-name", options.deployment, "--env-file", resolve(".env.local")], { env: childEnv, timeout: 30_000 })).stdout.trim(); }
+  catch { throw new Error("Could not verify notification mode; raw operator output withheld."); }
   requireProof(notify === "" || notify === "false", "External notifications must be off.");
   rosa = await login("rosa.alvarez@summithomehealth.example"); jamie = await login("jamie.chen@summithomehealth.example");
   const initial = await state(), me = await q("access:me", {}, jamie);
@@ -64,7 +66,9 @@ try {
   const source = (row, account) => `Synthetic invoice\nVendor: ${row.vendorName}\nDescription: ${row.bill.description}\nAmount: $${(row.bill.amountCents / 100).toFixed(2)}\nAccount: ****${account}`;
   const validId = `console_${randomUUID()}`; jobs.push(validId);
   const args = { billId: valid.bill._id, sourceText: source(valid, "4242"), clientRequestId: validId, presenterKey: env.PRESENTER_KEY };
-  const ids = await Promise.all(Array.from({ length: 8 }, () => m("purchaseConsole:start", args, jamie)));
+  const submissions = await Promise.allSettled(Array.from({ length: 8 }, () => m("purchaseConsole:start", args, jamie)));
+  requireProof(submissions.every(r => r.status === "fulfilled"), "A submission response was uncertain; all requests completed before cleanup.");
+  const ids = submissions.map(r => r.value);
   check("Eight concurrent UI submissions create one saved job", new Set(ids).size === 1, { ids });
   const paid = await awaitJob(ids[0]);
   const ledger = await q("payments:getLedger", {}, rosa);
@@ -101,7 +105,9 @@ try {
     try {
       const rows = (await state()).runs.filter(r => jobs.includes(r.run.clientRequestId));
       for (const row of rows) if (["queued", "running"].includes(row.run.status)) await m("purchaseConsole:cancel", { id: row.run._id }, jamie);
-      requireProof((await state()).runs.filter(r => jobs.includes(r.run.clientRequestId)).every(r => !["queued", "running"].includes(r.run.status)), "Run cleanup unverified.");
+      const verified = (await state()).runs.filter(r => jobs.includes(r.run.clientRequestId));
+      requireProof(jobs.every(clientId => verified.some(r => r.run.clientRequestId === clientId)) &&
+        verified.every(r => !["queued", "running"].includes(r.run.status)), "Run cleanup unverified; an attempted submission has no resolved record.");
       report.cleanup.push({ jobsInactive: true });
     } catch { report.passed = false; report.cleanup.push({ jobsInactive: false }); }
   }
@@ -122,6 +128,6 @@ try {
   report.finishedAt = new Date().toISOString();
   const path = resolve(options.report); mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(redact(report, secrets), null, 2)}\n`, { mode: 0o600 });
-  console.log(JSON.stringify({ passed: report.passed, checks: report.checks.length, cleanup: report.cleanup.length, report: path, failure: report.failure ?? null }));
+  console.log(JSON.stringify(redact({ passed: report.passed, checks: report.checks.length, cleanup: report.cleanup.length, report: path, failure: report.failure ?? null }, secrets)));
   process.exitCode = report.passed ? 0 : 1;
 }
