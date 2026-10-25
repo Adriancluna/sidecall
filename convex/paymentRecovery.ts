@@ -149,7 +149,7 @@ export const requestReplacement = mutation({
       rule: "payment_recovery_requires_release", reason: "Corrected request for a rejected payment. A controller must verify and release this exact destination before any money moves." });
     await ctx.db.patch("paymentRecoveries", proposalId, { status: "requested", replacementPaymentId: paymentId,
       requestedBy: viewer.user._id, requestedAt: now });
-    await ctx.db.insert("auditLog", { at: now, actor: viewer.user._id, action: "approve", companyId: payment.companyId,
+    await ctx.db.insert("auditLog", { at: now, actor: viewer.user._id, action: "request", companyId: payment.companyId,
       paymentId, incidentId: incident._id, rule: "payment_recovery_requested",
       reason: `AP requested the bill-specific correction from account ending ${payment.accountLast4} to ${proposal.accountLast4}. Original request remains rejected; replacement is held, with no cash movement.` });
     return { ok: true as const, paymentId };

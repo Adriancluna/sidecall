@@ -392,7 +392,7 @@ export function PaymentCard({ row, escalation, viewer }: Props) {
       </header>
 
       {payment.recoveryFromPaymentId && (
-        <p className="text-sm text-ash">Corrected request for a previously rejected payment; the original rejection remains in the record.</p>
+        <p className="text-sm text-ash">Corrected request to account ending <strong className="tabular-nums text-paper">{payment.accountLast4}</strong>; the original rejection remains in the record.</p>
       )}
 
       {escalation && isHeld && (

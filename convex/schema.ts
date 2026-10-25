@@ -73,6 +73,7 @@ const ledgerAccount = v.union(
 );
 
 const auditAction = v.union(
+  v.literal("request"),
   v.literal("hold"),
   v.literal("flag"),
   v.literal("release"),

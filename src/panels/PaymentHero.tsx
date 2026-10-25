@@ -59,7 +59,7 @@ export function PaymentHero({ row, escalation, viewer, others, onOpenTab }: Prop
         </h1>
 
         {payment.recoveryFromPaymentId && (
-          <p className="mt-4 text-sm text-ash">Corrected request for a previously rejected payment; the original rejection remains in the record.</p>
+          <p className="mt-4 text-sm text-ash">Corrected request to account ending <strong className="tabular-nums text-paper">{payment.accountLast4}</strong>; the original rejection remains in the record.</p>
         )}
 
         {bankChange ? (
@@ -68,7 +68,11 @@ export function PaymentHero({ row, escalation, viewer, others, onOpenTab }: Prop
           </div>
         ) : (
           <p className="mt-6 max-w-2xl text-xl leading-snug font-medium text-balance">
-            {row.vendorName} has an active security incident, so this payment waits for a person to verify it.
+            {payment.recoveryFromPaymentId
+              ? payment.status === "paid" ? "The corrected payment was released after controller verification."
+                : payment.status === "rejected" ? "The corrected payment was rejected; no money moved."
+                : "The corrected payment stays held until a controller verifies and releases this exact destination."
+              : `${row.vendorName} has an active security incident, so this payment waits for a person to verify it.`}
           </p>
         )}
       </div>
