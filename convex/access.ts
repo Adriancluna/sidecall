@@ -67,9 +67,8 @@ export const me = query({
   },
 });
 
-// The demo password is printed on the sign-in screen, so being signed in doesn't make you the
-// presenter. Where PRESENTER_KEY is set (prod), the stage-only actions (Reset, the unsigned demo
-// Fire) also need that key, so a curious visitor can't wipe or pre-empt a live demo.
+// Extra authorization for live AI/sample setup and unsigned demo HTTP intake.
+// Signed-in practice Reset/Fire/Replay intentionally do not require this key.
 export function isPresenter(key: string | undefined | null): boolean {
   const expected = env.PRESENTER_KEY;
   return !expected || key === expected;

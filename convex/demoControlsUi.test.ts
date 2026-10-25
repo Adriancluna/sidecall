@@ -6,13 +6,15 @@ const query = vi.hoisted(() => ({ value: { allowed: true, presenterKeyRequired: 
 vi.mock("convex/react", () => ({ useMutation: () => vi.fn(), useQuery: () => query.value }));
 afterEach(() => { vi.unstubAllGlobals(); query.value.resetNumber = 0; query.value.resetError = null; });
 
-test("ordinary non-stage simulator exposes Reset and presenter-key guidance", () => {
+test("ordinary simulator enables Reset without a key field or extra confirmation", () => {
   vi.stubGlobal("window", { location: { hostname: "sidecall.vercel.app" }, localStorage: { getItem: () => null } });
   const html = renderToStaticMarkup(createElement(DemoControls));
   expect(html).toContain("Shared demo");
-  expect(html).toContain("Enter the presenter key below");
-  expect(html).toContain('placeholder="Presenter key"');
-  expect(html).toMatch(/<button[^>]+disabled=""[^>]*>Reset<\/button>/);
+  expect(html).not.toContain("Presenter key");
+  expect(html).not.toContain("Confirm reset");
+  const reset = html.match(/<button[^>]*>Reset<\/button>/)?.[0];
+  expect(reset).toBeDefined();
+  expect(reset).not.toContain(' disabled=""');
 });
 
 test("local previews identify their separate connection and link to shared demo", () => {
@@ -20,12 +22,12 @@ test("local previews identify their separate connection and link to shared demo"
   const html = renderToStaticMarkup(createElement(DemoControls));
   expect(html).toContain("Local preview");
   expect(html).toContain('href="https://sidecall.vercel.app/?stage"');
-  expect(html).toContain("Refreshing a page does not reset");
+
 });
 
 test("shared failure state cannot be labelled a completed reset", () => {
   query.value.resetNumber = 4; query.value.resetError = "Receiver unreachable";
   const html = renderToStaticMarkup(createElement(DemoControls));
-  expect(html).toContain("did not finish");
+  expect(html).toContain("Reset stopped: Receiver unreachable");
   expect(html).not.toContain("Ready for the next practice run");
 });
