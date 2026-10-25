@@ -54,9 +54,9 @@ function savePinned(id: Id<"incidents">) {
   }
 }
 
-// G6 is large, so the map's code loads only when the firm opens Map & evidence.
+// G6 is large, so its code loads only when someone opens Map & evidence with ?map=g6.
 const G6BlastMap = lazy(() => import("./G6BlastMap").then((m) => ({ default: m.G6BlastMap })));
-const CLASSIC_MAP = new URLSearchParams(window.location.search).get("map") === "classic";
+const G6_MAP = new URLSearchParams(window.location.search).get("map") === "g6";
 
 // Six tabs so every one fits on a projected laptop screen; related panels share a tab
 // (payment investigation sits under Payments, response safety under Timeline & close-out).
@@ -264,19 +264,19 @@ export function PortfolioView() {
       label: "Map & evidence",
       content: () => (
         <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_400px] lg:grid-cols-[minmax(0,1fr)_360px]">
-          {/* The G6 expandable map by default (loaded on demand); ?map=classic keeps Omar's SVG map. */}
-          {CLASSIC_MAP ? (
-            <BlastRadiusMap
-              blast={blast}
-              selected={selected}
-              onSelect={setSelected}
-            />
-          ) : (
+          {/* Omar's SVG map by default; ?map=g6 shows the expandable G6 map (loaded on demand). */}
+          {G6_MAP ? (
             <Suspense
               fallback={<div className="h-[677px] rounded-tile border border-line bg-panel motion-safe:animate-pulse" />}
             >
               <G6BlastMap blast={blast} onSelect={setSelected} />
             </Suspense>
+          ) : (
+            <BlastRadiusMap
+              blast={blast}
+              selected={selected}
+              onSelect={setSelected}
+            />
           )}
           <div className="space-y-6">
             <EvidencePanel exposureId={selectedNode?.exposureId ?? undefined} companyName={selectedNode?.name} />

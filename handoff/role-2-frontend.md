@@ -1,16 +1,17 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 25, ~03:00 UTC (Oct 24 evening PT) by Marco's Claude
+Last updated: Oct 25, ~04:30 UTC (Oct 24 evening PT) by Marco's Claude
 
 ## Copy and alignment pass (Marco's call)
 - Scanned every seat and page at 1440 for misaligned figures, wrapping labels and one-word last lines; fixed in `src/panels/` and `src/index.css` (`text-wrap: pretty` now on `body`).
 - Response by company (firm view): header and rows now share column gaps. Cells drop what the header already says: "Not yet", the acknowledger's name, "Done in 4s" (`FirstStepCell`, `AcknowledgedBy nameOnly`). The demo script line "First step done at 1 of 3" (the progress line) is unchanged.
 - G6 map: the canvas now follows its card on resize (it used to keep its first size and look missing).
 
-## Firm map: AntV G6 expandable map is the default (Marco's call)
-- **New npm package: `@antv/g6` 5.1.1** (Marco's decision, flagging it here for the team). Loaded on demand: the main bundle is unchanged (~514 kB); the map chunk (~405 kB gzipped) loads when Map & evidence opens.
+## Firm map: Omar's SVG map is the default again; G6 is opt-in at `?map=g6` (Marco's call, Oct 25)
+- **→ Omar (Role 3), Adrian:** `BlastRadiusMap` (`src/map/`) renders by default on Map & evidence. `?map=classic` is gone; `?map=g6` shows the G6 tree below. The G6 chunk only loads with that flag.
+- **npm package: `@antv/g6` 5.1.1** (Marco's decision). Loaded on demand: the main bundle is unchanged (~514 kB); the G6 chunk (~405 kB gzipped) loads only at `?map=g6`.
 - `src/panels/G6BlastMap.tsx`: a radial tree. Parent firm in the middle; the breached vendor, the reporting company, "Exposed · N" (open) and "Not exposed · N" (folded) around it. Click a company bubble to open its link type, amount held, people and acknowledgement; click again to fold. Clicking a company still loads the evidence panel. Live updates keep open bubbles.
-- **→ Omar (Role 3):** `src/map/` is untouched. Your SVG map is still there at `?map=classic` (also our fallback if anything goes wrong on stage). The map's evidence panel is still yours (`EvidencePanel`).
-- Undo: set `CLASSIC_MAP` default in `PortfolioView.tsx` (or drop `G6BlastMap.tsx` and `@antv/g6`).
+- `src/map/` is untouched; the evidence panel is still Omar's (`EvidencePanel`).
+- To make G6 the default again: flip `G6_MAP` in `PortfolioView.tsx`. To drop it: remove `G6BlastMap.tsx` and `@antv/g6`.
 
 ## Dashboard redesign: Vercel look + Render page structure (this PR, merged by Marco)
 Supersedes the "council" layout from #110. Desktop only (Marco's call: no mobile work).
