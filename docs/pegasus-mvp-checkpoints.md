@@ -39,7 +39,7 @@ Verify the selected frontend/backend/configuration together before final release
 
 ## Solo execution and open dependencies
 
-The user has superseded the proposed team assignments: Pegasus works solo in this session, with no further handoffs or delegation. No teammate has an Entra/Okta test tenant. Tenant setup remains a prerequisite for external-provider proof; existing owned-sandbox tests do not substitute for it.
+The user has superseded the proposed team assignments: Pegasus works solo in this session, with no further handoffs or delegation. Ashwa has now created an Okta Integrator Free Plan tenant and saved receiver-only credentials privately. Live local receiver proof is recorded below; website delivery remains a separate prerequisite.
 
 Checkpoint 2 implementation is complete locally: the default-off PURCHASE_CONSOLE_LIVE switch guards job admission, worker claim, each model admission and tool execution. Unavailable empty consoles render nothing; saved outcomes and Stop remain accessible. Eight additional backend regressions and three rendered-UI cases pass. Full release/deployment acceptance remains pending; no new paid model run is claimed.
 
@@ -58,3 +58,15 @@ Website sync: Convex's response executor and the response UI do not yet use this
 Human progress: the user's screenshot now shows a signed-in Okta Admin Console on the Integrator Free Plan, with one active user. Signup is complete; API connectivity and test-account behavior are not yet verified. Prepared a hidden-entry local credential launcher: it stores a receiver-only token and generated signing secret outside Git, mode 0600, with provider actions OFF and no target allowlist. Verified parsing with Node, URL normalization, file permissions and no-overwrite behavior using dummy credentials. The next human step is creating a dedicated test-tenant API token and entering it into that launcher; no key should be sent in chat. A dedicated non-admin test user and an HTTPS receiver route remain outstanding.
 
 Next checkpoint: connect Convex's authorized response jobs to the protocol, persist command/receipt state, and update the response UI for pending/unknown/refused/confirmed outcomes. Then configure and test one disposable real account and unrelated access. No external-account success will be claimed before that test.
+
+## Checkpoint 3B: real disposable Okta effect — passed October 24
+
+Pegasus verified the saved token with read-only API access, checked configuration mode 0600, and created two labelled disposable accounts with no assigned admin roles. The local signed-HTTP harness passed eight checks against the real Okta tenant, including target suspension, unaffected control-account state, restart-safe duplicate handling, refusal of unapproved restoration, approved synthetic-test cleanup, forged/unlisted refusal, and disable behavior. Exactly one suspend, one session-revocation request and one unsuspend occurred. Independent final reads show the original administrator and both disposable accounts ACTIVE. [Redacted evidence](evidence/okta-receiver-live-proof.json).
+
+Progress: the signed receiving half now has actual external-provider evidence, replacing the earlier test-double-only claim. All 26 receiver regressions and lint/typecheck also pass. No existing frontend/backend source changed at this checkpoint.
+
+Limits and silent failures: an acknowledged revocation request is not proof of terminating a live application session; no test-user sessions were established. A network timeout can hide a completed operation and must retain its original command ID for reconciliation. A valid historical receipt does not prove the account is still in that state later. The standalone process needs persistent storage and a reachable HTTPS route before Convex can call it.
+
+Website sync: local receiver proof only. Convex policy/executor jobs and response UI are still not connected, and no production or DEV deployment happened. Persistent receiver configuration stays disabled with an empty allowlist; only the isolated local proof process had effects enabled for the disposable target, and that process is stopped.
+
+Next: integrate durable outbound commands/receipts with the existing authorized Convex response workflow, represent pending/unknown/refused/confirmed truthfully in the UI, then verify the full DEV path through an HTTPS receiver route. No additional human action is required to finish this checkpoint; any hosting or operator setup needed for the next checkpoint must be surfaced explicitly.

@@ -1,6 +1,6 @@
 # Company-owned signed response receiver
 
-This is the receiving half of the proposed Sidecall response connection. It is a separate Node service, with its own credentials and durable SQLite command history. It is **not yet wired into the Convex response executor or the website**, and it has **not yet suspended a real Okta account**. The tests use an explicitly labelled provider substitute plus actual local HTTP requests.
+This is the receiving half of the proposed Sidecall response connection. It is a separate Node service, with its own credentials and durable SQLite command history. It is **not yet wired into the Convex response executor or the website**. On October 24, 2026, a separate opt-in local rehearsal suspended and restored one real disposable Okta account while an unrelated test account remained ACTIVE. See [redacted live evidence](../../docs/evidence/okta-receiver-live-proof.json). The routine unit tests still use an explicitly labelled provider substitute plus actual local HTTP requests.
 
 ## In plain English
 
@@ -61,7 +61,7 @@ Restoration uses a **different** commandId, action `restore_shared_login` and `p
 4. Run this service with Node 24 and a persistent local disk. Node's built-in SQLite is used; no new package is needed.
 5. The eventual Convex-to-receiver connection needs an HTTPS route to this service. Hosting/tunnel selection and production deployment are not completed by this checkpoint.
 
-The user's screenshot confirms successful Integrator Free Plan signup. Private receiver credential setup is next. `configure.py` prompts for the tenant URL and a hidden API token, generates a separate signing secret and writes a git-ignored `.env.receiver.local` with mode 0600. It refuses to overwrite an existing file, contacts no service, leaves provider operations OFF and leaves the target allowlist empty. A local convenience launcher is prepared outside the repository at `/Users/ashwathram/Documents/ChatGPT/Job/pegasus-receiver-setup.command`; other machines can run `python3 integrations/company-receiver/configure.py` from their own checkout.
+Integrator Free Plan signup and private API connectivity are now verified. Two disposable, non-admin users have been created and the live receiver rehearsal passed. `configure.py` prompts for the tenant URL and a hidden API token, generates a separate signing secret and writes a git-ignored `.env.receiver.local` with mode 0600. It refuses to overwrite an existing file, contacts no service, leaves provider operations OFF and leaves the target allowlist empty. A local convenience launcher is prepared outside the repository at `/Users/ashwathram/Documents/ChatGPT/Job/pegasus-receiver-setup.command`; other machines can run `python3 integrations/company-receiver/configure.py` from their own checkout.
 
 ## Configuration
 
@@ -101,8 +101,25 @@ The last command records a human assertion; it does not prove a stolen password 
 node --test integrations/company-receiver/receiver.test.mjs
 ```
 
-The checkpoint covers forged/expired/future signatures, body/path/company binding, allowlist, concurrency and restart replay, pause quota, disable, lost pause/restore replies, stale in-progress reconciliation, pre-existing suspension, local restoration consent/expiry, multiple incident holds, changed mappings, signed HTTP receipts, payload limits, sender uncertainty and exact Okta adapter request paths. All provider-effect cases are controlled test doubles; one test uses real loopback HTTP. No Okta credential or live tenant was used.
+The checkpoint covers forged/expired/future signatures, body/path/company binding, allowlist, concurrency and restart replay, pause quota, disable, lost pause/restore replies, stale in-progress reconciliation, pre-existing suspension, local restoration consent/expiry, multiple incident holds, changed mappings, signed HTTP receipts, payload limits, sender uncertainty and exact Okta adapter request paths. In the routine 26-test suite, all provider-effect cases are controlled test doubles and one test uses real loopback HTTP. The separate live rehearsal below uses the real test tenant.
 
-Next: bind these commands to existing Convex policy/authority checks, persist outbound jobs and receipts, and expose pending/unknown/refused/confirmed outcomes in the response UI. Then verify an actual disposable account and unrelated account through the provider. Finally rehearse the selected deployed frontend/backend/receiver together before recording or claiming the integration works.
+Next: bind these commands to existing Convex policy/authority checks, persist outbound jobs and receipts, and expose pending/unknown/refused/confirmed outcomes in the response UI. Then repeat the disposable-account proof through that integrated path; local receiver proof alone does not establish website automation. Finally rehearse the selected deployed frontend/backend/receiver together before recording or claiming the integration works.
 
 Official references: [Okta free-plan setup](https://developer.okta.com/docs/reference/org-defaults/), [user lifecycle API](https://developer.okta.com/docs/api/openapi/okta-management/management/tag/UserLifecycle/), [user sessions API](https://developer.okta.com/docs/api/openapi/okta-management/management/tag/UserSessions/), [Universal Logout limitations and integration](https://developer.okta.com/docs/guides/oin-universal-logout-overview/), [Node SQLite](https://nodejs.org/docs/latest-v24.x/api/sqlite.html).
+
+## Live provider checkpoint — verified October 24, 2026
+
+Eight recorded checks passed over local signed HTTP with real Okta API calls: both test accounts start ACTIVE; forged signature refused; unlisted target refused; target becomes SUSPENDED while control stays ACTIVE; restart/replay does not repeat the pause; restoration without local approval refused; locally approved synthetic-test cleanup restores the target; disabled receiver refuses a fresh command. Exactly one suspend, one session-revocation request and one unsuspend were sent. Final independent read-back found the original administrator and both disposable users ACTIVE.
+
+This is **account-state evidence**, not an interactive login test or proof of downstream application logout. The session-revocation endpoint acknowledged a request, but these fresh users had no established sessions to terminate. No Convex deployment, public HTTPS route or website integration was part of this run. Persistent receiver configuration remains OFF with an empty allowlist. The harness enables only its temporary loopback process and maps only the disposable target.
+
+`live-proof.mjs` is a local operator harness, not a server endpoint. It stores provision progress before writes, never prints passwords/tokens, verifies test identity markers and absence of admin roles, and keeps original command IDs on failures. Its local restoration approval is only cleanup of its own synthetic incident; do not reuse it as incident remediation approval. It refuses to repeat a completed or interrupted live run automatically. Preserve `.state/live-proof.sqlite` and the private manifest for reconciliation; do not delete them to bypass a failure.
+
+For a fresh authorized test tenant, run from the repository root:
+
+```sh
+node --env-file=.env.receiver.local integrations/company-receiver/live-proof.mjs provision --disposable-test-only
+node --env-file=.env.receiver.local integrations/company-receiver/live-proof.mjs rehearse --disposable-test-only
+```
+
+The two disposable users are retained for the next integration checkpoint and count toward the free tenant's user limit. Random passwords are not persisted, and no activation emails are sent. The retained report contains no API token, signing secret, password or tenant hostname.
