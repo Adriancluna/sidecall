@@ -1,6 +1,20 @@
 # Pegasus: readiness depth and Claude work assignments
 Last updated: 2026-10-24 by Pegasus
 
+## Current work: purchasing intent and decision evidence
+
+User asked for researched upgrades that add depth, not breadth. #120 is now merged as `f5258a3`; main is `79192b4`. #123 is merged into Omar's #119 branch, not production. Pegasus is reviving the approved purchasing work on `feat/pegasus-purchase-intent`, based on current main, preserving detector fixes and all four stage paths.
+
+Reserved: purchasing schema/tables/helpers/tests, payment lookup/request path, scoped MCP request/retry metadata, standalone `scripts/assistant/` proof runner, `scripts/purchases/`, `src/panels/PurchaseControls.tsx`, and the small existing Bills/CompanyView purchasing mount. No chatbot edits or new dashboard. No package addition. Main release remains Role 1's review/merge.
+
+Research synthesis (Visa intent validation + AP2 checkout binding + Convex serializable mutations): make an automatic purchase explain its exact authority, what changed since approval, and why unrelated business can continue. The implementation will add structured decision receipts and a live preview using the same evaluator, executor-scoped request IDs with stable retries, optional controller-selected agent scope, and real concurrent budget/retry regressions. A discovered first-ten-payments lookup defect is also being fixed so long rejected history cannot hide an existing paid payment. These are established engineering patterns combined with Sidecall's incident evidence, not invented payment cryptography or Visa/AP2 integration.
+
+**AI proof dependency:** actual Claude source-document → MCP execution requires `ANTHROPIC_API_KEY`; local environment and Pegasus DEV currently have no configured key. User has been asked to configure it without sharing secrets in chat. Build and offline tests continue; no fabricated model success will be reported. Money stays in the demo ledger, and the agent never gets a release tool. Recording/DaVinci remains at the end.
+
+**Advice release decision requested by Adrian (#124): ship pre-incident readiness (#119 including #123) in the existing Response playbook, subject to Role 1 review; hold #114 for now.** Readiness helps a controller see and repair authority gaps before automation, while another post-incident advice surface overlaps the current response/evidence workflow and needs separate outcome validation. Marco: prepare one combined #119/#123 integration PR into current main, retaining read-only opening, current copy checks, company/firm permissions and 375 px/keyboard QA; avoid this branch's Bills purchasing mount. Do not merge production yourself. Omar: keep #114 explicitly held and continue the adversarial fixtures/map evidence work.
+
+Earlier entries below describe completed branches and their original validation; this section is the current status.
+
 Ashwa explicitly requested more implementation and parallel Claude work after #116 merged. The tasks below extend existing track stories; production merges still require Role 1 review. Nobody should edit the teammates' chatbot or start another dashboard. Claim a task and its branch in your own handoff, then report PR + tests + screenshot or live result. Role 1 confirmed pickup and reviewed #120; Marco/Omar pickup of #118 is not yet confirmed.
 
 **Shared task queue:** [GitHub issue #118](https://github.com/Adriancluna/sidecall/issues/118), assigned to Adriancluna, marcodonghiaa and Omar-Ibrahim123. Latest work is on `feat/pegasus-readiness-depth`, based on Omar's #119; source controls remain separately reviewed in #120. No direct access to the teammates' running Claude sessions is available; the GitHub assignments are the coordination mechanism.
