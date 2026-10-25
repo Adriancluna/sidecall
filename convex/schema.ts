@@ -4,7 +4,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { paymentRequestResult, purchaseEvidence } from "./purchaseTypes";
-import { releaseVerification } from "./paymentVerification";
+import { releaseContext, releaseVerification } from "./paymentVerification";
 
 export const shareType = v.union(
   v.literal("shared_credential"),
@@ -73,6 +73,8 @@ const ledgerAccount = v.union(
 );
 
 const auditAction = v.union(
+  v.literal("prepare"),
+  v.literal("request"),
   v.literal("hold"),
   v.literal("flag"),
   v.literal("release"),
@@ -391,7 +393,8 @@ export default defineSchema({
     accountLast4: v.string(),
     requestChannel,
     seedRef: v.optional(v.string()), // stable key for data/answer_key.json
-  }).index("by_assetId_and_changedAt", ["assetId", "changedAt"]),
+  }).index("by_assetId_and_changedAt", ["assetId", "changedAt"])
+    .index("by_assetId_and_requestChannel_and_changedAt", ["assetId", "requestChannel", "changedAt"]),
 
   bills: defineTable({
     companyId: v.id("companies"),
@@ -400,6 +403,17 @@ export default defineSchema({
     dueDate: v.number(),
     description: v.string(),
   }).index("by_companyId", ["companyId"]),
+
+  paymentRecoveries: defineTable({
+    companyId: v.id("companies"), billId: v.id("bills"), rejectedPaymentId: v.id("payments"),
+    context: releaseContext,
+    bankRecordId: v.id("bankDetailChanges"), bankRecordChangedAt: v.number(), accountLast4: v.string(),
+    proposedBy: v.id("users"), proposedAt: v.number(), expiresAt: v.number(),
+    verificationNote: v.string(), calledPhoneOnFile: v.literal(true),
+    status: v.union(v.literal("prepared"), v.literal("requested"), v.literal("revoked"), v.literal("superseded")),
+    replacementPaymentId: v.optional(v.id("payments")), requestedBy: v.optional(v.id("users")),
+    requestedAt: v.optional(v.number()), revokedAt: v.optional(v.number()),
+  }).index("by_rejectedPaymentId", ["rejectedPaymentId"]),
 
   payments: defineTable({
     billId: v.id("bills"),
@@ -417,6 +431,8 @@ export default defineSchema({
     holdReasons: v.optional(v.array(v.string())),
     verificationNote: v.optional(v.string()),
     releaseVerification: v.optional(releaseVerification),
+    recoveryFromPaymentId: v.optional(v.id("payments")),
+    recoveryProposalId: v.optional(v.id("paymentRecoveries")),
     decidedAt: v.optional(v.number()),
     dueDate: v.optional(v.number()), // copied from the bill; drives escalation
     escalatedAt: v.optional(v.number()),

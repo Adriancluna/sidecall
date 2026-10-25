@@ -76,6 +76,8 @@ export function ruleLabel(rule: string): string {
 
 // What happened in an audit or timeline row, as a past-tense word.
 const ACTION_LABEL: Record<string, string> = {
+  prepare: "Prepared",
+  request: "Requested",
   hold: "Held",
   hold_payments: "Payments held",
   flag: "Flagged",

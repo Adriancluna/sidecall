@@ -28,6 +28,7 @@ import type * as notifications from "../notifications.js";
 import type * as notify from "../notify.js";
 import type * as ops from "../ops.js";
 import type * as paymentLookup from "../paymentLookup.js";
+import type * as paymentRecovery from "../paymentRecovery.js";
 import type * as paymentVerification from "../paymentVerification.js";
 import type * as paymentVerificationLab from "../paymentVerificationLab.js";
 import type * as payments from "../payments.js";
@@ -69,6 +70,7 @@ declare const fullApi: ApiFromModules<{
   notify: typeof notify;
   ops: typeof ops;
   paymentLookup: typeof paymentLookup;
+  paymentRecovery: typeof paymentRecovery;
   paymentVerification: typeof paymentVerification;
   paymentVerificationLab: typeof paymentVerificationLab;
   payments: typeof payments;
