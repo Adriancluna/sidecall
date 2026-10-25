@@ -7,6 +7,8 @@ The data shapes and function signatures every role builds against. Owned by Role
 
 ## Changelog
 
+- **Oct 24, Pegasus verified-release candidate.** `getHeldPayments` adds `releaseContext` for held rows. `releasePayment` requires a matching structured controller attestation, validates current bill/payment/contact/bank context, and writes `payments.releaseVerification` with the exact ledger reference atomically; old note-only calls receive an audited refusal. Full contract and limitations: `docs/pegasus-verified-release.md`.
+
 - **Oct 24, ~10am.** Response playbook (`docs/specs/response-playbook.md`). Tables `responsePolicies`, `responseSteps`; audit actions `respond`, `approve`, `undo`, `expire`, `policy` (also timeline event kinds). New `convex/responses.ts`: queries `getMyPlaybook()`, `getMyResponsePlan({ incidentId })`, `getResponseTracker({ incidentId })` (firm); mutations `setPlaybookMode({ action, mode })`, `approveStep({ stepId })`, `undoStep({ stepId })`. `containIncident` expires waiting steps. Seed: Cedar Ridge pause = act, tokens = prepare; Granite Peak pause = prepare; Harborline notify. Brightline numbers unchanged.
 - **Oct 24, ~9am.** Presenter lock (council A1): env `PRESENTER_KEY`. Where set (prod), `seed.resetDemo({ presenterKey? })` and unsigned demo `POST /incident` (header `X-Sidecall-Presenter`) need it; signed senders are unaffected. Unset = unchanged (dev, tests). Readiness gained "Presenter lock" (advisory) and stricter freshness (bank change < 2.5 days, $480K due in 18–20h). Lakeside sample due dates moved past Oct 30.
 - **Oct 24, ~2:45am.** "What to check" for sister companies' IT leads: `exposures.path.whatToCheck?`, `getExposureEvidence().path.whatToCheck`, evidence kind `what_to_check`, `getWritingContext().companyAlerts[].whatToCheck`. Built from the technique, our own asset row and the time the path was proven, e.g. "What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong." The action differs by link type.
@@ -93,7 +95,8 @@ All money is integer cents. All times are ms since epoch.
 - When an incident lands, every `pending` payment whose `assetId` is the incident's asset, at a company with `holdRuleEnabled`, becomes `held` (the reporting company included). Nothing is cancelled.
 - `bankChangeFlag: true` when that vendor has a `bankDetailChanges` row within 30 days before or after the incident. `flaggedBankChangeId` points at it.
 - `releasePayment` refuses if the acting user is the requester, isn't a `controller` at the payment's company, or the status isn't `held`. Refusals are logged.
-- Release moves `held → paid` in one transaction (`released` is unused, kept for compatibility).
+- Release also requires structured verification of this payment’s exact masked destination and a controller assertion of a callback to the stored number. The context returned with the held row must still match current payment, bill, vendor contact and latest bank-record facts; stale/mismatched context is audited and refused. The note is 15–2,000 characters. `verification` is optional in the argument validator only to return a useful refusal to old callers; omission never releases money.
+- Release moves `held → paid` in one transaction (`released` is unused, kept for compatibility), checks the indexed already-paid bill range, and stores immutable `releaseVerification` with the reviewed context, actor/time and journal ID. Historical destinations can be explicitly verified; no account is automatically redirected. The stored attestation does not prove a call happened or identify a full real bank account.
 - Every hold, flag, release, reject and refusal writes one `auditLog` row.
 
 **Ledger (double-entry, every entry balances)**
@@ -277,7 +280,7 @@ claude mcp add --transport http sidecall https://<deployment>.convex.site/mcp --
 
 [payments] requestPayment({ billId }) -> { ok: true, paymentId, held, flagged } | { ok: false, reason }
                                      // AP clerk at the bill's company only; one live payment per bill
-[payments] releasePayment({ paymentId, verificationNote }) -> { ok: true } | { ok: false, reason: string }
+[payments] releasePayment({ paymentId, verificationNote, verification?: { context: ReleaseContext, confirmedAccountLast4: string, calledPhoneOnFile: boolean } }) -> { ok: true } | { ok: false, reason: string }
 [payments] rejectPayment({ paymentId, note? })             -> same shape
 ```
 

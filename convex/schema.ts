@@ -4,6 +4,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { paymentRequestResult, purchaseEvidence } from "./purchaseTypes";
+import { releaseVerification } from "./paymentVerification";
 
 export const shareType = v.union(
   v.literal("shared_credential"),
@@ -415,6 +416,7 @@ export default defineSchema({
     flaggedBankChangeId: v.optional(v.id("bankDetailChanges")),
     holdReasons: v.optional(v.array(v.string())),
     verificationNote: v.optional(v.string()),
+    releaseVerification: v.optional(releaseVerification),
     decidedAt: v.optional(v.number()),
     dueDate: v.optional(v.number()), // copied from the bill; drives escalation
     escalatedAt: v.optional(v.number()),

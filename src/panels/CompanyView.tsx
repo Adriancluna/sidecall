@@ -153,6 +153,7 @@ export function CompanyView({ companyId, meId, role }: Props) {
   } else if (heroPayment) {
     hero = (
       <PaymentHero
+        key={heroPayment.payment._id}
         row={heroPayment}
         escalation={escalations.get(heroPayment.payment._id)}
         viewer={viewer}
