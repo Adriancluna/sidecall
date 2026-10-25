@@ -152,7 +152,7 @@ export function PresenterPanel() {
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`Open presenter steps, beat ${current + 1} of ${BEATS.length}: ${BEATS[current].title}`}
-        className="fixed bottom-3 left-3 z-20 flex min-h-9 max-w-[231px] items-center gap-2 rounded-full bg-panel px-3 py-1.5 text-sm font-medium text-ash ring-1 ring-line hover:bg-raised hover:text-paper"
+        className="fixed bottom-28 left-3 z-20 flex min-h-9 max-w-[231px] items-center gap-2 rounded-full bg-panel px-3 py-1.5 text-sm font-medium text-ash ring-1 ring-line hover:bg-raised hover:text-paper"
       >
         <span className="font-medium text-paper tabular-nums">
           {current + 1}/{BEATS.length}
@@ -167,7 +167,7 @@ export function PresenterPanel() {
   return (
     <aside
       aria-label="Presenter steps"
-      className="fixed bottom-3 left-3 z-20 max-h-[45vh] w-[231px] overflow-y-auto rounded-tile border border-line bg-panel p-4 shadow-[0_16px_24px_-8px_rgb(0_0_0/0.5)] text-sm leading-relaxed"
+      className="fixed bottom-28 left-3 z-20 max-h-[45vh] w-[231px] overflow-y-auto rounded-tile border border-line bg-panel p-4 shadow-[0_16px_24px_-8px_rgb(0_0_0/0.5)] text-sm leading-relaxed"
     >
       <header className="mb-2 flex items-center justify-between gap-2">
         <button
