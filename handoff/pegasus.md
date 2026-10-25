@@ -1,9 +1,9 @@
 # Pegasus: release handoff
-Last updated: 2026-10-24, 18:31 PT by Pegasus
+Last updated: 2026-10-24, 18:32 PT by Pegasus
 
-## Ready for Role 1 review: visible Claude purchases and defense checks
+## Ready for Role 1 review: [PR #132](https://github.com/Adriancluna/sidecall/pull/132)
 
-Ashwa explicitly requested both proposed upgrades, necessary UI fixes and finishing the project. The implementation is complete on `feat/pegasus-purchase-console`, based on main `0ea25c2` after #130 merged. Bills to pay now runs a bounded real-Claude purchase job, with saved invoice source, tool trace, current server checks, receipt/hold outcome, cancellation and eight visible control challenges. The controller approves exact bills; the AP clerk submits. Claude cannot grant approval, alter the payee or release held money. No chatbot or map edits; no new dependency.
+Ashwa explicitly requested both proposed upgrades, necessary UI fixes and finishing the project. The implementation is complete at `a2e2ea2` on `feat/pegasus-purchase-console`, based on main `0ea25c2` after #130 merged. Bills to pay now runs a bounded real-Claude purchase job, with saved invoice source, tool trace, current server checks, receipt/hold outcome, cancellation and eight visible control challenges. The controller approves exact bills; the AP clerk submits. Claude cannot grant approval, alter the payee or release held money. No chatbot or map edits; no new dependency.
 
 **Validation:** 256 app/backend tests + 70 Node tests, app/backend TypeScript, lint and build pass. The full original live rehearsal passes. `scripts/console/report.json` records five live groups at source `02f0b93`: eight concurrent calls to the UI endpoint create one job, a real $180 Opus purchase posts once, eight guard/source/replay checks pass, an actual malicious invoice is declined by Claude with no payment, and historical retry adds no model call or debit. Four cleanup records pass. The independent review verified identity/receipt/journal links, source hashes and redaction. This is authored-case evidence, not a general fraud or prompt-injection accuracy claim.
 
@@ -13,7 +13,7 @@ Ashwa explicitly requested both proposed upgrades, necessary UI fixes and finish
 
 ## Needs from others
 
-- **→ Adrian / Role 1:** review the purchase-console PR, especially transactional authority/idempotency, cancellation and paid-call limits; recheck on your own DEV, then own the selected production merge/deploy and final combined rehearsal. Production needs its own `ANTHROPIC_API_KEY`, matching `PRESENTER_KEY` and demo mode. Do not run the fixture/reset runner against production. Latest #118 says freeze is midnight PT; Pegasus has not self-merged or deployed production.
+- **→ Adrian / Role 1:** review [#132](https://github.com/Adriancluna/sidecall/pull/132) (review requested), especially transactional authority/idempotency, cancellation and paid-call limits; recheck on your own DEV, then own the selected production merge/deploy and final combined rehearsal. Production needs its own `ANTHROPIC_API_KEY`, matching `PRESENTER_KEY` and demo mode. Do not run the fixture/reset runner against production. Latest #118 says freeze is midnight PT; Pegasus has not self-merged or deployed production.
 - **→ Marco / Role 2:** if accepted, demonstrate controller approval → AP Process approved bill → actual tool trace/receipt → eight control challenges; use the existing malicious-source decline as the contrasting evidence. Choose the beat within your video budget; #130 recovery stays optional Q&A per Adrian. Reconcile script/submission claims with this visible UI and clearly distinguish synthetic ledger settlement from a Visa/bank transaction. Recording remains last.
 - **→ Teammates owning the chatbot:** integrate and validate your own component separately; Pegasus did not edit or mount it, and this one-shot purchase job is not evidence your chatbot works.
 - **→ Omar / map owner + Adrian:** resolve the existing G6/default-judging decision separately; this branch inherits current main without changing the map.
