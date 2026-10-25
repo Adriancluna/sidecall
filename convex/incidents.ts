@@ -1,6 +1,6 @@
 // Incident intake and fan-out. One transaction writes the incident, every exposure,
 // every payment hold, the pending alerts, and schedules the AI writers once.
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
@@ -64,6 +64,12 @@ export async function recordIncidentImpl(
     effectiveAssessment: "observation" | "confirmed";
   },
 ): Promise<RecordIncidentResult> {
+  const reset = await ctx.db.query("demoResetState").first();
+  if (reset?.running) throw new ConvexError("Demo reset is in progress; retry this report after reset completes.");
+  // A new stage take gets a new presenter receipt; Replay stays idempotent within
+  // that take. Real detector IDs and preserved external commands never change.
+  if (reset && !source && ["demo-brightline-001", "demo-ironclad-cred-002", "demo-ironclad-msp-003", "demo-armadin-004"].includes(args.externalId))
+    args = { ...args, externalId: `${args.externalId}:take:${reset.generation}` };
   // Idempotency: a replayed webhook returns the original incident and writes nothing.
   const receipt = await ctx.db
     .query("incidentReports")

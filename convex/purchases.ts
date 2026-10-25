@@ -395,9 +395,11 @@ export const loadSamples = mutation({
       .query("assets")
       .withIndex("by_name", (q) => q.eq("name", name))
       .unique();
-    if (existing) return { created: false };
+    if (existing && await ctx.db.query("bills").withIndex("by_companyId_and_assetId", q => q.eq("companyId", viewer.companyId)
+      .eq("assetId", existing._id)).first()) return { created: false };
+    if ((await ctx.db.query("demoResetState").first())?.running) throw new ConvexError("Wait for the demo reset to finish.");
     const now = Date.now();
-    const assetId = await ctx.db.insert("assets", {
+    const assetId = existing?._id ?? await ctx.db.insert("assets", {
       name,
       vendorName: "Northstar Office Supplies (demo)",
       kind: "other",
@@ -409,7 +411,7 @@ export const loadSamples = mutation({
       requestChannel: "verified_call",
       changedAt: now,
     });
-    await ctx.db.insert("links", {
+    if (!existing) await ctx.db.insert("links", {
       assetId,
       companyId: viewer.companyId,
       shareType: "same_vendor_only",

@@ -168,6 +168,10 @@ const ledgerLine = v.object({
 });
 
 export default defineSchema({
+  demoResetState: defineTable({
+    running: v.boolean(), generation: v.number(), tableIndex: v.number(), cursor: v.union(v.string(), v.null()),
+    protectedIncidents: v.array(v.id("incidents")), startedAt: v.number(),
+  }),
   ...authTables, // Convex Auth sessions/accounts; `users` below extends its users table
 
   // Owned test resources only. These tokens confer no access to an actual identity provider.
@@ -267,6 +271,7 @@ export default defineSchema({
     createdAt: v.number(),
     // Set by the PE firm once the vendor has remediated. New payments stop being held;
     // payments already held still need a controller's decision.
+    demoResetAt: v.optional(v.number()), // preserve external recovery, prevent old unsent pauses after reset
     containedAt: v.optional(v.number()),
     containedBy: v.optional(v.id("users")),
     containmentNote: v.optional(v.string()),
@@ -411,7 +416,10 @@ export default defineSchema({
     amountCents: v.number(),
     dueDate: v.number(),
     description: v.string(),
-  }).index("by_companyId", ["companyId"]),
+    // Company bill queues retain creation order; sample reload checks need the exact vendor.
+    // eslint-disable-next-line @convex-dev/no-duplicate-indexes
+  }).index("by_companyId", ["companyId"])
+    .index("by_companyId_and_assetId", ["companyId", "assetId"]),
 
   paymentRecoveries: defineTable({
     companyId: v.id("companies"), billId: v.id("bills"), rejectedPaymentId: v.id("payments"),

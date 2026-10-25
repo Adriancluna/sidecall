@@ -23,6 +23,7 @@ const cents = (dollars: number) => Math.round(dollars * 100); // dollars → int
 
 // Auth tables are cleared too: their rows point at users that a reseed replaces.
 const TABLES: TableNames[] = [
+  "demoResetState",
   "purchaseRuns",
   "paymentRecoveries",
   "purchaseRequests",
@@ -318,9 +319,93 @@ const EMPTY_COUNTS = {
   dnsSkipped: [] as string[],
 };
 
+// Connected demos keep the identities encoded in real commands. A reset can
+// abandon simulated work without abandoning a suspended account's recovery path.
+const CONNECTED_TABLES: TableNames[] = [
+  "purchaseRuns", "purchaseRequests", "purchaseReceipts", "purchaseQuotes", "purchaseMandates",
+  "paymentRecoveries", "investigations", "notifications", "auditLog", "responseSteps",
+  "alerts", "exposures", "incidentReports", "incidents", "payments", "bills", "ledgerEntries", "bankDetailChanges",
+];
+
+async function connectedFinanceBindings(ctx: MutationCtx) {
+  const companyIds = {} as Record<CompanyKey, Id<"companies">>;
+  const clerkIds = {} as Record<CompanyKey, Id<"users">>;
+  const assetIds = {} as Record<AssetKey, Id<"assets">>;
+  for (const key of Object.keys(COMPANIES) as CompanyKey[]) {
+    const company = await ctx.db.query("companies").withIndex("by_domain", q => q.eq("domain", COMPANIES[key].domain)).unique();
+    const clerk = await ctx.db.query("users").withIndex("email", q => q.eq("email", demoEmail(USERS[key].clerk, COMPANIES[key].domain))).unique();
+    if (!company || !clerk) throw new ConvexError("Seeded identities are missing; external bindings were preserved for operator review.");
+    companyIds[key] = company._id; clerkIds[key] = clerk._id;
+  }
+  for (const key of Object.keys(ASSETS) as AssetKey[]) {
+    const asset = await ctx.db.query("assets").withIndex("by_name", q => q.eq("name", ASSETS[key].name)).unique();
+    if (!asset) throw new ConvexError("Seeded asset is missing; receiver bindings were preserved.");
+    assetIds[key] = asset._id;
+  }
+  return { companyIds, assetIds, clerkIds };
+}
+
+async function startConnectedReset(ctx: MutationCtx) {
+  const previous = await ctx.db.query("demoResetState").first();
+  if (previous?.running) return { ...EMPTY_COUNTS, continuing: true };
+  await connectedFinanceBindings(ctx); // Fail before clearing anything if a seed identity is missing.
+  const deliveries = await ctx.db.query("responseDeliveries").take(1001);
+  const incidents = await ctx.db.query("incidents").take(1001);
+  if (deliveries.length > 1000 || incidents.length > 1000)
+    throw new ConvexError("This connected dataset exceeds the stage reset limit; preserve external evidence and ask an operator to archive it.");
+  const protectedIncidents = new Set<Id<"incidents">>(incidents
+    .filter(i => i.assetId === env.RESPONSE_RECEIVER_ASSET_ID).map(i => i._id));
+  for (const job of deliveries) {
+    const step = await ctx.db.get("responseSteps", job.stepId);
+    if (step) protectedIncidents.add(step.incidentId);
+    if (step && job.kind === "pause" && job.sentAt === undefined && ["ready", "pending"].includes(job.status)) {
+      const reason = "Demo reset stopped this unsent pause. No provider change was started.";
+      await ctx.db.patch("responseDeliveries", job._id, { status: "refused", reason });
+      await ctx.db.patch("responseSteps", step._id, { status: "refused", capNote: reason });
+    }
+  }
+  for (const id of protectedIncidents) if (await ctx.db.get("incidents", id))
+    await ctx.db.patch("incidents", id, { demoResetAt: Date.now() });
+  const value = { running: true, generation: (previous?.generation ?? 0) + 1, tableIndex: 0, cursor: null, protectedIncidents: [...protectedIncidents], startedAt: Date.now() };
+  const id = previous ? previous._id : await ctx.db.insert("demoResetState", value);
+  if (previous) await ctx.db.replace("demoResetState", id, value);
+  await ctx.scheduler.runAfter(0, internal.seed.finishConnectedReset, { resetId: id });
+  return { ...EMPTY_COUNTS, continuing: true };
+}
+
+export const finishConnectedReset = internalMutation({
+  args: { resetId: v.id("demoResetState") },
+  handler: async (ctx, { resetId }) => {
+    const state = await ctx.db.get("demoResetState", resetId);
+    if (!state?.running) return;
+    const protectedIds = new Set<string>(state.protectedIncidents);
+    let index = state.tableIndex, cursor = state.cursor;
+    if (index < CONNECTED_TABLES.length) {
+      const table = CONNECTED_TABLES[index];
+      const page = await ctx.db.query(table).paginate({ numItems: 100, cursor });
+      for (const doc of page.page) {
+        const incidentId = table === "incidents" ? doc._id : "incidentId" in doc ? doc.incidentId : undefined;
+        if (!incidentId || !protectedIds.has(incidentId)) await ctx.db.delete(table, doc._id);
+      }
+      cursor = page.isDone ? null : page.continueCursor;
+      if (page.isDone) index++;
+    }
+    if (index < CONNECTED_TABLES.length) {
+      await ctx.db.patch("demoResetState", resetId, { tableIndex: index, cursor });
+      await ctx.scheduler.runAfter(0, internal.seed.finishConnectedReset, { resetId });
+      return;
+    }
+    const { companyIds, assetIds, clerkIds } = await connectedFinanceBindings(ctx);
+    await seedFinance(ctx, companyIds, assetIds, clerkIds, Date.now());
+    await ctx.db.patch("demoResetState", resetId, { running: false, tableIndex: index, cursor: null });
+  },
+});
+
 // Clear, then seed. Small databases do both in one transaction. Big ones return
 // { continuing: true } and finish in finishReset.
 async function resetAll(ctx: MutationCtx) {
+  if (env.RESPONSE_RECEIVER_LIVE === "true" || await ctx.db.query("responseDeliveries").first())
+    return await startConnectedReset(ctx);
   if (!(await clearSome(ctx))) {
     await ctx.scheduler.runAfter(0, internal.seed.finishReset, {});
     return { ...EMPTY_COUNTS, continuing: true };
@@ -344,13 +429,6 @@ async function seedAll(ctx: MutationCtx) {
   const companyIds = {} as Record<CompanyKey, Id<"companies">>;
   for (const [key, company] of Object.entries(COMPANIES) as [CompanyKey, (typeof COMPANIES)[CompanyKey]][]) {
     companyIds[key] = await ctx.db.insert("companies", company);
-    await postLedgerEntry(ctx, {
-      kind: "opening",
-      companyId: companyIds[key],
-      amountCents: OPENING_CASH,
-      date: now - 180 * DAY_MS,
-      memo: "Opening balance",
-    });
   }
 
   const assetIds = {} as Record<AssetKey, Id<"assets">>;
@@ -472,6 +550,25 @@ async function seedAll(ctx: MutationCtx) {
     createdBy: peId,
   });
 
+  await seedFinance(ctx, companyIds, assetIds, clerkIds, now);
+
+  return {
+    companies: Object.keys(COMPANIES).length,
+    assets: Object.keys(ASSETS).length,
+    links: LINKS.length,
+    payments: PAYMENTS.length,
+    bankChanges: BANK_CHANGES.length,
+    dnsImported,
+    dnsDetailed,
+    dnsSkipped,
+  };
+}
+
+async function seedFinance(ctx: MutationCtx, companyIds: Record<CompanyKey, Id<"companies">>,
+  assetIds: Record<AssetKey, Id<"assets">>, clerkIds: Record<CompanyKey, Id<"users">>, now: number) {
+  for (const companyId of Object.values(companyIds)) await postLedgerEntry(ctx, {
+    kind: "opening", companyId, amountCents: OPENING_CASH, date: now - 180 * DAY_MS, memo: "Opening balance",
+  });
   for (const change of BANK_CHANGES) {
     await ctx.db.insert("bankDetailChanges", {
       assetId: assetIds[change.asset],
@@ -547,16 +644,6 @@ async function seedAll(ctx: MutationCtx) {
     }
   }
 
-  return {
-    companies: Object.keys(COMPANIES).length,
-    assets: Object.keys(ASSETS).length,
-    links: LINKS.length,
-    payments: PAYMENTS.length,
-    bankChanges: BANK_CHANGES.length,
-    dnsImported,
-    dnsDetailed,
-    dnsSkipped,
-  };
 }
 
 export const run = internalMutation({
@@ -569,8 +656,11 @@ export const resetAvailability = query({
   handler: async ctx => {
     await getViewer(ctx);
     const external = env.RESPONSE_RECEIVER_LIVE === "true" || !!(await ctx.db.query("responseDeliveries").first());
-    return { allowed: env.DEMO_MODE === "true" && !external,
-      reason: external ? "Reset is disabled to preserve external-command evidence. Contain a completed test incident before the next rehearsal." : env.DEMO_MODE !== "true" ? "Demo reset is disabled on this deployment." : null };
+    const resetting = (await ctx.db.query("demoResetState").first())?.running === true;
+    return { allowed: env.DEMO_MODE === "true" && !resetting, preservesExternal: external,
+      reason: resetting ? "Reset in progress… Your sign-in and external recovery records are preserved."
+        : env.DEMO_MODE !== "true" ? "Demo reset is disabled on this deployment."
+        : external ? "Reset clears simulated payments and unfinished AI tests. Real account actions and recovery records stay available; Reset does not restore an Okta account." : null };
   },
 });
 

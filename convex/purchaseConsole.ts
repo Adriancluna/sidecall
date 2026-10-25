@@ -36,6 +36,7 @@ async function financeViewer(ctx: QueryCtx) {
   return !viewer.firm && ["ap_clerk", "controller"].includes(viewer.user.role) ? viewer : null;
 }
 async function runViewer(ctx: QueryCtx, run: Doc<"purchaseRuns">) {
+  if ((await ctx.db.query("demoResetState").first())?.running) return null;
   const user = await ctx.db.get("users", run.requestedBy);
   if (!user || user.role !== "ap_clerk" || user.companyId !== run.companyId) return null;
   const viewer = viewerForUser(user);
@@ -76,6 +77,7 @@ export const start = mutation({
   returns: v.id("purchaseRuns"),
   handler: async (ctx, args) => {
     const viewer = await getViewer(ctx);
+    if ((await ctx.db.query("demoResetState").first())?.running) throw new ConvexError("Demo reset is in progress; wait before starting a new run.");
     if (viewer.firm || viewer.user.role !== "ap_clerk") throw new ConvexError("Only the signed-in AP clerk can process a bill; a controller approves purchasing separately.");
     if (!/^[A-Za-z0-9_-]{8,80}$/.test(args.clientRequestId)) throw new ConvexError("Use a stable request identity for this submission.");
     const previous = await ctx.db.query("purchaseRuns").withIndex("by_requestedBy_and_clientRequestId", q => q.eq("requestedBy", viewer.user._id).eq("clientRequestId", args.clientRequestId)).unique();

@@ -233,6 +233,8 @@ type RequestOptions = { requestId?: string; expectedMandateId?: Id<"purchaseMand
 
 export async function requestPaymentFor(ctx: MutationCtx, viewer: Viewer, billId: Id<"bills">,
   agentId?: Id<"agents">, options: RequestOptions = {}): Promise<PaymentRequestResult> {
+  if ((await ctx.db.query("demoResetState").first())?.running)
+    return { ok: false, reason: "Demo reset is in progress; retry after it completes." };
   if (viewer.firm || viewer.user.role !== "ap_clerk")
     return { ok: false, reason: "Only an AP clerk requests payments; a controller approves them." };
   const { requestId, expectedMandateId } = options;

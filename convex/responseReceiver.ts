@@ -58,6 +58,7 @@ async function ownStep(ctx: MutationCtx, stepId: Id<"responseSteps">) {
 
 async function authority(ctx: QueryCtx, step: Doc<"responseSteps">) {
   const incident = await ctx.db.get("incidents", step.incidentId);
+  if (incident?.demoResetAt !== undefined) return "Demo reset stopped new pauses for this earlier test; existing commands remain available for recovery";
   if (!incident || !activeEpisode(incident, Date.now()) || incident.responseClass === "observation") return "Incident is no longer eligible for automatic response";
   const source = incident.sourceId ? await ctx.db.get("detectorSources", incident.sourceId) : null;
   if (incident.sourceId && (!source || source.revokedAt !== undefined || source.mode !== "confirm" || source.expiresAt <= Date.now())) return "Report source authorization is no longer active";

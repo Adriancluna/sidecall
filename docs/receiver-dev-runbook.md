@@ -75,7 +75,11 @@ Local approval is a human assertion, not proof that a stolen password was rotate
 
 ## Rehearsal and release limits
 
-Reset is disabled while this connection is enabled or external-command history exists. This prevents loss of the command IDs and evidence needed to reconcile real effects. Contain completed synthetic incidents instead; a subsequent rehearsal must use a fresh authorized report identity. The bounded `convex-proof.mjs` harness deliberately refuses to overwrite a prior run rather than silently repeat account changes.
+The stage Reset button is now available even with unfinished tests. On a connected deployment it clears simulated payments, purchase approvals, AI runs and unrelated incidents, then rebuilds the financial fixtures while retaining company/user/asset IDs and sign-ins. Real command receipts, their incidents and recovery records remain available. Unsent pauses from an earlier take are refused; sent or unknown commands keep their original IDs for reconciliation. Reset never restores an Okta account or claims remediation. A separate operator-approved restore is still required for a real pause.
+
+Reset is batched; wait for its progress message to disappear before firing the next scenario. Public mutations and new detector intake pause during the clear. An already-sent model call may incur usage, but cannot settle after reset. Presenter scenarios receive a new take identity; replay within that take stays idempotent. An earlier unresolved external incident may still correlate reports and remains visible for recovery. Existing response policies and receiver limits are preserved. This stage path bounds external command/incident scans to 1,000 each; larger connected histories require operator archival.
+
+Open `/?stage`, expand Simulator, enter the existing presenter key and click Reset. The controller can load the office-supply sample bills again after reset. This behavior replaces the earlier blanket reset prohibition; historical evidence documents describe the behavior at the time of their runs.
 
 The default receiver budget is three new pauses per hour. A reused report or command does not cause another pause. A fresh incident after cleanup still counts toward the budget. Plan rehearsals around that limit; do not remove the limit to disguise a failed demo.
 
