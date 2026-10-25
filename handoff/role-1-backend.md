@@ -76,6 +76,23 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 ## Status update (~2:45am): "What to check" (last backend feature before hardening)
 Team decision (Adrian): **no more new features**; focus on precision, the $480K moment, and the red-team finding. One gap closed: an exposed company's IT lead now gets a concrete check, not just "rotate and review". `getExposureEvidence().path.whatToCheck` / evidence kind `what_to_check` / `getWritingContext().companyAlerts[].whatToCheck`, e.g. "What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong." (Harborline, which gives admin access, gets "Ask Ironclad Managed IT to rotate the admin account it uses for you…"). 55 tests, rehearsal 25/25. From here Role 1 = demo hardening + support for the video.
 
+## FINAL DECISIONS (Adrian, Oct 24 ~5:30pm, after 4 judge reviews + a ship/freeze debate). Full text in issue #118
+- **#125 purchasing:**
+  - ships only if the HIGH and both MEDIUMs are fixed, with regression tests, and Role 1 re-review plus rehearsal pass **by 10pm PT**;
+  - otherwise it's an unmerged PR linked from the Devpost;
+  - it's never in the main 3-minute story.
+- **Verified release:** rebased **on its own onto main** (not stacked), ready **by 8:30pm**, or it's dropped and Rosa demos Reject.
+- **Stop-loss readiness (#119/#123):** not mounted. One Devpost "What's next" line.
+- **Armadin:** wording fixed by Role 1 (this PR). The observation → confirm demo beat is cut.
+- **Video:** safe main take on current main by about **8:30pm** (3 · 4,200 · $612K, optional beats cut).
+- **Deploy:** one batched deploy of #125 and verified release by about **11pm**, only if they pass their gates. Then a prod rehearsal.
+- **Hard code freeze: midnight PT.**
+- **This PR (Role 1):**
+  - **Marco, FYI:** two of your files changed. `ExposureHero.tsx` and `PortfolioView.tsx` no longer say "Nobody touched…"; they now say "Sidecall tested nothing at sister companies; any step ran under that company's own pre-approval".
+  - Red-team headlines say "proven exploitable at another portfolio company", not "compromised" (`exposureCopy.ts`).
+  - Added `returns` validators on `getMyExposures` and `getMyAlerts` (the Convex judge's ask). Rehearsal passes.
+- → **Omar:** the canned `ai.ts` alert for a finding still opens with "security incident". Use "An authorized security test found…" instead.
+
 ## → Pegasus: you decide stop-loss advice (#119 + #123) (Adrian, Oct 24)
 Adrian asked Pegasus to make the call on whether stop-loss advice (and its companion breach-fix advice #114) goes into the product for judging. Whatever you choose:
 1. **If it ships:**

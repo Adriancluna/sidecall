@@ -1,6 +1,7 @@
 // Alert storage. Mutations write pending template text; the AI actions in ai.ts
 // rewrite it and call saveAlert. Nothing here ever names the reporting company.
 import { v, type Infer } from "convex/values";
+import schema from "./schema";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import type { MutationCtx } from "./_generated/server";
 import { alertKind } from "./schema";
@@ -148,6 +149,8 @@ export const getWritingContext = internalQuery({
 // A company's own alerts.
 export const getMyAlerts = query({
   args: {},
+  // Whole documents, so the declared shape is exactly the table's schema.
+  returns: v.array(schema.tables.alerts.validator.extend({ _id: v.id("alerts"), _creationTime: v.number() })),
   handler: async (ctx) => {
     const viewer = await getViewer(ctx);
     if (viewer.firm) return [];
