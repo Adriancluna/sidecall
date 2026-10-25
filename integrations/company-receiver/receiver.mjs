@@ -141,8 +141,11 @@ export function createReceiver({ store, provider, getConfig, now = Date.now }) {
             originalBody.target !== body.target || originalBody.incidentId !== body.incidentId || original.binding !== binding(body, cfg)) {
           return { http: 403, body: refuse(body, 'restore_does_not_match_active_confirmed_pause') };
         }
+        // Explicit local opt-in applies only to the disposable demo target.
+        if (body.demoReset === true && (cfg.demoResetTarget !== body.target || !owned(body.target)))
+          return { http: 403, body: refuse(body, 'demo_reset_not_authorized_for_owned_target') };
         const approval = db.prepare('SELECT * FROM restore_approvals WHERE command_id=? AND pause_id=?').get(body.commandId, body.pauseCommandId);
-        if (!approval || approval.expires <= now()) return { http: 403, body: refuse(body, 'company_operator_restore_approval_required') };
+        if (body.demoReset !== true && (!approval || approval.expires <= now())) return { http: 403, body: refuse(body, 'company_operator_restore_approval_required') };
         db.prepare('DELETE FROM restore_approvals WHERE command_id=?').run(body.commandId);
       }
       const saved = base(body);

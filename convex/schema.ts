@@ -171,6 +171,8 @@ export default defineSchema({
   demoResetState: defineTable({
     running: v.boolean(), generation: v.number(), tableIndex: v.number(), cursor: v.union(v.string(), v.null()),
     protectedIncidents: v.array(v.id("incidents")), startedAt: v.number(),
+    phase: v.optional(v.union(v.literal("restoring"), v.literal("clearing"))),
+    error: v.optional(v.string()),
   }),
   ...authTables, // Convex Auth sessions/accounts; `users` below extends its users table
 

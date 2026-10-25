@@ -50,6 +50,7 @@ export function loadRuntime(env = process.env) {
   const provider = oktaProvider({ orgUrl: env.OKTA_ORG_URL, token: env.OKTA_API_TOKEN });
   const disabledFile = `${statePath}.disabled`;
   const getConfig = () => ({ companyId: env.RECEIVER_COMPANY_ID, secret: env.RECEIVER_SIGNING_SECRET, targets,
+    demoResetTarget: env.RECEIVER_DEMO_RESET_TARGET ?? null,
     enabled: env.RECEIVER_ENABLED === 'true' && !existsSync(disabledFile),
     maxPausesPerHour: Number(env.RECEIVER_MAX_PAUSES_PER_HOUR ?? '3') });
   mkdirSync(dirname(statePath), { recursive: true, mode: 0o700 });

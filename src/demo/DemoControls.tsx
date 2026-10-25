@@ -184,11 +184,11 @@ export function DemoControls() {
             title={resetAvailability?.reason ?? undefined}
             onClick={() =>
               window.confirm(resetAvailability?.preservesExternal
-                ? "Reset simulated payments and unfinished AI tests? Real account actions, recovery records and your sign-in will be kept. This does not restore a suspended Okta account."
+                ? "Restart this practice demo? Reset will first restore the disposable Okta account paused by the demo, then clear simulated payments and unfinished AI tests. If recovery cannot be confirmed, Reset stops and keeps the records. Revoked sessions are not recreated."
                 : "Reset the demo? This clears unfinished tests, incidents, simulated payments and sign-ins, then reseeds the portfolio.") &&
               void run("reset", "Reset", async () => {
                 const result = await resetDemo(presenterKey ? { presenterKey } : {});
-                return result.continuing ? "started. Wait for Reset to become available again before the next take." : "portfolio reseeded.";
+                return result.continuing ? "started. Watch the reset status below; start the next take only after it says Ready." : "portfolio reseeded.";
               })
             }
             className={BUTTON_QUIET}
