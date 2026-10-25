@@ -53,7 +53,7 @@ export function SiteGate({ children }: { children: ReactNode }) {
     <main className="grid min-h-screen place-items-center px-4 py-10">
       <form onSubmit={(e) => void onSubmit(e)} className="w-full max-w-sm">
         <img src={logoUrl} alt="Sidecall" width={166} height={40} className="h-10 w-auto" />
-        <h1 className="mt-8 text-2xl font-semibold text-balance">Enter the demo password</h1>
+        <h1 className="mt-8 text-2xl font-semibold tracking-[-0.04em] text-balance">Enter the demo password</h1>
         <p className="mt-2 text-sm leading-relaxed text-ash">
           This is a private demo. Enter the password the Sidecall team gave you to continue.
         </p>
