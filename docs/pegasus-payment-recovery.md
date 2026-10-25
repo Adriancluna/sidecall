@@ -41,3 +41,11 @@ Run the original own-DEV rehearsal separately first. Never pass a key on a comma
 The supplied Visa starter pack weights commerce impact and UX at 20% each and explicitly includes secure payments; it does not supply proprietary Visa APIs. This closes a specific merchant-payment failure instead of adding another dashboard. Visa's [Intelligent Commerce overview](https://corporate.visa.com/en/products/intelligent-commerce.html) emphasizes controls and authentication around automated buying. Convex's [serializable transactions](https://docs.convex.dev/database/advanced/occ) support the consume-once correction and settlement checks. These sources motivate the design; this feature is not Visa certification or an integration.
 
 Keep this follow-up separate from the accepted #125/#127 batch. Role 1 owns release review and any production merge; the existing three-minute demo remains usable without it.
+
+## Optional judge demonstration
+
+Show two bills during one incident: the suspicious $480,000 Brightline payment and an unrelated $180 Northstar purchase. Reject Brightline's changed 7731 destination; the old destination 2208 is available only through the controller's bill-specific correction. Switch to AP to request the correction and show that it remains held, while the independently approved Northstar purchase completes automatically. A final verified controller release settles the corrected Brightline request once, leaving the rejected original and its audit chain visible.
+
+The point is business continuity under attack: automation keeps authorized commerce moving, and a blocked payment has a controlled path back to completion. Describe the callback as simulated and the ledger as synthetic. No new model call is part of this recovery proof; the existing real-Claude purchasing proof remains separate.
+
+Role 1: review the recovery transaction and decide whether this optional follow-up fits before the code freeze. Role 2: if accepted, choose this recovery beat or the existing verified-release beat; do not add both to a short demo by default. Role 4: retain the current chatbot and AI evidence unchanged. The existing accepted release is sufficient to keep recording unblocked.

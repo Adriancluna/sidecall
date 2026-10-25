@@ -47,7 +47,10 @@ export function PaymentRecovery({ paymentId }: { paymentId: Id<"payments"> }) {
   const data = useQuery(api.paymentRecovery.getForPayment, { paymentId });
   if (data === undefined) return <p role="status" className="text-sm text-ash">Loading recovery options…</p>;
   if (data === null) return null;
-  return <RecoveryDetails key={paymentId} paymentId={paymentId} data={data} />;
+  // The hero and payment list may both show this bill. A newly saved proposal closes
+  // an older draft in either view; changes to invoice/contact facts still stay frozen
+  // inside VerificationForm until the user explicitly restarts verification.
+  return <RecoveryDetails key={`${paymentId}:${data.latestProposal?.id ?? "none"}`} paymentId={paymentId} data={data} />;
 }
 
 function RecoveryDetails({ paymentId, data }: { paymentId: Id<"payments">; data: Recovery }) {
