@@ -54,9 +54,9 @@ function savePinned(id: Id<"incidents">) {
   }
 }
 
-// G6 is large, so the map's code loads only when the firm opens Map & evidence.
+// G6 is large, so its code loads only when someone opens Map & evidence with ?map=g6.
 const G6BlastMap = lazy(() => import("./G6BlastMap").then((m) => ({ default: m.G6BlastMap })));
-const CLASSIC_MAP = new URLSearchParams(window.location.search).get("map") === "classic";
+const G6_MAP = new URLSearchParams(window.location.search).get("map") === "g6";
 
 // Six tabs so every one fits on a projected laptop screen; related panels share a tab
 // (payment investigation sits under Payments, response safety under Timeline & close-out).
@@ -264,19 +264,19 @@ export function PortfolioView() {
       label: "Map & evidence",
       content: () => (
         <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_400px] lg:grid-cols-[minmax(0,1fr)_360px]">
-          {/* The G6 expandable map by default (loaded on demand); ?map=classic keeps Omar's SVG map. */}
-          {CLASSIC_MAP ? (
-            <BlastRadiusMap
-              blast={blast}
-              selected={selected}
-              onSelect={setSelected}
-            />
-          ) : (
+          {/* Omar's SVG map by default; ?map=g6 shows the expandable G6 map (loaded on demand). */}
+          {G6_MAP ? (
             <Suspense
               fallback={<div className="h-[677px] rounded-tile border border-line bg-panel motion-safe:animate-pulse" />}
             >
               <G6BlastMap blast={blast} onSelect={setSelected} />
             </Suspense>
+          ) : (
+            <BlastRadiusMap
+              blast={blast}
+              selected={selected}
+              onSelect={setSelected}
+            />
           )}
           <div className="space-y-6">
             <EvidencePanel exposureId={selectedNode?.exposureId ?? undefined} companyName={selectedNode?.name} />
@@ -625,9 +625,7 @@ function PortfolioHero({
                       <span className="col-span-2 flex flex-wrap gap-x-4 gap-y-1 text-sm md:contents">
                         <span className="text-ash">
                           {n.status === "open" ? (
-                            <span className="text-amber">
-                              Not acknowledged yet
-                            </span>
+                            <span className="text-amber">Not yet</span>
                           ) : (
                             n.exposureId && (
                               <AckCell exposureId={n.exposureId} />
@@ -663,7 +661,8 @@ function PortfolioHero({
   );
 }
 
-const ROW_GRID = "md:grid-cols-[minmax(0,1.4fr)_6.5rem_minmax(0,1.3fr)_minmax(0,1fr)_6.5rem]";
+// Cells say only what their header doesn't ("Not yet", a name, "Done in 4s"), so each fits on one line.
+const ROW_GRID = "md:grid-cols-[minmax(0,1.6fr)_5.25rem_minmax(0,1fr)_7rem_5rem] md:gap-x-3";
 
 // Who acknowledged. A row resolved without anyone acknowledging says so quietly; its urgency
 // chip already reads "Resolved", so the word isn't repeated here.
@@ -672,8 +671,8 @@ function AckCell({ exposureId }: { exposureId: Id<"exposures"> }) {
     exposureId,
   });
   if (evidence === undefined) return null;
-  if (evidence?.acknowledgedBy) return <AcknowledgedBy userId={evidence.acknowledgedBy} />;
-  return <span className="text-ash">No acknowledgement</span>;
+  if (evidence?.acknowledgedBy) return <AcknowledgedBy userId={evidence.acknowledgedBy} nameOnly />;
+  return <span className="text-ash">No one</span>;
 }
 
 // One small tile per exposed company, like the mark's tiles: hollow until acknowledged, filled
@@ -707,8 +706,9 @@ function Stat({
   tone?: string;
 }) {
   return (
-    <div className="min-w-0 px-3 py-3">
-      <span className="block text-sm text-[#7d7d7d]">{label}</span>
+    // Value pinned to the bottom, so figures line up even when one label wraps.
+    <div className="flex h-full min-w-0 flex-col justify-between px-3 py-3">
+      <span className="block text-sm text-balance text-[#7d7d7d]">{label}</span>
       <span
         className={`mt-1 block text-[clamp(1.25rem,0.9rem+0.9vw,1.75rem)] whitespace-nowrap leading-tight font-semibold tracking-[-0.04em] tabular-nums ${tone}`}
       >

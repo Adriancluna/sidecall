@@ -137,7 +137,8 @@ export function Signatures({
   );
   const done = row.decision;
   return (
-    <ol className={sideBySide ? "grid gap-x-6 gap-y-4 sm:grid-cols-2" : "space-y-4"}>
+    // Side by side only while both labels fit on one line; narrower cards stack.
+    <ol className={sideBySide ? "grid grid-cols-[repeat(auto-fit,minmax(17.5rem,1fr))] gap-x-6 gap-y-4" : "space-y-4"}>
       <SignatureLine label="Requested by" signed>
         {requester ?? "The AP clerk"}
         {decision?.isRequester && <span className="font-normal text-ash"> (you)</span>}

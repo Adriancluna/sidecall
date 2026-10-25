@@ -75,7 +75,7 @@ export function TimelinePanel({ incidentId }: { incidentId: Id<"incidents"> }) {
               <span className="w-20 shrink-0 text-right text-ash tabular-nums">
                 +{duration(e.at - start)}
               </span>
-              <span className="w-32 shrink-0 font-medium">{actionLabel(e.kind)}</span>
+              <span className="w-44 shrink-0 font-medium">{actionLabel(e.kind)}</span>
               <span className="min-w-0 flex-1">
                 {e.companyName && (
                   <span className="font-medium">{e.companyName}: </span>

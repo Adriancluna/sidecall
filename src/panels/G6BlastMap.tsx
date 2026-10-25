@@ -1,6 +1,7 @@
-// The firm's blast radius as an expandable radial tree drawn by AntV G6 (Marco's call, Oct 24).
+// The firm's blast radius as an expandable radial tree drawn by AntV G6. Opt-in at ?map=g6; Omar's SVG map
+// (src/map/BlastRadiusMap) is the default again (Marco's call, Oct 25).
 // Click a bubble to open or fold it; click a company to load its evidence on the right. Live updates
-// keep whatever is open. Omar's SVG map is still one URL flag away: ?map=classic (PortfolioView).
+// keep whatever is open.
 import { Graph, NodeEvent, treeToGraphData, type IPointerEvent, type TreeData } from "@antv/g6";
 import { useEffect, useRef } from "react";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -169,8 +170,16 @@ export function G6BlastMap({
     graph.render().catch((e: unknown) => {
       if (alive) console.error(e);
     });
+    // The canvas keeps its first size; follow the card when the window or sidebar changes width.
+    const resize = new ResizeObserver(() => {
+      if (!alive || graph.destroyed) return;
+      graph.resize();
+      graph.fitView().catch(() => undefined);
+    });
+    resize.observe(box.current);
     return () => {
       alive = false;
+      resize.disconnect();
       graphRef.current = null;
       graph.destroy();
     };
