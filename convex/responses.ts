@@ -1,8 +1,9 @@
 // Response playbook (docs/specs/response-playbook.md): the first steps each company has approved
 // in advance for Sidecall to take on its behalf. Notify = tell us; prepare = one click by our IT
 // lead or controller; act = run it the moment the report lands, logged, with Undo.
-// External effects are SIMULATED: no live identity-provider connector exists. Every step says
-// which real call it stands for.
+// One explicitly configured DEV target can use the signed Okta receiver. Other targets
+// retain their labelled sandbox/simulation mode; external results require a signed receipt.
+import { enqueueExternal, deliverySummary } from "./responseReceiver";
 import { ConvexError, v } from "convex/values";
 import {
   internalAction,
@@ -44,7 +45,7 @@ export const STEP_INFO: Record<
   },
   pause_shared_login: {
     label: "Pause the shared login",
-    effect: (target) => `Suspend ${target} in your own tenant: every session is signed out, nothing is deleted.`,
+    effect: (target) => `Suspend ${target} in your own tenant: new sign-ins are blocked while suspended; downstream app sessions may need separate revocation.`,
     undo: "Restore access",
     wouldCall: "Okta POST /users/{id}/lifecycle/suspend · Entra accountEnabled=false + revokeSignInSessions",
     finding: "Snowflake: most accounts used had leaked before, no MFA; attackers move in ~29 min",
@@ -194,8 +195,8 @@ async function expireForDetectorAuthority(ctx: MutationCtx, step: Doc<"responseS
     reason: "Response step expired because its report source no longer has active confirm authority. Company approval cannot replace that authority. Existing money holds and completed actions are unchanged." });
 }
 
-// Scheduled once per incident (and once per approval). This is where a live connector would call
-// the identity provider; none exists, so the result is recorded as simulated.
+// Scheduled per incident/approval. The mutation routes the allowlisted target to a durable
+// external job; all other steps retain explicitly labelled sandbox/simulated execution.
 export const execute = internalAction({
   args: { incidentId: v.id("incidents") },
   handler: async (ctx, args) => {
@@ -238,6 +239,7 @@ export const recordSimulated = internalMutation({
         await ctx.db.patch("responseSteps", step._id, { status: "expired" });
         continue;
       }
+      if (await enqueueExternal(ctx, step, incident, policy.version)) continue;
       const sandbox = await applySandboxResponse(
         ctx,
         step.companyId,
@@ -355,6 +357,8 @@ export const undoStep = mutation({
         ok: false as const,
         reason: step.status === "undone" ? "already_undone" : `not_done_yet`,
       };
+    if (step.executionMode === "external")
+      return { ok: false as const, reason: "External restoration requires a separate receiver command and company-local remediation approval." };
     if (step.executionMode === "sandbox") {
       if (step.action === "revoke_vendor_tokens")
         return {
@@ -690,6 +694,8 @@ export const getMyResponsePlan = query({
         wouldCall: info.wouldCall,
         executionMode: step?.executionMode ?? "simulated",
         verification: step?.verification ?? null,
+        deliveries: step?.executionMode === "external" ? await deliverySummary(ctx, step._id) : [],
+        canManageReceiver: decider && step?.executionMode === "external",
         mode: step?.mode ?? "notify",
         status: step?.status ?? ("recommended" as const),
         capNote:
@@ -707,7 +713,7 @@ export const getMyResponsePlan = query({
         canApprove: decider && step?.status === "awaiting_approval" && !sourceInactive,
         canUndo:
           decider &&
-          step?.status === "done" &&
+          step?.status === "done" && step.executionMode !== "external" &&
           !(
             step.executionMode === "sandbox" &&
             step.action === "revoke_vendor_tokens"
@@ -769,6 +775,10 @@ export const getResponseTracker = query({
           (s) => s.status === "awaiting_approval" || s.status === "queued",
         ).length,
         firstStepMs: first === null ? null : first - incident.createdAt,
+        pending: mine.filter(s => s.status === "pending").length,
+        unknown: mine.filter(s => s.status === "unknown").length,
+        refused: mine.filter(s => s.status === "refused").length,
+        external: mine.some(s => s.executionMode === "external"),
         notifyOnly: mine.length === 0,
         lowered: mine.filter((s) => s.capNote).map((s) => s.capNote!),
       };
@@ -781,7 +791,8 @@ export const getResponseTracker = query({
         ready: companies.filter((c) => c.done === 0 && c.ready > 0).length,
         notifyOnly: companies.filter((c) => c.notifyOnly).length,
       },
-      simulated: steps.every((step) => step.executionMode !== "sandbox"),
+      simulated: steps.every((step) => step.executionMode !== "sandbox" && step.executionMode !== "external"),
+      external: steps.some(step => step.executionMode === "external"),
       sandbox: steps.some((step) => step.executionMode === "sandbox"),
     };
   },

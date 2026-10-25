@@ -19,7 +19,7 @@ const MODE_LABEL: Record<Mode, string> = {
 const MODE_HELP: Record<Mode, string> = {
   notify: "Tell us what to do.",
   prepare: "Have it ready; our IT lead or controller runs it with one click.",
-  act: "Run it the moment a report lands, log it, offer Undo.",
+  act: "Run an authorized response automatically; external restoration requires company approval.",
 };
 
 const seconds = (ms: number) => (ms < 1000 ? `${(ms / 1000).toFixed(1)} s` : `${Math.round(ms / 1000)} s`);
@@ -29,6 +29,8 @@ export function PlanSteps({ incidentId }: { incidentId: Id<"incidents"> }) {
   const plan = useQuery(api.responses.getMyResponsePlan, { incidentId });
   const approve = useMutation(api.responses.approveStep);
   const undo = useMutation(api.responses.undoStep);
+  const prepareRestore = useMutation(api.responseReceiver.prepareRestore);
+  const checkOrSend = useMutation(api.responseReceiver.checkOrSend);
   const [busy, setBusy] = useState<string>();
   const [message, setMessage] = useState<string>();
   if (!plan || plan.length === 0) return null;
@@ -58,12 +60,16 @@ export function PlanSteps({ incidentId }: { incidentId: Id<"incidents"> }) {
             <div className="min-w-0 max-w-2xl">
               <p className="font-medium">
                 {p.label}{" "}
-                {p.status === "done" ? (
-                  <Chip tone="ok">Done{p.msAfterReport !== null && ` ${seconds(p.msAfterReport)} after the report`}</Chip>
+                {p.status === "pending" || p.status === "unknown" ? (
+                  <Chip tone="amber">Confirmation {p.status}</Chip>
+                ) : p.status === "refused" ? (
+                  <Chip tone="amber">Receiver refused</Chip>
+                ) : p.status === "done" ? (
+                  <Chip tone="ok">{p.executionMode === "external" ? "Pause confirmed" : "Done"}{p.msAfterReport !== null && ` ${seconds(p.msAfterReport)} after the report`}</Chip>
                 ) : p.status === "awaiting_approval" ? (
-                  <Chip tone="amber">Ready, one click</Chip>
+                  <Chip tone="amber">{p.canApprove ? "Ready, one click" : "Awaiting authorized review"}</Chip>
                 ) : p.status === "undone" ? (
-                  <Chip tone="muted">Undone{p.undoneByName && ` by ${p.undoneByName}`}</Chip>
+                  <Chip tone="muted">{p.executionMode === "external" ? "Incident hold released" : "Undone"}{p.undoneByName && ` by ${p.undoneByName}`}</Chip>
                 ) : p.status === "recommended" ? (
                   <Chip tone="muted">Notify only</Chip>
                 ) : (
@@ -75,8 +81,27 @@ export function PlanSteps({ incidentId }: { incidentId: Id<"incidents"> }) {
                 {p.status === "done" &&
                   (p.approvedByName ? ` Run by ${p.approvedByName}.` : " Your company pre-approved this.")}
               </p>
-              {p.capNote && <p className="mt-0.5 text-xs text-amber">{p.capNote}</p>}
-              <p className="mt-0.5 text-xs text-ash/80">{p.executionMode === "sandbox" ? "Applied to an owned sandbox resource; external identity providers are not connected." : `Simulated. Stands for: ${p.wouldCall}`}</p>
+              {p.capNote && !(p.executionMode === "external" && ["done", "undone"].includes(p.status)) && <p className="mt-0.5 text-xs text-amber">{p.capNote}</p>}
+              <p className="mt-0.5 text-xs text-ash/80">{p.executionMode === "external" ? "External Okta test receiver: one disposable account. Account state is historical evidence; downstream application sessions may remain active." : p.executionMode === "sandbox" ? "This step affects an owned sandbox resource; it does not change an external identity provider." : `Simulated. Stands for: ${p.wouldCall}`}</p>
+              {p.deliveries.map(job => (
+                <div key={job.id} className="mt-2 rounded border border-line p-2 text-xs">
+                  <p className="font-medium">{job.kind === "pause" ? "Pause command" : "Restore command"}: {humanize(job.status)}</p>
+                  <p className="mt-1 text-ash">{humanize(job.reason)}</p>
+                  {job.receipt?.observedAt != null && <p>Okta reported {job.receipt.observedState} at {dateTime(job.receipt.observedAt)}.</p>}
+                  {job.receipt?.sessionRevocation === "provider_acknowledged" && <p>Okta acknowledged session revocation; downstream logout is not verified.</p>}
+                  {job.status === "unknown" && <p className="text-amber">The action may have happened. Check this command; do not issue another pause.</p>}
+                  {job.kind === "restore" && (job.status === "awaiting_operator" || job.receipt?.reason === "company_operator_restore_approval_required") && <>
+                    <p className="mt-1">After remediation, your company operator must approve these IDs on the receiver:</p>
+                    <p className="break-all">Pause: {p.deliveries.find(d => d.kind === "pause")?.commandId}</p>
+                    <p className="break-all">Restore: {job.commandId}</p>
+                  </>}
+                  {p.canManageReceiver && (["pending", "unknown", "awaiting_operator"].includes(job.status) || job.receipt?.reason === "company_operator_restore_approval_required") &&
+                    <button type="button" disabled={busy !== undefined} className={`${BUTTON_SECONDARY} mt-2`}
+                      onClick={() => void run(job.id, () => checkOrSend({ jobId: job.id }))}>
+                      {job.status === "awaiting_operator" || job.receipt?.reason === "company_operator_restore_approval_required" ? "Send approved restore" : "Check original command"}
+                    </button>}
+                </div>
+              ))}
               {p.verification && <p className="mt-1 text-sm text-ash">Recorded access check: {p.verification.accessBefore ? "allowed" : "denied"} → {p.verification.accessAfter ? "allowed" : "denied"}{p.status === "undone" ? " (before undo)" : ""}.</p>}
             </div>
             <div className="flex shrink-0 gap-2">
@@ -89,6 +114,10 @@ export function PlanSteps({ incidentId }: { incidentId: Id<"incidents"> }) {
                 >
                   Run now
                 </button>
+              )}
+              {p.canManageReceiver && p.stepId && p.status === "done" && p.deliveries.some(j => j.kind === "pause" && j.receipt?.restoreEligible) && !p.deliveries.some(j => j.kind === "restore") && (
+                <button type="button" disabled={busy !== undefined} className={BUTTON_SECONDARY}
+                  onClick={() => void run(p.action, () => prepareRestore({ stepId: p.stepId! }))}>Prepare restoration</button>
               )}
               {p.canUndo && p.stepId && (
                 <button
@@ -145,9 +174,9 @@ export function PlaybookPanel() {
     <Card title="Response playbook">
       <p className="max-w-3xl text-sm text-ash">
         Decide now, not at 2am, what Sidecall may do for your company when a vendor or login you share is
-        compromised. Sidecall only runs steps you chose, only where your team confirmed the link, and every one can
-        be undone. Raising a step to Pre-approved takes two people. The PE firm can recommend; only your company
-        decides. The identity-provider call is simulated in this demo.
+        compromised. Sidecall only runs steps you chose, where your team confirmed the link. External access restoration
+        needs company-local approval after remediation; revoked tokens cannot be restored. Raising a step to Pre-approved takes two people. The PE firm can recommend; only your company
+        decides. Each incident step labels its execution as simulated, owned sandbox, or the configured external Okta test receiver.
       </p>
       {rows === undefined ? (
         <Empty>Loading…</Empty>
@@ -217,13 +246,16 @@ export function PlaybookPanel() {
 export function FirstStepCell({
   row,
 }: {
-  row?: { done: number; ready: number; firstStepMs: number | null; notifyOnly: boolean };
+  row?: { done: number; ready: number; firstStepMs: number | null; notifyOnly: boolean; pending?: number; unknown?: number; refused?: number; external?: boolean };
 }) {
   if (!row) return <span className="text-ash">–</span>;
+  if (row.unknown) return <span className="text-amber">Confirmation unknown</span>;
+  if (row.pending) return <span className="text-amber">Confirmation pending</span>;
+  if (row.refused) return <span className="text-amber">Receiver refused</span>;
   if (row.done > 0)
     return (
       <span className="text-ok">
-        Done{row.firstStepMs !== null && ` in ${seconds(row.firstStepMs)}`}
+        {row.external ? "Receiver confirmed" : "Done"}{row.firstStepMs !== null && ` in ${seconds(row.firstStepMs)}`}
       </span>
     );
   if (row.ready > 0) return <span className="text-amber">Ready, one click</span>;

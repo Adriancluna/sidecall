@@ -1,5 +1,5 @@
 // Stage buttons: fire the demo incident through the real webhook, replay it (nothing duplicates), reset.
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { friendlyError } from "../layout/errors";
@@ -116,6 +116,7 @@ const BUSY: Record<Action, string> = { fire: "Firing…", replay: "Replaying…"
 // switch. Every control is quiet; nothing here outshines the screen the judges are reading.
 export function DemoControls() {
   const resetDemo = useMutation(api.seed.resetDemo);
+  const resetAvailability = useQuery(api.seed.resetAvailability, IS_STAGE ? {} : "skip");
   const [busy, setBusy] = useState<Action>();
   const [status, setStatus] = useState<string>();
   const [scenario, setScenario] = useState<Scenario>(SCENARIOS[0]);
@@ -179,7 +180,8 @@ export function DemoControls() {
         {IS_STAGE && (
           <button
             type="button"
-            disabled={busy !== undefined}
+            disabled={busy !== undefined || !resetAvailability?.allowed}
+            title={resetAvailability?.reason ?? undefined}
             onClick={() =>
               window.confirm("Reset the demo? This wipes every incident, hold and sign-in and reseeds the portfolio.") &&
               void run("reset", "Reset", async () => {
@@ -192,6 +194,7 @@ export function DemoControls() {
             {button("reset", "Reset")}
           </button>
         )}
+        {IS_STAGE && resetAvailability?.reason && <p className="basis-full text-xs text-amber">{resetAvailability.reason}</p>}
         {IS_STAGE &&
           (presenterKey && !editingKey ? (
             // Once set, the key field gets out of the projected frame.

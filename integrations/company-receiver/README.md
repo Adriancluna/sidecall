@@ -1,12 +1,12 @@
 # Company-owned signed response receiver
 
-This is the receiving half of the proposed Sidecall response connection. It is a separate Node service, with its own credentials and durable SQLite command history. It is **not yet wired into the Convex response executor or the website**. On October 24, 2026, a separate opt-in local rehearsal suspended and restored one real disposable Okta account while an unrelated test account remained ACTIVE. See [redacted live evidence](../../docs/evidence/okta-receiver-live-proof.json). The routine unit tests still use an explicitly labelled provider substitute plus actual local HTTP requests.
+This is the receiving half of the proposed Sidecall response connection. It is a separate Node service, with its own credentials and durable SQLite command history. It is now wired into the Convex response executor and local website on **Pegasus DEV tangible-koala-842 only**; the public production website has not been deployed. [DEV operating notes](../../docs/receiver-dev-runbook.md). On October 24, 2026, a separate opt-in local rehearsal suspended and restored one real disposable Okta account while an unrelated test account remained ACTIVE. See [redacted live evidence](../../docs/evidence/okta-receiver-live-proof.json). The routine unit tests still use an explicitly labelled provider substitute plus actual local HTTP requests.
 
 ## In plain English
 
 Sidecall sends a sealed instruction naming a company, incident and previously allowed account. The receiver checks the seal and its own rules. It asks Okta to suspend that account, reads back the account state, and sends a sealed result. If a reply is lost, the sender asks about the original command instead of inventing another one.
 
-The website's existing simulated/owned-sandbox response remains unchanged until the next integration checkpoint. A test passing here does not change any badge in the app.
+Only the configured company/asset pair routes to the external test receiver. Other steps retain explicit simulated/owned-sandbox labels. External completion badges require a matching authenticated receipt, and restoration is separate from sandbox Undo.
 
 ## What this checkpoint implements
 
@@ -51,7 +51,7 @@ A confirmed receipt is historical evidence, not a guarantee that an administrato
 
 Restoration uses a **different** commandId, action `restore_shared_login` and `pauseCommandId` pointing to the original confirmed pause. The company/target/incident must match the held account. The sender must persist its original command JSON to verify the matching receipt hash and preserve exact retries.
 
-`POST /v1/status` uses the same signature scheme with its own route and only `{version:1, companyId, commandId}`. A status check performs read-only provider reconciliation; it does not retry a suspend/restore write. The response signature uses `<request-path>:receipt` as its domain separator, so a response cannot be replayed as a command. `client.mjs` provides the bounded sender transport and matching-receipt validation; it is not yet called by Convex.
+`POST /v1/status` uses the same signature scheme with its own route and only `{version:1, companyId, commandId}`. A status check performs read-only provider reconciliation; it does not retry a suspend/restore write. The response signature uses `<request-path>:receipt` as its domain separator, so a response cannot be replayed as a command. `client.mjs` provides the bounded sender transport and matching-receipt validation, called by the Node action in `convex/receiverTransport.ts`.
 
 ## Local prerequisites and human steps
 
@@ -59,7 +59,7 @@ Restoration uses a **different** commandId, action `restore_shared_login` and `p
 2. After signup succeeds, create one dedicated disposable **non-admin** local user and activate it. Never allowlist the administrator account you use to manage the tenant. A second unrelated user supports the continuity test.
 3. Configure a receiver-only API token privately. It belongs in the receiver process, **never in Convex, the browser bundle, chat or Git**. The token's actual permissions matter: this prototype uses a test-tenant SSWS token, not a production least-privilege service-app deployment.
 4. Run this service with Node 24 and a persistent local disk. Node's built-in SQLite is used; no new package is needed.
-5. The eventual Convex-to-receiver connection needs an HTTPS route to this service. Hosting/tunnel selection and production deployment are not completed by this checkpoint.
+5. The eventual Convex-to-receiver connection needs an HTTPS route to this service. A temporary Cloudflare Quick Tunnel currently serves the DEV integration. Stable hosting and production deployment remain outstanding.
 
 Integrator Free Plan signup and private API connectivity are now verified. Two disposable, non-admin users have been created and the live receiver rehearsal passed. `configure.py` prompts for the tenant URL and a hidden API token, generates a separate signing secret and writes a git-ignored `.env.receiver.local` with mode 0600. It refuses to overwrite an existing file, contacts no service, leaves provider operations OFF and leaves the target allowlist empty. A local convenience launcher is prepared outside the repository at `/Users/ashwathram/Documents/ChatGPT/Job/pegasus-receiver-setup.command`; other machines can run `python3 integrations/company-receiver/configure.py` from their own checkout.
 
@@ -103,7 +103,7 @@ node --test integrations/company-receiver/receiver.test.mjs
 
 The checkpoint covers forged/expired/future signatures, body/path/company binding, allowlist, concurrency and restart replay, pause quota, disable, lost pause/restore replies, stale in-progress reconciliation, pre-existing suspension, local restoration consent/expiry, multiple incident holds, changed mappings, signed HTTP receipts, payload limits, sender uncertainty and exact Okta adapter request paths. In the routine 26-test suite, all provider-effect cases are controlled test doubles and one test uses real loopback HTTP. The separate live rehearsal below uses the real test tenant.
 
-Next: bind these commands to existing Convex policy/authority checks, persist outbound jobs and receipts, and expose pending/unknown/refused/confirmed outcomes in the response UI. Then repeat the disposable-account proof through that integrated path; local receiver proof alone does not establish website automation. Finally rehearse the selected deployed frontend/backend/receiver together before recording or claiming the integration works.
+The integrated DEV path is now verified: scoped detector → authorized Convex job → HTTPS receiver → real disposable Okta pause → live UI receipt → local restoration approval → UI restore → confirmed ACTIVE. [Integrated evidence](../../docs/evidence/convex-okta-live-proof.json). Next verify repeatable stage scenarios and stable hosting before claiming public-production readiness.
 
 Official references: [Okta free-plan setup](https://developer.okta.com/docs/reference/org-defaults/), [user lifecycle API](https://developer.okta.com/docs/api/openapi/okta-management/management/tag/UserLifecycle/), [user sessions API](https://developer.okta.com/docs/api/openapi/okta-management/management/tag/UserSessions/), [Universal Logout limitations and integration](https://developer.okta.com/docs/guides/oin-universal-logout-overview/), [Node SQLite](https://nodejs.org/docs/latest-v24.x/api/sqlite.html).
 
@@ -123,3 +123,11 @@ node --env-file=.env.receiver.local integrations/company-receiver/live-proof.mjs
 ```
 
 The two disposable users are retained for the next integration checkpoint and count toward the free tenant's user limit. Random passwords are not persisted, and no activation emails are sent. The retained report contains no API token, signing secret, password or tenant hostname.
+
+## Integrated DEV checkpoint
+
+`convex/responseReceiver.ts` stores exact command bodies before delivery, rechecks current incident/source/policy/company-link authority before a first pause, and schedules bounded status-only reconciliation after uncertainty. The Node transport authenticates matching receipts; malformed evidence stays unknown. Restoration is requested by company IT/controller, approved separately at the local receiver, then sent from the UI. A changed connection binding blocks further delivery until operator review. Five automatic status polls are followed by bounded manual checks.
+
+`responseDeliveries` preserves command identity and receipts. Reset is blocked once this ledger exists, even with live execution off, so a reset cannot erase the evidence needed to reconcile external effects. The stage Reset button explains that restriction. Completed synthetic incidents should be contained before a fresh rehearsal; do not wipe external history to replay a demo.
+
+The integrated live proof recorded the pause roughly three seconds after the synthetic report. The unrelated account stayed ACTIVE; both test accounts ended ACTIVE after restoration from the actual UI. The test detector was revoked and the synthetic incident contained. No production deployment or actual payment network transaction was part of this proof.

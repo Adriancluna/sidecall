@@ -1,3 +1,4 @@
+import { deliveryState, receiverReceipt } from "./receiverModel";
 // The data contract. Owned by Role 1 (Adrian). Ask before changing anything here.
 // CONTRACT.md describes the same shapes in prose; this file wins if they disagree.
 import { defineSchema, defineTable } from "convex/server";
@@ -101,6 +102,7 @@ export const responseAction = v.union(v.literal("pause_shared_login"), v.literal
 export const playbookAction = v.union(v.literal("hold_payments"), responseAction);
 export const responseMode = v.union(v.literal("notify"), v.literal("prepare"), v.literal("act"));
 export const stepStatus = v.union(
+  v.literal("pending"), v.literal("unknown"), v.literal("refused"),
   v.literal("awaiting_approval"), // "prepare": one click away
   v.literal("queued"), // "act", or approved: the executor runs it
   v.literal("done"),
@@ -547,7 +549,7 @@ export default defineSchema({
     approvedBy: v.optional(v.id("users")),
     approvedAt: v.optional(v.number()),
     executedAt: v.optional(v.number()),
-    executionMode: v.optional(v.union(v.literal("simulated"), v.literal("sandbox"))),
+    executionMode: v.optional(v.union(v.literal("simulated"), v.literal("sandbox"), v.literal("external"))),
     verification: v.optional(
       v.object({
         method: v.literal("owned_resource_state"),
@@ -571,6 +573,16 @@ export default defineSchema({
       "target",
     ])
     .index("by_incidentId_and_status", ["incidentId", "status"]),
+
+  // Immutable command identity + bounded delivery/reconciliation state. No provider secrets.
+  responseDeliveries: defineTable({
+    stepId: v.id("responseSteps"), companyId: v.id("companies"),
+    kind: v.union(v.literal("pause"), v.literal("restore")),
+    commandId: v.string(), commandJson: v.string(), binding: v.string(),
+    status: deliveryState, reason: v.string(), polls: v.number(), createdAt: v.number(),
+    sentAt: v.optional(v.number()), lastAttemptAt: v.optional(v.number()), updatedAt: v.optional(v.number()),
+    requestedBy: v.optional(v.id("users")), receipt: v.optional(receiverReceipt),
+  }).index("by_stepId_and_kind", ["stepId", "kind"]),
 
   auditLog: defineTable({
     at: v.number(),

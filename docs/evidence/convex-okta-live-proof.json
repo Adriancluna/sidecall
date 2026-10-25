@@ -1,0 +1,129 @@
+{
+  "version": 1,
+  "deployment": "tangible-koala-842",
+  "startedAt": "2026-10-25T05:17:50.218Z",
+  "stage": "complete",
+  "passed": true,
+  "checks": [
+    {
+      "name": "Authorized detector automatically caused a signed real Okta pause",
+      "passed": true
+    },
+    {
+      "name": "Company UI query reports confirmed provider state; unrelated account remains ACTIVE",
+      "passed": true
+    },
+    {
+      "name": "Exact detector replay retains the same incident and command identity",
+      "passed": true
+    },
+    {
+      "name": "UI-requested restore confirmed by receiver and independent Okta read-back",
+      "passed": true
+    },
+    {
+      "name": "Firm response evidence includes external pause and restore receipts",
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "Synthetic detector evidence and disposable account only",
+    "No live downstream application sessions established",
+    "No Visa payment sent",
+    "Public production frontend not deployed"
+  ],
+  "sourceId": "ns7fzchr9ncckmmw6s2fkabcas8gzzt6",
+  "input": {
+    "externalId": "receiver-acceptance-97d86302-f025-4347-a1df-751ffafcf242",
+    "assetName": "Ironclad shared admin account",
+    "reportedByDomain": "pinecreststaffing.example",
+    "assessment": "confirmed",
+    "evidenceRefs": [
+      "synthetic:owned-okta-acceptance"
+    ],
+    "summary": "Synthetic acceptance test: exercise an approved response against one disposable Okta account."
+  },
+  "incidentId": "kx76r76ec012q2r5f675e81w0d8gyzbe",
+  "stepId": "mx70snezvnwnatptn6rymh7s8h8gzj83",
+  "pause": {
+    "commandId": "pause-mx70snezvnwnatptn6rymh7s8h8gzj83",
+    "id": "p976xp07rj1t2zn9de87echq9n8gzs7w",
+    "kind": "pause",
+    "reason": "suspension_verified",
+    "receipt": {
+      "action": "pause_shared_login",
+      "commandHash": "5b3bf064febc6c3eaf251bbefeb79cc24116cf0c8ba1daacd55b6aa8a5ce6f9d",
+      "commandId": "pause-mx70snezvnwnatptn6rymh7s8h8gzj83",
+      "companyId": "kn7epjs9zyjbv78fhz44z0r7p18gz5hc",
+      "incidentId": "kx76r76ec012q2r5f675e81w0d8gyzbe",
+      "observedAt": 1792905474192,
+      "observedState": "SUSPENDED",
+      "provider": "okta",
+      "reason": "suspension_verified",
+      "restoreEligible": true,
+      "sessionRevocation": "provider_acknowledged",
+      "status": "confirmed",
+      "target": "disposable-vendor-login",
+      "version": 1
+    },
+    "status": "confirmed",
+    "updatedAt": 1792905474447
+  },
+  "restore": {
+    "commandId": "restore-mx70snezvnwnatptn6rymh7s8h8gzj83",
+    "id": "p97fsas7wnxjsghmvq3qe7agy18gya5z",
+    "kind": "restore",
+    "reason": "restoration_verified",
+    "receipt": {
+      "action": "restore_shared_login",
+      "commandHash": "8a90187404057f45b580e043162672de7ee47e87a23639ed92790eb695502e29",
+      "commandId": "restore-mx70snezvnwnatptn6rymh7s8h8gzj83",
+      "companyId": "kn7epjs9zyjbv78fhz44z0r7p18gz5hc",
+      "incidentId": "kx76r76ec012q2r5f675e81w0d8gyzbe",
+      "observedAt": 1792905514320,
+      "observedState": "ACTIVE",
+      "provider": "okta",
+      "reason": "restoration_verified",
+      "restoreEligible": false,
+      "sessionRevocation": "not_confirmed",
+      "status": "confirmed",
+      "target": "disposable-vendor-login",
+      "version": 1
+    },
+    "status": "confirmed",
+    "updatedAt": 1792905514466
+  },
+  "testDetectorRevoked": true,
+  "finishedAt": "2026-10-25T05:18:48.039Z",
+  "finalStates": {
+    "target": "ACTIVE",
+    "control": "ACTIVE"
+  },
+  "testIncidentContained": true,
+  "browserVerification": {
+    "frontend": "http://127.0.0.1:5180/",
+    "role": "Sam Kowalski, Cedar Ridge IT",
+    "observed": [
+      "Pause confirmed",
+      "Restore awaiting local approval",
+      "Send approved restore clicked",
+      "Restore confirmed ACTIVE"
+    ],
+    "screenshot": "receiver-ui-restored.jpg"
+  },
+  "finalIndependentReadback": [
+    {
+      "kind": "original-account",
+      "status": "ACTIVE"
+    },
+    {
+      "kind": "disposable-test",
+      "status": "ACTIVE"
+    },
+    {
+      "kind": "disposable-test",
+      "status": "ACTIVE"
+    }
+  ],
+  "finalReadbackAt": "2026-10-25T05:23:35.969Z"
+}
