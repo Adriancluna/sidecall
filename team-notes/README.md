@@ -6,6 +6,7 @@ Difference from `handoff/`: handoffs are per-role status and asks that change ev
 
 | File | What it is | Owner |
 |---|---|---|
+| `pitch-research.md` | The research behind the pitch: incident chain (Kaseya, Miljödata, Kronos…), strongest numbers with source tags, corrections, "do not use" claims, Armadin and Convex angles | Role 1 (Adrian's research) |
 | `field-guide.md` | How to explain Sidecall: the 60-second story, how each part works, the demo, hard questions, edge cases, words, numbers, real vs simulated | Role 1 (Adrian); anyone may propose edits |
 
 Rules: plain English; no secrets or keys; facts must match `main` and `CONTRACT.md`. If a number changes (tests, scorecard), update it here.

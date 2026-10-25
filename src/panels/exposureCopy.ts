@@ -23,7 +23,14 @@ export function shareTypeOf(e: Doc<"exposures">): ShareType {
 export const isCandidate = (e: Doc<"exposures">) =>
   e.evidence.some((x) => x.kind === "source" && x.detail.includes("DNS"));
 
-export function exposureHeadline(share: ShareType, vendor: string, candidate: boolean): string {
+// fromFinding: the report is an authorized red-team test result. A proven path is exploitable,
+// not proof anyone exploited it, so it is never called a compromise or incident.
+export function exposureHeadline(share: ShareType, vendor: string, candidate: boolean, fromFinding = false): string {
+  if (fromFinding) {
+    if (share === "shared_admin_access")
+      return `${vendor} reaches your systems through an admin account an authorized test proved exploitable elsewhere`;
+    return `A login you share with ${vendor} was proven exploitable at another portfolio company`;
+  }
   if (candidate) return `${vendor} may be one of your vendors, and it has had a security incident`;
   if (share === "shared_credential") return `Your shared login with ${vendor} may be compromised`;
   if (share === "shared_admin_access")
