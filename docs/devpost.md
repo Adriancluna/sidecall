@@ -72,6 +72,13 @@ Holding beats blocking. A control that pauses money, or a login, for a person to
 - **Stop-loss advice:** recommending which steps each company should pre-approve before an incident (built, not yet in the product).
 - **A pilot** with one mid-market PE firm's portfolio operations team.
 
+## Tracks
+
+- **Hyphenate (The Hyphenated Enterprise):** the seat Sidecall fills is an AP payment-control assistant and exception coordinator for a healthcare operator, working under an independent human controller.
+- **Convex (Best use of Convex):** live queries on every screen, one transaction per report, the scheduler and crons, Convex Auth, HTTP actions and the rate-limiter component.
+- **Armadin (Best Security Hack):** scoped, signed incident intake; segregation of duties enforced in the backend; authored attacks (changed payee, forged authority, replay) refused and logged. Our own controls, not an Armadin integration.
+- **Visa (Reimagining Shopping):** trusted purchasing for a business buyer: Claude reads an approved supplier invoice and requests payment, while Convex enforces prior approval, exact payee, spend limits and incident holds. Synthetic ledger; no Visa API.
+
 ## What's real, what's simulated
 
 - **Simulated:** the portfolio, companies, people, bills, payments, amounts, incidents and bank-detail changes; the ledger; the phone calls (role-played); Slack messages on stage.
