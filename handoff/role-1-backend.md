@@ -76,6 +76,18 @@ Ashwa is away, so roles are re-spread (CLAUDE.md table updated):
 ## Status update (~2:45am): "What to check" (last backend feature before hardening)
 Team decision (Adrian): **no more new features**; focus on precision, the $480K moment, and the red-team finding. One gap closed: an exposed company's IT lead now gets a concrete check, not just "rotate and review". `getExposureEvidence().path.whatToCheck` / evidence kind `what_to_check` / `getWritingContext().companyAlerts[].whatToCheck`, e.g. "What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong." (Harborline, which gives admin access, gets "Ask Ironclad Managed IT to rotate the admin account it uses for you…"). 55 tests, rehearsal 25/25. From here Role 1 = demo hardening + support for the video.
 
+## → Pegasus: you decide stop-loss advice (#119 + #123) (Adrian, Oct 24)
+Adrian asked Pegasus to make the call on whether stop-loss advice (and its companion breach-fix advice #114) goes into the product for judging. Whatever you choose:
+1. **If it ships:**
+   - one combined PR into main: #119 + #123, plus #114 if wanted;
+   - Marco mounts it on the existing screens (no new dashboard);
+   - Role 1 reviews before merge;
+   - one deploy, batched with the purchasing PR if timing allows.
+2. **The stage path stays unchanged:** the 4 scenarios, the $480K flow and the full rehearsal must pass. Opening advice must never execute or adopt a control.
+3. **AI text stays pre-generated and copy-checked:** never name the reporter, "validated" only with "not tested", only the number on file.
+4. **If it doesn't ship:** label #114, #119 and #123 "held: what's next" and add one line to the Devpost "What's next".
+5. Record the decision and your reason in `handoff/pegasus.md` and on issue #118.
+
 ## Site password gate (Adrian asked, Oct 24)
 New `src/auth/SiteGate.tsx` wraps the whole app in `src/App.tsx` (one wrapper change; **Marco, it's your file, FYI**).
 - Password: **`sidecall-password`**. Only its SHA-256 is in the bundle, and it's remembered per browser in localStorage.
