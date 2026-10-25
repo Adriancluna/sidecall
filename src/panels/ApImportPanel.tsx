@@ -100,7 +100,7 @@ export function ApImportPanel() {
               type="file"
               accept=".csv,text/csv"
               onChange={(e) => void readFile("vendorsCsv")(e)}
-              className="mt-1 block text-sm text-paper file:mr-2 file:min-h-9 file:rounded-chip file:border file:border-line file:bg-graphite file:px-3 file:font-semibold file:text-paper"
+              className="mt-1 block text-sm text-ash file:mr-2 file:min-h-9 file:cursor-pointer file:rounded-chip file:border-0 file:bg-panel file:px-3 file:text-sm file:font-medium file:text-paper file:ring-1 file:ring-line hover:file:bg-raised"
             />
           </label>
           <label className="text-xs text-ash">
@@ -109,7 +109,7 @@ export function ApImportPanel() {
               type="file"
               accept=".csv,text/csv"
               onChange={(e) => void readFile("billsCsv")(e)}
-              className="mt-1 block text-sm text-paper file:mr-2 file:min-h-9 file:rounded-chip file:border file:border-line file:bg-graphite file:px-3 file:font-semibold file:text-paper"
+              className="mt-1 block text-sm text-ash file:mr-2 file:min-h-9 file:cursor-pointer file:rounded-chip file:border-0 file:bg-panel file:px-3 file:text-sm file:font-medium file:text-paper file:ring-1 file:ring-line hover:file:bg-raised"
             />
           </label>
           <button

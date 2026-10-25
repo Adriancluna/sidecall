@@ -103,8 +103,7 @@ export function PortfolioView() {
       },
       { id: "proof", label: "Proof", content: () => <ProofPanel /> },
     ];
-    return (
-      <div className="space-y-12">
+    const allClear = (
         <section aria-labelledby="hero-title">
           <StatusLine tone="ok" state="All clear" />
           <h1 id="hero-title" className="mt-5 max-w-3xl text-headline font-semibold text-balance">
@@ -116,50 +115,55 @@ export function PortfolioView() {
             payments are held.
           </p>
         </section>
-        <Tabs
-          tabs={tabs}
-          active={tabs.some((t) => t.id === active) ? active : "onboard"}
-          onSelect={(t) => select(t)}
-          label="Portfolio"
-        />
-      </div>
+    );
+    return (
+      <Tabs
+        tabs={tabs}
+        active={tabs.some((t) => t.id === active) ? active : "onboard"}
+        onSelect={(t) => select(t)}
+        label="Portfolio"
+        lead={allClear}
+        leadTab="onboard"
+      />
     );
   }
   if (!blast) return <HeroSkeleton />;
 
   if (blast.incident.responseClass === "observation")
     return (
-      <div className="space-y-8">
-        <section aria-labelledby="hero-title">
-          <StatusLine tone="amber" state="Unconfirmed report" />
-          <h1 id="hero-title" className="mt-5 text-headline font-semibold">
-            Review the report involving {blast.asset.vendorName}
-          </h1>
-          <p className="mt-4 max-w-3xl text-lg text-ash">
-            {blast.totals.companiesNotified} linked companies notified.
-            Compromise is not yet confirmed; this report has not held payments
-            or changed access.
-          </p>
-          <label className="mt-5 block text-sm">
-            Choose a report
-            <select
-              className={`${FIELD} mt-2 block max-w-full`}
-              value={incidentId}
-              onChange={(e) => setChosen(e.target.value as Id<"incidents">)}
-            >
-              {incidents.map((i) => (
-                <option key={i._id} value={i._id}>
-                  {i.vendorName} —{" "}
-                  {i.responseClass === "observation"
-                    ? "unconfirmed"
-                    : "confirmed"}{" "}
-                  — {dateTime(i.createdAt)}
-                </option>
-              ))}
-            </select>
-          </label>
-        </section>
-        <Tabs
+      <Tabs
+        lead={
+          <section aria-labelledby="hero-title">
+            <StatusLine tone="amber" state="Unconfirmed report" />
+            <h1 id="hero-title" className="mt-5 text-headline font-semibold">
+              Review the report involving {blast.asset.vendorName}
+            </h1>
+            <p className="mt-4 max-w-3xl text-lg text-ash">
+              {blast.totals.companiesNotified} linked companies notified.
+              Compromise is not yet confirmed; this report has not held payments
+              or changed access.
+            </p>
+            <label className="mt-5 block text-sm">
+              Choose a report
+              <select
+                className={`${FIELD} mt-2 block max-w-full`}
+                value={incidentId}
+                onChange={(e) => setChosen(e.target.value as Id<"incidents">)}
+              >
+                {incidents.map((i) => (
+                  <option key={i._id} value={i._id}>
+                    {i.vendorName} —{" "}
+                    {i.responseClass === "observation"
+                      ? "unconfirmed"
+                      : "confirmed"}{" "}
+                    — {dateTime(i.createdAt)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </section>
+        }
+        leadTab="map"
           active={active}
           onSelect={(t) => select(t)}
           label="Report details"
@@ -216,8 +220,7 @@ export function PortfolioView() {
             },
             { id: "proof", label: "Proof", content: () => <ProofPanel /> },
           ]}
-        />
-      </div>
+      />
     );
 
   const { incident, totals } = blast;
@@ -298,7 +301,7 @@ export function PortfolioView() {
       content: () => (
         <div className="space-y-8">
           <section aria-labelledby="told-title">
-            <h2 id="told-title" className="mb-4 text-lg font-semibold">
+            <h2 id="told-title" className="mb-4 text-xl font-semibold tracking-[-0.02em]">
               What each company was told
             </h2>
             <div className="grid gap-4 xl:grid-cols-2">
@@ -392,31 +395,39 @@ export function PortfolioView() {
   ];
 
   return (
-    <div className="space-y-12">
-      {incidents.some(
-        (i) => i.responseClass === "observation" && !i.containedAt,
-      ) && (
-        <button
-          className="text-left text-amber underline underline-offset-4"
-          onClick={() => select("timeline", true)}
-        >
-          Unconfirmed reports also need review — open Response safety
-        </button>
-      )}
-      <PortfolioHero
-        blast={blast}
-        incidents={incidents}
-        onPickIncident={(id) => {
-          setChosen(id);
-          setSelected(undefined);
-        }}
-        releasedCents={releasedCents}
-        exposed={exposed}
-        acknowledged={acknowledged}
-        onOpenCompany={openCompany}
-      />
-      <Tabs tabs={tabs} active={active} onSelect={(t) => select(t)} label="Incident details" />
-    </div>
+    <Tabs
+      tabs={tabs}
+      active={active}
+      onSelect={(t) => select(t)}
+      label="Incident details"
+      leadTab="map"
+      lead={
+        <div className="space-y-12">
+          {incidents.some(
+            (i) => i.responseClass === "observation" && !i.containedAt,
+          ) && (
+            <button
+              className="text-left text-amber underline underline-offset-4"
+              onClick={() => select("timeline")}
+            >
+              Unconfirmed reports also need review — open Response safety
+            </button>
+          )}
+          <PortfolioHero
+            blast={blast}
+            incidents={incidents}
+            onPickIncident={(id) => {
+              setChosen(id);
+              setSelected(undefined);
+            }}
+            releasedCents={releasedCents}
+            exposed={exposed}
+            acknowledged={acknowledged}
+            onOpenCompany={openCompany}
+          />
+        </div>
+      }
+    />
   );
 }
 
@@ -502,10 +513,10 @@ function PortfolioHero({
           : "no payments held"}
       </h1>
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-12">
+      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] lg:gap-10">
         <div className="min-w-0">
-          {/* The zoom-out line as three figures, each beside what it counts. Never wraps mid-number. */}
-          <div aria-hidden className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-4 gap-y-3">
+          {/* The zoom-out line as three metric blocks in one card, label over figure. */}
+          <div aria-hidden className="grid grid-cols-[minmax(6.5rem,0.9fr)_minmax(7rem,1fr)_minmax(0,1.4fr)] divide-x divide-line rounded-tile border border-line bg-panel">
             <Stat
               value={String(totals.companiesExposed)}
               label={
@@ -554,7 +565,7 @@ function PortfolioHero({
 
         <div className="min-w-0">
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
-            <h2 className="text-lg font-semibold">Response by company</h2>
+            <h2 className="text-xl font-semibold tracking-[-0.02em]">Response by company</h2>
             <p className="flex items-center gap-3 text-sm text-ash tabular-nums">
               <AckTiles nodes={exposed} />
               <span>
@@ -683,15 +694,13 @@ function Stat({
   tone?: string;
 }) {
   return (
-    <>
+    <div className="min-w-0 px-3 py-3">
+      <span className="block text-sm text-[#7d7d7d]">{label}</span>
       <span
-        className={`text-right text-[clamp(2.5rem,1.6rem+2.2vw,3.75rem)] leading-none font-semibold tracking-[-0.03em] tabular-nums ${tone}`}
+        className={`mt-1 block text-[clamp(1.25rem,0.9rem+0.9vw,1.75rem)] whitespace-nowrap leading-tight font-semibold tracking-[-0.04em] tabular-nums ${tone}`}
       >
         {value}
       </span>
-      <span className="text-base leading-snug text-ash md:text-lg">
-        {label}
-      </span>
-    </>
+    </div>
   );
 }

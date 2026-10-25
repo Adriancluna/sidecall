@@ -47,9 +47,9 @@ export function PlanSteps({ incidentId }: { incidentId: Id<"incidents"> }) {
   };
 
   return (
-    <div className="mt-6 rounded-xl border border-line bg-graphite p-4">
+    <div className="mt-6 rounded-tile border border-line bg-panel p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-lg font-semibold">Your pre-approved steps</h2>
+        <h2 className="text-sm font-medium">Your pre-approved steps</h2>
         <span className="text-xs text-ash">From your company's response playbook</span>
       </div>
       <ul className="mt-3 space-y-3">
@@ -187,12 +187,12 @@ export function PlaybookPanel() {
                       title={MODE_HELP[m]}
                       disabled={busy || !r.canEdit}
                       onClick={() => void change(r.action, m)}
-                      className={`rounded-md border px-3 py-1.5 text-sm disabled:cursor-not-allowed ${
+                      className={`min-h-8 rounded-chip px-3 text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed ${
                         on
-                          ? "border-amber bg-amber/15 text-paper"
+                          ? "bg-paper text-graphite"
                           : confirm
-                            ? "border-amber/60 text-amber hover:bg-amber/10"
-                            : "border-line text-ash hover:border-ash hover:text-paper"
+                            ? "text-amber ring-1 ring-amber/60 hover:bg-hover"
+                            : "text-ash ring-1 ring-line hover:bg-hover hover:text-paper"
                       }`}
                     >
                       {confirm ? `Confirm ${MODE_LABEL[m]}` : MODE_LABEL[m]}

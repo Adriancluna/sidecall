@@ -80,7 +80,7 @@ export function PaymentHero({ row, escalation, viewer, others, onOpenTab }: Prop
       <aside
         aria-label="Decision"
         className={`flex min-w-0 flex-col gap-6 self-start rounded-tile border bg-panel p-5 md:p-6 lg:col-start-2 lg:row-span-2 lg:row-start-1 ${
-          decision.isDecider && !done ? "border-amber/45" : "border-line"
+          decision.isDecider && !done ? "border-[#454545]" : "border-line"
         }`}
       >
         <div>

@@ -72,7 +72,7 @@ export function ProofPanel() {
       </div>
       {dnsFindings.length > 0 && <DnsFindings />}
       <div className="mt-6 border-t border-line pt-5">
-        <h3 className="mb-3 font-semibold">Scorecard against the planted answer key</h3>
+        <h2 className="mb-3 text-xl font-semibold tracking-[-0.02em]">Scorecard against the planted answer key</h2>
         <ScorecardBody />
       </div>
     </Card>
@@ -82,7 +82,7 @@ export function ProofPanel() {
 function ProofList({ title, items }: { title: string; items: string[] }) {
   return (
     <div>
-      <h3 className="mb-2 font-semibold">{title}</h3>
+      <h2 className="mb-2 text-xl font-semibold tracking-[-0.02em]">{title}</h2>
       <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed">
         {items.map((item) => (
           <li key={item}>{item}</li>
@@ -130,7 +130,7 @@ function ScenarioBlock({ scenario: s }: { scenario: ScorecardScenario }) {
   ];
   return (
     <section>
-      <h4 className="font-semibold">{SCENARIO_NAME[s.externalId] ?? "Scenario"}</h4>
+      <h3 className="font-semibold">{SCENARIO_NAME[s.externalId] ?? "Scenario"}</h3>
       <p className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-ash">
         {figures.map((f) => (
           <span key={f.label} className="flex items-baseline gap-1.5">
@@ -163,7 +163,7 @@ function ScenarioBlock({ scenario: s }: { scenario: ScorecardScenario }) {
 function DnsFindings() {
   return (
     <div className="mt-6 border-t border-line pt-5">
-      <h3 className="font-semibold">Vendor detection on real public domains</h3>
+      <h2 className="text-xl font-semibold tracking-[-0.02em]">Vendor detection on real public domains</h2>
       <p className="mt-1 mb-3 max-w-prose text-sm text-ash">
         From public DNS only (MX, SPF, TXT, CNAME). It shows a shared vendor, never a shared login, so these stay
         candidates.

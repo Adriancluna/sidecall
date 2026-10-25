@@ -190,6 +190,7 @@ function AddChannel({
             id={`label-${scope}`}
             name="label"
             required
+            autoComplete="off"
             placeholder="#finance-alerts"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
