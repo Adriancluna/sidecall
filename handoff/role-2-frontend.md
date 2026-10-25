@@ -1,5 +1,10 @@
 # Role 2: Frontend (Marco)
-Last updated: Oct 25, ~01:00 UTC (Oct 24 evening PT) by Marco's Claude
+Last updated: Oct 25, ~03:00 UTC (Oct 24 evening PT) by Marco's Claude
+
+## Copy and alignment pass (Marco's call)
+- Scanned every seat and page at 1440 for misaligned figures, wrapping labels and one-word last lines; fixed in `src/panels/` and `src/index.css` (`text-wrap: pretty` now on `body`).
+- Response by company (firm view): header and rows now share column gaps. Cells drop what the header already says: "Not yet", the acknowledger's name, "Done in 4s" (`FirstStepCell`, `AcknowledgedBy nameOnly`). The demo script line "First step done at 1 of 3" (the progress line) is unchanged.
+- G6 map: the canvas now follows its card on resize (it used to keep its first size and look missing).
 
 ## Firm map: AntV G6 expandable map is the default (Marco's call)
 - **New npm package: `@antv/g6` 5.1.1** (Marco's decision, flagging it here for the team). Loaded on demand: the main bundle is unchanged (~514 kB); the map chunk (~405 kB gzipped) loads when Map & evidence opens.

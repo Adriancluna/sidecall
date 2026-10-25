@@ -181,7 +181,7 @@ export function ExposureHero({
       </aside>
 
       <div className="min-w-0 lg:col-start-1 lg:row-start-2">
-        <dl className="grid max-w-2xl grid-cols-2 gap-x-8 gap-y-4 border-t border-line pt-5 sm:grid-cols-3">
+        <dl className="grid max-w-2xl grid-cols-2 gap-x-8 gap-y-4 border-t border-line pt-5 sm:grid-cols-[max-content_max-content_minmax(0,1fr)]">
           <Fact label="How you're linked">{SHARE_LABEL[share]}</Fact>
           <Fact label="How sure">
             {candidate ? "Candidate (public DNS)" : "Reported by your team"}

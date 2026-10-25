@@ -90,8 +90,8 @@ export function ControlsLogPanel({ incidentId, fileLabel }: Props) {
                   </td>
                   <td className="py-1.5 pr-3 whitespace-nowrap">{r.companyName}</td>
                   <td className="py-1.5 pr-3">{r.actorName}</td>
-                  <td className="py-1.5 pr-3 font-medium">{actionLabel(r.action)}</td>
-                  <td className="py-1.5 pr-3 text-ash">{ruleLabel(r.rule)}</td>
+                  <td className="py-1.5 pr-3 font-medium whitespace-nowrap">{actionLabel(r.action)}</td>
+                  <td className="py-1.5 pr-3 whitespace-nowrap text-ash">{ruleLabel(r.rule)}</td>
                   <td className="min-w-56 py-1.5">{r.reason}</td>
                 </tr>
               ))}

@@ -169,8 +169,16 @@ export function G6BlastMap({
     graph.render().catch((e: unknown) => {
       if (alive) console.error(e);
     });
+    // The canvas keeps its first size; follow the card when the window or sidebar changes width.
+    const resize = new ResizeObserver(() => {
+      if (!alive || graph.destroyed) return;
+      graph.resize();
+      graph.fitView().catch(() => undefined);
+    });
+    resize.observe(box.current);
     return () => {
       alive = false;
+      resize.disconnect();
       graphRef.current = null;
       graph.destroy();
     };

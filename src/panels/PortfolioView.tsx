@@ -625,9 +625,7 @@ function PortfolioHero({
                       <span className="col-span-2 flex flex-wrap gap-x-4 gap-y-1 text-sm md:contents">
                         <span className="text-ash">
                           {n.status === "open" ? (
-                            <span className="text-amber">
-                              Not acknowledged yet
-                            </span>
+                            <span className="text-amber">Not yet</span>
                           ) : (
                             n.exposureId && (
                               <AckCell exposureId={n.exposureId} />
@@ -663,7 +661,8 @@ function PortfolioHero({
   );
 }
 
-const ROW_GRID = "md:grid-cols-[minmax(0,1.4fr)_6.5rem_minmax(0,1.3fr)_minmax(0,1fr)_6.5rem]";
+// Cells say only what their header doesn't ("Not yet", a name, "Done in 4s"), so each fits on one line.
+const ROW_GRID = "md:grid-cols-[minmax(0,1.6fr)_5.25rem_minmax(0,1fr)_7rem_5rem] md:gap-x-3";
 
 // Who acknowledged. A row resolved without anyone acknowledging says so quietly; its urgency
 // chip already reads "Resolved", so the word isn't repeated here.
@@ -672,8 +671,8 @@ function AckCell({ exposureId }: { exposureId: Id<"exposures"> }) {
     exposureId,
   });
   if (evidence === undefined) return null;
-  if (evidence?.acknowledgedBy) return <AcknowledgedBy userId={evidence.acknowledgedBy} />;
-  return <span className="text-ash">No acknowledgement</span>;
+  if (evidence?.acknowledgedBy) return <AcknowledgedBy userId={evidence.acknowledgedBy} nameOnly />;
+  return <span className="text-ash">No one</span>;
 }
 
 // One small tile per exposed company, like the mark's tiles: hollow until acknowledged, filled
@@ -707,8 +706,9 @@ function Stat({
   tone?: string;
 }) {
   return (
-    <div className="min-w-0 px-3 py-3">
-      <span className="block text-sm text-[#7d7d7d]">{label}</span>
+    // Value pinned to the bottom, so figures line up even when one label wraps.
+    <div className="flex h-full min-w-0 flex-col justify-between px-3 py-3">
+      <span className="block text-sm text-balance text-[#7d7d7d]">{label}</span>
       <span
         className={`mt-1 block text-[clamp(1.25rem,0.9rem+0.9vw,1.75rem)] whitespace-nowrap leading-tight font-semibold tracking-[-0.04em] tabular-nums ${tone}`}
       >
