@@ -1,5 +1,5 @@
 // Shared class strings for controls, so buttons and fields look the same everywhere.
-// proto/ux-vercel: Geist buttons. Primary is inverted (paper on black), secondary is a dark
+// Geist buttons (Vercel style). Primary is inverted (paper on black), secondary is a dark
 // surface with a 1px ring, both 14px/500 at 36px; the hero's one decision gets 40px.
 const BASE =
   "inline-flex items-center justify-center gap-2 rounded-chip font-medium whitespace-nowrap transition-colors duration-150 disabled:cursor-not-allowed";

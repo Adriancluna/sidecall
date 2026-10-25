@@ -2,7 +2,7 @@
 @import "tailwindcss";
 @import "../brand/tokens.css";
 
-/* proto/ux-vercel: Vercel dashboard (Geist dark) values over the brand tokens, so every panel
+/* Vercel-style dashboard (Geist dark) values over the brand tokens, so every panel
    follows without class changes. Reference: docs/specs/ux-refs/vercel.md. Amber stays the
    advisory status colour; primary actions are inverted (paper on black). */
 @theme {

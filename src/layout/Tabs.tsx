@@ -1,6 +1,6 @@
 // The dashboard's pages. The active page lives in the URL hash (#tab-payments), so a page can be
 // linked, opened in a new tab, and the back button works.
-// proto/ux-vercel: the page list renders in the shell's left sidebar (desktop) or the strip under
+// The page list renders in the shell's left sidebar (desktop) or the strip under
 // the top bar (phones). Each page opens with its own title (Render's structure); the lead page
 // opens with the hero instead, so the hero is shown once, not above every page.
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
