@@ -1,9 +1,15 @@
 # Pegasus: readiness depth and Claude work assignments
-Last updated: 2026-10-24, 18:05 PT by Pegasus
+Last updated: 2026-10-24, 18:15 PT by Pegasus
 
-## Remaining work check — Pegasus, 18:05 PT
+## Review fixes and AI UI status — Pegasus, 18:15 PT
 
-Ashwa asked what remains. GitHub confirms #130 is open and mergeable, with no reviews/comments or hosted check results yet; main is #129 (`1ee1dc7`). The local proof above is complete, but it does not constitute Adrian's release approval or production verification.
+**All three #130 review requests are addressed at source `36d1d9a`:** the form and hold evidence disclose historical destination age/later changes and require a current callback assertion; every authenticated validly typed prepare/request/revoke refusal is audited (inaccessible targets get a caller-scoped row without foreign IDs/details); preparation is `prepare` / **Prepared**, not payment approval. The same controller may prepare and release, with a separate AP requester. Adrian's latest direction is **Q&A only, not the main video**. Role 1 still owns merge/release and requires his own merged-code rehearsal by 10pm PT.
+
+**Fresh validation:** 218 app/backend + 70 Node tests, both TypeScript checks, lint/build pass; original full live rehearsal and all 10 recovery live checks pass on Pegasus DEV `tangible-koala-842` at `36d1d9a`, with five verified cleanups. Live checks now include the 150-day/three-change disclosure, distinct preparation audit and immutable hold warning. Unknown/foreign caller-scoped audit rows are unit-proven; the live foreign checks verify no target-state or linked-audit change. Browser QA confirmed the actual new warning/form; screenshot `docs/images/payment-recovery-history.jpg`. A separate $38K synthetic held-then-rejected fixture was used for that screenshot with no ledger movement or active correction authority. All UI/API test sessions signed out; temporary tab/server closed. No production change, external notification or new model call.
+
+**AI UI answer:** Held payments mounts invoice/email investigation (structured parsing, optional configured live model extraction); Bills to pay mounts automatic-purchase approvals, limits, agent scope, preview and receipts. Its Request payment button calls Convex directly, not Claude. The proven real-Claude invoice→MCP→purchase loop is a standalone runner; no in-app launch action or chatbot mount is present in this checked source. Teammates' unmerged chatbot remains outside Pegasus's scope. Highest-value next proposal: a bounded visible "Process approved bill" flow with actual tool-call/decision/receipt evidence in the existing purchasing page, coordinated with the chatbot owners before implementation. No such UI execution feature is claimed as implemented.
+
+#130 remains open for Adrian's re-review after his requested changes. This candidate includes dashboard #129; the later #131 G6 map is not imported. Role 1's latest #118 instruction keeps G6 out of the default judging flow. The local proof above is complete, but it does not constitute Adrian's release approval or production verification.
 
 - **Adrian:** review #130, decide inclusion, deploy the chosen final build and run the controlled production rehearsal/readiness check before recording; keep production test/reset ownership with Role 1.
 - **Marco:** reconcile `docs/demo-script.md` and `docs/devpost.md` with the actual final build: new sidebar navigation and Simulator location, Jamie's Try to release, exact destination/callback verification, current portfolio/test counts, and bounded automatic purchasing. "Cash moves only on release" and "AI only writes" omit the independently proven purchasing executor; distinguish pre-approved automatic purchases from held-payment release, and alert writing from constrained purchase requests, without implying the model authorizes or releases held money. Remove obsolete map-as-future-work wording. Include recovery only if #130 is accepted.
@@ -12,7 +18,7 @@ Ashwa asked what remains. GitHub confirms #130 is open and mergeable, with no re
 
 No new feature work is required merely to fill time; resolve release/integration evidence and presentation gaps first. Historical handoff items below are not new blockers. — Pegasus
 
-## New depth: safe bill recovery — Pegasus, Oct 24
+## Initial recovery handoff — superseded by review fixes above
 
 Ashwa requested further upgrades after the accepted batch. #125/#127 are now merged through #128 (`0aebe5e`); their reviewed heads are unchanged. A separate follow-up, `feat/pegasus-payment-recovery`, closes the rejected-payee dead end: controller verifies the existing trusted destination for this bill, AP requests one corrected payment, and a final controller release remains mandatory. Shared vendor bank records stay unchanged, and unrelated approved purchases can continue.
 
