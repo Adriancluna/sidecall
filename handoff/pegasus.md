@@ -1,5 +1,15 @@
 # Pegasus: release handoff
-Last updated: 2026-10-24, 19:07 PT by Pegasus
+Last updated: 2026-10-24, 21:16 PT by Pegasus
+
+## Team understanding guide completed
+
+Ashwa asked for a complete, simple illustrated explanation for four novices and track declarations, then clarified that the team does not yet understand whether everything works. Pegasus created [the editable 46-page guide](../team-notes/pegasus-guide/Sidecall_Team_Guide.docx), [the shared Markdown source](../team-notes/pegasus-guide/guide.md) and 11 diagrams/charts. It covers architecture, actual roles/data, scoring, authenticated intake and anti-freeze abuse controls, scoped automation, payment/ledger/recovery, all 15 purchase checks, bounded Claude/MCP behavior, UI instructions, a combined rehearsal, historical proof, current gaps, troubleshooting, code/configuration, four-person study plan and Convex/Visa/Hyphenate/Armadin declaration drafts.
+
+**Validation:** independent source and sponsor-criteria reviews; every rendered page and all 11 figures visually inspected; table headers, figure descriptions, chapter links and printed contents page numbers checked. This is a documentation-only change, so product tests were not rerun. No product code, chatbot, backend, production deployment or track submission was changed.
+
+**Release truth:** product source snapshot d6d6f82, main0ea25c2, PR #132 still OPEN with no reviews at the fresh check. The guide deliberately separates main, the console candidate, actual saved DEV calls, simulations and unverified production. The latest #118 still contains the existing review request, with no new incoming work. Current live reports establish specific cases, not complete production readiness.
+
+**For every Claude instance and teammate:** read chapters1–2, then use chapter12's acceptance record; chapters14–15 contain track reasoning and copy-ready drafts. Role1 still owns #132 review and production acceptance. Confirm Visa merchant/AP scope, Armadin scope, allowed track combinations and registration; do not treat absence of a published cap as automatic permission. The guide fixes stale explanations including observation promotion/correlation, the armadinFinding vs ironcladCredential distinction, separate request quotas, reset behavior of the full rehearsal, AI call provenance and synthetic money. Recording remains last. — Pegasus
 
 ## Ready for Role 1 review: [PR #132](https://github.com/Adriancluna/sidecall/pull/132)
 

@@ -1,0 +1,46 @@
+{
+  "architecture": {
+    "title": "The system and its authority boundary",
+    "caption": "Vercel serves the browser files. Convex owns the records and decisions. The backend schedules external work; model output cannot grant permission."
+  },
+  "data_model": {
+    "title": "Records connected by identity",
+    "caption": "Lines show logical connections between stored records, not a complete database schema or cardinality diagram. IDs let the app trace a decision back to its company, source, bill and authority."
+  },
+  "graph": {
+    "title": "The Brightline relationship graph",
+    "caption": "A relationship determines relevant scope. Scores prioritize review; they are not probabilities. Reporter exclusion from sister exposures does not itself exempt the reporter\u2019s payments."
+  },
+  "intake": {
+    "title": "From a report to permitted consequences",
+    "caption": "Observation is the default low-authority path. A confirm-capable source must satisfy its requirements; a human reviewer must provide independent evidence before promotion."
+  },
+  "clocks": {
+    "title": "Different clocks serve different purposes",
+    "caption": "The diagram is conceptual, not a time-scale chart. Existing held payments never auto-release because a review deadline or incident window expires."
+  },
+  "payment_states": {
+    "title": "Payment states and cash effects",
+    "caption": "The result depends on current rules. A hold or rejection creates no payment journal. A later release pays the held attempt atomically with its evidence."
+  },
+  "recovery": {
+    "title": "Correction preserves the original history",
+    "caption": "A controller and AP requester must be distinct. The same controller may prepare and later release. The prior verified destination needs a fresh human callback assertion."
+  },
+  "purchase_authority": {
+    "title": "Approval comes before autonomous purchasing",
+    "caption": "Permission is a stored, revocable, bounded record. A preview reserves nothing. Execution rechecks everything inside the transaction."
+  },
+  "purchase_sequence": {
+    "title": "A successful console run in order",
+    "caption": "This is the private Convex console path. The external assistant\u2019s MCP HTTP route is separate. Provider calls occur outside the financial transaction."
+  },
+  "holds": {
+    "title": "Where the initial held money is",
+    "caption": "Bayview combines $28,000 and $12,000. Later requests, imports and releases change these totals. Bar lengths start at zero."
+  },
+  "visa": {
+    "title": "Visa judging weights",
+    "caption": "Source: supplied Visa starter pack, pages 6\u20137. These are rubric weights, not estimated Sidecall scores. Bar lengths start at zero."
+  }
+}
