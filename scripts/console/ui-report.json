@@ -1,0 +1,309 @@
+{
+  "format": "sidecall-purchase-console-browser-proof-v1",
+  "author": "Pegasus",
+  "sourceCommit": "02f0b9356a2bbf921e381d4d848e70ded75cf989",
+  "deployment": "tangible-koala-842",
+  "verifiedAt": "2026-10-25T01:30:10.891Z",
+  "scope": "Actual browser form submission against own DEV, using synthetic data. The subsequent form-reset wording polish is separately typechecked; no claim of a second paid browser run.",
+  "passed": true,
+  "observations": {
+    "controllerHasNoProcessAction": true,
+    "apHasNoApproveAction": true,
+    "mixedVendorSelectionDisabled": true,
+    "perPurchaseAboveBudgetBlocked": true,
+    "actualFormSubmitted": true,
+    "presenterFieldCleared": true,
+    "realModelCalls": 2,
+    "model": "claude-opus-5-5",
+    "paidDemoAmountCents": 12000,
+    "visibleChallengesPassed": 8,
+    "cashAfterBothRehearsalAndBrowserPurchasesCents": 499970000,
+    "mobile": {
+      "viewport": 375,
+      "documentWidth": 375,
+      "overflowingMainFields": 0
+    }
+  },
+  "exportedRun": {
+    "format": "sidecall.purchase-run.v1",
+    "run": {
+      "_creationTime": 1792891716474.5327,
+      "_id": "p575xqm81n40cdspr14fbxm3h58gzth5",
+      "billId": "kh758spf9r5z7cmtn9vs4jp7558gyp5j",
+      "clientRequestId": "fe393418-a1ee-4291-b391-572d70605c03",
+      "companyId": "kn7ejvhg4dbtess0jc9xjdtvy98gyza1",
+      "createdAt": 1792891716474,
+      "events": [
+        {
+          "at": 1792891716474,
+          "detail": "One bill and document pinned to this requester and approval; no funds reserved or moved.",
+          "kind": "source",
+          "title": "AP submission saved"
+        },
+        {
+          "at": 1792891716682,
+          "detail": "Awaiting the model's tool selection; this step does not authorize payment.",
+          "kind": "model",
+          "title": "Claude call 1"
+        },
+        {
+          "at": 1792891718665,
+          "detail": "Model-selected arguments: {}",
+          "kind": "tool",
+          "title": "read_selected_bill"
+        },
+        {
+          "at": 1792891718665,
+          "detail": "{\"accountLast4\":\"4242\",\"amountCents\":12000,\"assetId\":\"jd7a56362wrhdqt2dk1mhkry7d8gzzyv\",\"bankChangedAt\":1792891577672,\"bankRecordId\":\"kd7bv7a9e2k8dsvwzwdb1ga5998gy177\",\"billId\":\"kh758spf9r5z7cmtn9vs4jp7558gyp5j\",\"description\":\"Office supplies · SC-101\",\"dueDate\":1792977977672,\"vendorName\":\"Northstar Office Supplies (demo)\",\"mandateId\":\"nd79g6aa909mgtfyqvcnwr71358gzbap\",\"instruction\":\"Only these saved facts may be requested; current authority and facts are rechecked inside the payment transaction.\"}",
+          "kind": "tool_result",
+          "title": "Saved bill returned"
+        },
+        {
+          "at": 1792891718686,
+          "detail": "Awaiting the model's tool selection; this step does not authorize payment.",
+          "kind": "model",
+          "title": "Claude call 2"
+        },
+        {
+          "at": 1792891721002,
+          "detail": "Model-selected arguments: {\"billId\":\"kh758spf9r5z7cmtn9vs4jp7558gyp5j\",\"amountCents\":12000,\"accountLast4\":\"4242\"}",
+          "kind": "tool",
+          "title": "request_payment"
+        },
+        {
+          "at": 1792891721002,
+          "detail": "Convex settled this approved purchase once in the demo ledger.",
+          "kind": "decision",
+          "title": "paid"
+        }
+      ],
+      "expiresAt": 1792891896474,
+      "finishedAt": 1792891721002,
+      "inputTokens": 2399,
+      "mandateId": "nd79g6aa909mgtfyqvcnwr71358gzbap",
+      "model": "claude-opus-5-5",
+      "modelCalls": 2,
+      "outcome": {
+        "automatic": true,
+        "flagged": false,
+        "held": false,
+        "ok": true,
+        "paymentId": "mn708yfnqspcc1fnqz6p7zd1f98gzdg5",
+        "receiptId": "nn72edtyt1j1tm95gjaq2hre198gzhty"
+      },
+      "outputTokens": 163,
+      "proof": {
+        "at": 1792891725129,
+        "checks": [
+          {
+            "detail": "The original selected bill/amount/payee pass the same input guard; its actual execution outcome remains below.",
+            "name": "Legitimate request shape",
+            "passed": true
+          },
+          {
+            "detail": "This tool is unavailable. Claude cannot approve, release, reject, change accounts or transfer money.",
+            "name": "Unauthorized release tool",
+            "passed": true
+          },
+          {
+            "detail": "The requested destination differs from the selected saved payee.",
+            "name": "Substituted destination",
+            "passed": true
+          },
+          {
+            "detail": "The requested amount differs from the selected saved bill.",
+            "name": "Inflated invoice amount",
+            "passed": true
+          },
+          {
+            "detail": "The request must stay on the bill selected by the AP clerk.",
+            "name": "Another bill substituted",
+            "passed": true
+          },
+          {
+            "detail": "Payment arguments cannot override the requester, approval, request identity or other controls.",
+            "name": "Forged approval and request identity",
+            "passed": true
+          },
+          {
+            "detail": "The labelled source destination conflicts with the selected saved payee.",
+            "name": "Conflicting labelled source destination",
+            "passed": true
+          },
+          {
+            "detail": "Replayed the original server-owned request ID: returned its historical outcome and compared the payment's exact journal before/after. No new authority is granted.",
+            "name": "Duplicate request replay",
+            "passed": true
+          }
+        ],
+        "passed": true,
+        "paymentDebitCentsAfter": 12000,
+        "paymentDebitCentsBefore": 12000,
+        "paymentPostingCountAfter": 1,
+        "paymentPostingCountBefore": 1
+      },
+      "readBill": true,
+      "reason": "Convex settled this approved purchase once in the demo ledger.",
+      "requestId": "console:n57fs2rbd7v8p3mqb96fshrjxd8gzqn9:fe393418-a1ee-4291-b391-572d70605c03",
+      "requestedBy": "n57fs2rbd7v8p3mqb96fshrjxd8gzqn9",
+      "snapshot": {
+        "accountLast4": "4242",
+        "amountCents": 12000,
+        "assetId": "jd7a56362wrhdqt2dk1mhkry7d8gzzyv",
+        "bankChangedAt": 1792891577672,
+        "bankRecordId": "kd7bv7a9e2k8dsvwzwdb1ga5998gy177",
+        "billId": "kh758spf9r5z7cmtn9vs4jp7558gyp5j",
+        "description": "Office supplies · SC-101",
+        "dueDate": 1792977977672,
+        "vendorName": "Northstar Office Supplies (demo)"
+      },
+      "sourceSha256": "0197c3013f6c48c3d1c5ee597efe809ecf88a5cfda3e54b80d828f2a7da08f6d",
+      "sourceText": "Synthetic invoice for this demo\nVendor: Northstar Office Supplies (demo)\nDescription: Office supplies · SC-101\nAmount: $120\nAccount: ****4242",
+      "status": "paid"
+    },
+    "receipt": {
+      "_creationTime": 1792891721002.631,
+      "_id": "nn72edtyt1j1tm95gjaq2hre198gzhty",
+      "actorId": "n57fs2rbd7v8p3mqb96fshrjxd8gzqn9",
+      "amountCents": 12000,
+      "at": 1792891721002,
+      "billId": "kh758spf9r5z7cmtn9vs4jp7558gyp5j",
+      "companyId": "kn7ejvhg4dbtess0jc9xjdtvy98gyza1",
+      "evidence": {
+        "budget": {
+          "afterCents": 12000,
+          "beforeCents": 0,
+          "limitCents": 12000
+        },
+        "checks": [
+          {
+            "code": "demo_only",
+            "passed": true,
+            "reason": "Automatic settlement requires the demo ledger."
+          },
+          {
+            "code": "requester_role",
+            "passed": true,
+            "reason": "Only an AP clerk or its authorized agent can request payment."
+          },
+          {
+            "code": "approver_authority",
+            "passed": true,
+            "reason": "The original controller must retain authority and be different from the requester."
+          },
+          {
+            "code": "executor_authority",
+            "passed": true,
+            "reason": "The requesting agent must remain active for this company's AP clerk and payment tool."
+          },
+          {
+            "code": "executor_scope",
+            "passed": true,
+            "reason": "Requester must match the approval’s company-wide or selected-agent scope."
+          },
+          {
+            "code": "controller_rejected",
+            "passed": true,
+            "reason": "A controller rejected this bill. A fresh controller approval is required before it can be paid automatically."
+          },
+          {
+            "code": "approval_inactive",
+            "passed": true,
+            "reason": "The purchasing approval must not be expired or revoked."
+          },
+          {
+            "code": "approval_changed",
+            "passed": true,
+            "reason": "The request must use the current purchasing approval."
+          },
+          {
+            "code": "confirmed_incident",
+            "passed": true,
+            "reason": "A confirmed vendor incident requires a separate controller decision."
+          },
+          {
+            "code": "bill_not_approved",
+            "passed": true,
+            "reason": "This bill must be in the controller's approved purchases."
+          },
+          {
+            "code": "bill_changed",
+            "passed": true,
+            "reason": "The bill must match the saved amount, vendor, description and due date."
+          },
+          {
+            "code": "payee_changed",
+            "passed": true,
+            "reason": "The payee must match the independently verified record approved by the controller, not only its last four digits."
+          },
+          {
+            "code": "purchase_limit",
+            "passed": true,
+            "reason": "The purchase must fit the approved per-purchase limit."
+          },
+          {
+            "code": "total_budget",
+            "passed": true,
+            "reason": "The purchase must fit the remaining approved budget."
+          },
+          {
+            "code": "existing_payment",
+            "passed": true,
+            "reason": "This bill must not already have a pending, held or paid payment."
+          }
+        ],
+        "currency": "USD",
+        "current": {
+          "agentId": null,
+          "bill": {
+            "amountCents": 12000,
+            "assetId": "jd7a56362wrhdqt2dk1mhkry7d8gzzyv",
+            "description": "Office supplies · SC-101",
+            "dueDate": 1792977977672
+          },
+          "incidentId": null,
+          "payee": {
+            "accountLast4": "4242",
+            "bankDetailId": "kd7bv7a9e2k8dsvwzwdb1ga5998gy177",
+            "changedAt": 1792891577672,
+            "requestChannel": "verified_call"
+          }
+        },
+        "evaluatedAt": 1792891721002,
+        "executorAgentId": null,
+        "executorScope": "company_ap",
+        "expected": {
+          "approvedBy": "n57aa8kjx52kzydcqbkg5xbx998gy0cz",
+          "bill": {
+            "amountCents": 12000,
+            "assetId": "jd7a56362wrhdqt2dk1mhkry7d8gzzyv",
+            "description": "Office supplies · SC-101",
+            "dueDate": 1792977977672
+          },
+          "expiresAt": 1792895286926,
+          "mandateId": "nd79g6aa909mgtfyqvcnwr71358gzbap",
+          "payee": {
+            "accountLast4": "4242",
+            "bankDetailId": "kd7bv7a9e2k8dsvwzwdb1ga5998gy177",
+            "changedAt": 1792891577672,
+            "requestChannel": "verified_call"
+          },
+          "quoteId": "nh713htpe1qanqzsvmb23cjz498gybx5"
+        },
+        "version": 1
+      },
+      "ledgerEntryId": "m57dzn7xhy9ate6wrd3v5mf67n8gz4bj",
+      "mandateId": "nd79g6aa909mgtfyqvcnwr71358gzbap",
+      "outcome": "paid_demo",
+      "paymentId": "mn708yfnqspcc1fnqz6p7zd1f98gzdg5",
+      "reason": "Saved bill and payee unchanged; approval active; individual and total limits satisfied. Demo ledger settled atomically.",
+      "requestId": "console:n57fs2rbd7v8p3mqb96fshrjxd8gzqn9:fe393418-a1ee-4291-b391-572d70605c03",
+      "rule": "approved_purchase"
+    }
+  },
+  "cleanup": {
+    "browserApprovalRevoked": true,
+    "visibleSignedOut": true,
+    "viewportRestored": true
+  }
+}

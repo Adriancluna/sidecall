@@ -32,6 +32,7 @@ export function PurchaseConsole({ meId }: { meId: Id<"users"> }) {
   const [asOf, setAsOf] = useState(() => Date.now());
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const formRef = useRef<HTMLDetailsElement>(null);
   const recordRef = useRef<HTMLDivElement>(null);
   const preview = useQuery(
     api.purchases.preview,
@@ -79,7 +80,10 @@ export function PurchaseConsole({ meId }: { meId: Id<"users"> }) {
         presenterKey,
       });
       setPresenterKey("");
+      setBillId(undefined);
+      setSourceText("");
       setRequestId(crypto.randomUUID());
+      if (formRef.current) formRef.current.open = false;
       setMessage(
         "Run saved. Its source, tools and payment outcome update below, even if you leave this page.",
       );
@@ -111,6 +115,7 @@ export function PurchaseConsole({ meId }: { meId: Id<"users"> }) {
       )}
       {state.canRun ? (
         <details
+          ref={formRef}
           className="mt-5 rounded-tile border border-line p-4"
           open={state.runs.length === 0}
         >
@@ -157,7 +162,12 @@ export function PurchaseConsole({ meId }: { meId: Id<"users"> }) {
             </label>
             {billId && (
               <div className="max-w-2xl rounded-tile border border-line p-3 text-sm">
-                {preview === undefined ? (
+                {selected?.payment ? (
+                  <p className="text-ash">
+                    This bill already has a payment request. Select another
+                    bill; the recorded outcome is below.
+                  </p>
+                ) : preview === undefined ? (
                   <Skeleton rows={2} />
                 ) : preview === null ? (
                   <p>This bill is no longer available.</p>
@@ -204,6 +214,7 @@ export function PurchaseConsole({ meId }: { meId: Id<"users"> }) {
                 className={BUTTON_SECONDARY}
                 disabled={
                   !selected ||
+                  !!selected.payment ||
                   busy ||
                   running ||
                   !preview?.evidence?.current.payee

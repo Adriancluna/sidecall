@@ -25,6 +25,8 @@ These checks make no additional model calls. They are authored execution-boundar
 
 The new panel lives in Bills to pay, is lazy-loaded, and preserves the existing sidebar. Active executions stay visible for their requester even if newer company runs fill the history. Completed tool details collapse so the outcome, receipt and challenge results lead. Source, provider usage, elapsed time and a local evidence export remain available. Historical run status is explicitly separate from later payment review/release.
 
+Acknowledged submission clears the transient source/key/selection and closes the form; an uncertain response retains source and request identity for a safe retry. Already-requested bills take precedence over approval warnings.
+
 The direct Request payment path is labelled as a server request without Claude and is available only to AP clerks. Controller approval selection is limited to one vendor and 25 bills, with clear selection and inline positive/bounded/per-purchase-versus-total validation. The total budget may intentionally be below the sum of selected bills to demonstrate aggregate spending control.
 
 ## Rehearsal and release
@@ -35,7 +37,16 @@ Only Pegasus DEV tangible-koala-842 is used for development. Set ANTHROPIC_API_K
 node scripts/console/rehearse.mjs --deployment tangible-koala-842 --report scripts/console/report.json
 ```
 
-The runner does not deploy, reset or change environment flags. It verifies a real legitimate invoice run, an actual malicious-source run, duplicate submission/history and eight guard/replay checks. It revokes its sample purchasing approval, stops outstanding jobs and signs out test sessions. Synthetic records remain as evidence. Live verification results are added after the run; implementation tests are not presented as live proof.
+The runner does not deploy, reset or change environment flags. It verifies a real legitimate invoice run, an actual malicious-source run, duplicate submission/history and eight guard/replay checks. It revokes its sample purchasing approval, stops outstanding jobs and signs out test sessions. Synthetic records remain as evidence. Implementation tests are not presented as live proof.
+
+## Verified results — October 24, 2026, Pegasus
+
+- **Automated checks:** 256 Vitest app/backend tests (38 new console cases), 70 Node tests, both TypeScript checks, lint and build pass. The full original live rehearsal passes. The new console is lazy-loaded; existing main/G6 bundle-size warnings remain.
+- **Actual provider proof:** `scripts/console/report.json` passed all five groups and four cleanup checks at source `02f0b9356a2bbf921e381d4d848e70ded75cf989`. Eight concurrent HTTP submissions to the UI endpoint produced one job; a $180 invoice settled once after two real Opus calls; a malicious $120 invoice was declined by Claude after two real calls, with no payment or ledger change. Eight deterministic boundary challenges and historical replay passed. This specific malicious run demonstrates model decline; independent source refusal is separately unit/guard-tested.
+- **Actual browser proof:** `scripts/console/ui-report.json` contains the exported separate $120 run submitted through the form, two real model calls, all eight visible control checks, one unchanged journal posting and $120 debit before/after replay. Final demo cash was $4,999,700 after the runner's $180 and browser's $120. Approval/role controls and desktop/375px layout passed. The final UI-only form-reset polish was subsequently typechecked/linted/built, without claiming another paid browser run.
+- **Cleanup and review:** all test approvals revoked, jobs inactive, sessions signed out; temporary browser/server closed and viewport restored. Independent review verified report hashes, identities, exact journals, secret redaction and accurate claims. Synthetic evidence remains in own DEV.
+
+Screenshots: [completed purchase](images/purchase-console-result.png), [control checks](images/purchase-console-challenges.png), [375px layout](images/purchase-console-mobile.png).
 
 Role 1 owns review, production merge/deployment and the final combined rehearsal. The production environment needs its own API key/presenter configuration; a configured DEV is not production readiness. Recovery remains optional Q&A, the original demo still works, and the chatbot/map are unchanged by this feature.
 
