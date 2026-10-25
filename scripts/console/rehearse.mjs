@@ -52,7 +52,7 @@ try {
   requireProof(notify === "" || notify === "false", "External notifications must be off.");
   rosa = await login("rosa.alvarez@summithomehealth.example"); jamie = await login("jamie.chen@summithomehealth.example");
   const initial = await state(), me = await q("access:me", {}, jamie);
-  requireProof(initial.configured && initial.canRun && initial.runs.length === 0, "Configure the server API key and run the original clean own-DEV rehearsal first.");
+  requireProof(initial.configured && initial.canRun && initial.runs.length === 0, "Enable PURCHASE_CONSOLE_LIVE=true, configure the server API/presenter keys, and run the original clean own-DEV rehearsal first.");
   const baseline = await q("payments:getLedger", {}, rosa);
   requireProof(baseline.balances.cash === 500_000_000, "Clean synthetic opening cash required.");
   const before = await q("purchases:overview", {}, rosa);

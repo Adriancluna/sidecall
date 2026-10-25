@@ -21,7 +21,11 @@ const limits = new RateLimiter(components.rateLimiter, {
 const terminal = (status: string) => !["queued", "running"].includes(status);
 const TTL = 180_000;
 const result = v.object({ done: v.boolean(), text: v.string() });
+function executionEnabled() {
+  return env.PURCHASE_CONSOLE_LIVE === "true" && env.DEMO_MODE === "true" && !!env.ANTHROPIC_API_KEY && !!env.PRESENTER_KEY;
+}
 function configurationReason() {
+  if (env.PURCHASE_CONSOLE_LIVE !== "true") return "Live invoice processing is switched off. Saved outcomes remain available.";
   if (env.DEMO_MODE !== "true") return "Available only in the synthetic demo ledger.";
   if (!env.ANTHROPIC_API_KEY) return "A project administrator must configure ANTHROPIC_API_KEY on this Convex deployment.";
   if (!env.PRESENTER_KEY) return "A project administrator must configure PRESENTER_KEY to authorize paid model runs.";
@@ -60,7 +64,7 @@ export const state = query({
     // A busy company's history must never hide this user's active job and its Stop control.
     const runs = [...new Map([...ownActive.filter((run): run is Doc<"purchaseRuns"> => !!run && run.companyId === viewer.companyId), ...recent]
       .map(run => [run._id, run])).values()].slice(0, 10);
-    return { canRun: viewer.user.role === "ap_clerk", configured: env.DEMO_MODE === "true" && !!env.ANTHROPIC_API_KEY && !!env.PRESENTER_KEY,
+    return { canRun: viewer.user.role === "ap_clerk", configured: executionEnabled(),
       configurationReason: configurationReason(), model: MODEL, requesterName: viewer.user.name,
       runs: await Promise.all(runs.map(async run => ({ run, requesterName: (await ctx.db.get("users", run.requestedBy))?.name ?? "Former AP requester",
         receipt: run.outcome?.receiptId ? await ctx.db.get("purchaseReceipts", run.outcome.receiptId) : null }))) };
@@ -80,7 +84,7 @@ export const start = mutation({
       if (previous.companyId !== viewer.companyId || previous.billId !== args.billId || previous.sourceText !== sourceText) throw new ConvexError("This submission identity already belongs to another bill or document.");
       return previous._id;
     }
-    if (env.DEMO_MODE !== "true" || !env.ANTHROPIC_API_KEY || !env.PRESENTER_KEY) throw new ConvexError(configurationReason());
+    if (!executionEnabled()) throw new ConvexError(configurationReason());
     if (args.presenterKey !== env.PRESENTER_KEY) throw new ConvexError("The presenter key is required to authorize a live model call.");
     if (sourceText.length < 10 || sourceText.length > 6000 || /sk-ant-|Bearer\s+eyJ/.test(sourceText)) throw new ConvexError("Provide 10–6,000 characters of invoice text with masked account details, never credentials.");
     for (const status of ["queued", "running"] as const) {
@@ -129,6 +133,7 @@ export const claim = internalMutation({
   handler: async (ctx, { id }) => {
     const run = await ctx.db.get("purchaseRuns", id);
     if (!run || run.status !== "queued") return null;
+    if (!executionEnabled()) { await end(ctx, run, "refused", configurationReason()); return null; }
     if (!(await runViewer(ctx, run)) || Date.now() >= run.expiresAt || env.DEMO_MODE !== "true") { await end(ctx, run, "refused", "Requester authority or demo execution window is no longer valid."); return null; }
     await ctx.db.patch("purchaseRuns", id, { status: "running" });
     return { ...run, status: "running" as const };
@@ -139,6 +144,7 @@ export const beforeModel = internalMutation({
   handler: async (ctx, { id }) => {
     const run = await ctx.db.get("purchaseRuns", id);
     if (!run || run.status !== "running") return false;
+    if (!executionEnabled()) { await end(ctx, run, "refused", configurationReason()); return false; }
     if (run.modelCalls >= 4 || Date.now() >= run.expiresAt || !(await runViewer(ctx, run)) || env.DEMO_MODE !== "true") {
       await end(ctx, run, "failed", "Execution limit or requester authority changed; no further model call or payment request."); return false;
     }
@@ -165,6 +171,7 @@ export const executeTool = internalMutation({
   handler: async (ctx, args) => {
     const run = await ctx.db.get("purchaseRuns", args.id);
     if (!run || run.status !== "running") return { done: true, text: "Run is no longer active; no new execution." };
+    if (!executionEnabled()) { const text = configurationReason(); await end(ctx, run, "refused", text); return { done: true, text }; }
     const viewer = await runViewer(ctx, run);
     if (!viewer || Date.now() >= run.expiresAt || env.DEMO_MODE !== "true") { await end(ctx, run, "refused", "Requester authority or execution window changed."); return { done: true, text: "Execution refused." }; }
     let input: unknown = null;

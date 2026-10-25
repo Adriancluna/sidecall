@@ -7,7 +7,7 @@ This is a one-shot job with bounded audit events, not a conversation or the team
 ## Execution boundary
 
 - Identity comes from the signed-in AP clerk. The server pins the company, selected bill, current controller approval, immutable source, source hash and stable request ID; the model cannot supply or override them.
-- Start requires an eligible current company-wide AP approval, DEMO_MODE, a configured server Anthropic key, and the matching configured presenter key. Agent-specific approvals cannot be impersonated through the UI.
+- Start requires an eligible current company-wide AP approval, PURCHASE_CONSOLE_LIVE=true, DEMO_MODE, a configured server Anthropic key, and the matching configured presenter key. Agent-specific approvals cannot be impersonated through the UI.
 - Claude Opus 5.5 has only read_selected_bill, request_payment and decline_purchase. Request arguments are a closed selected-bill/amount/masked-account tuple. Unknown tools, overrides, another bill, different amount/destination and requesting before the saved-bill read fail closed.
 - Recognized labelled source vendor, amount and account fields are checked independently in the execution mutation. Conflicting, malformed or mismatched labelled facts refuse even if Claude submits the correct saved tuple. Unlabelled natural language still needs model interpretation; this parser is not general prompt-injection detection.
 - Cancellation, current requester/company/role, demo mode, expiry and the payment evaluator run in the same mutation as settlement. Existing bill/payee/approval/budget/incident checks are reused. A changed approval may refuse; an expired/revoked approval may leave a manual pending request; an incident may leave it held. Only an actual automatic result is labelled paid.
@@ -23,7 +23,7 @@ These checks make no additional model calls. They are authored execution-boundar
 
 ## UI completion
 
-The new panel lives in Bills to pay, is lazy-loaded, and preserves the existing sidebar. Active executions stay visible for their requester even if newer company runs fill the history. Completed tool details collapse so the outcome, receipt and challenge results lead. Source, provider usage, elapsed time and a local evidence export remain available. Historical run status is explicitly separate from later payment review/release.
+The panel lives in Bills to pay, is lazy-loaded, and preserves the existing sidebar. When unconfigured and without saved runs it renders nothing, including while capability loads, so ordinary bill actions remain visible. When disabled with saved runs it shows history and Stop controls without a submission form. Active executions stay visible for their requester even if newer company runs fill the history. Completed tool details collapse so the outcome, receipt and challenge results lead. Source, provider usage, elapsed time and a local evidence export remain available. Historical run status is explicitly separate from later payment review/release.
 
 Acknowledged submission clears the transient source/key/selection and closes the form; an uncertain response retains source and request identity for a safe retry. Already-requested bills take precedence over approval warnings.
 
@@ -31,7 +31,7 @@ The direct Request payment path is labelled as a server request without Claude a
 
 ## Rehearsal and release
 
-Only Pegasus DEV tangible-koala-842 is used for development. Set ANTHROPIC_API_KEY and PRESENTER_KEY there without committing credentials; background AI_LIVE and NOTIFY_LIVE remain off. Run the original own-DEV rehearsal separately for a clean seed, then:
+Only Pegasus DEV tangible-koala-842 is used for development. Explicitly set PURCHASE_CONSOLE_LIVE=true alongside ANTHROPIC_API_KEY and PRESENTER_KEY there without committing credentials; background AI_LIVE and NOTIFY_LIVE remain off. Run the original own-DEV rehearsal separately for a clean seed, then:
 
 ```sh
 node scripts/console/rehearse.mjs --deployment tangible-koala-842 --report scripts/console/report.json
@@ -48,6 +48,10 @@ The runner does not deploy, reset or change environment flags. It verifies a rea
 
 Screenshots: [completed purchase](images/purchase-console-result.png), [control checks](images/purchase-console-challenges.png), [375px layout](images/purchase-console-mobile.png).
 
-Role 1 owns review, production merge/deployment and the final combined rehearsal. The production environment needs its own API key/presenter configuration; a configured DEV is not production readiness. Recovery remains optional Q&A, the original demo still works, and the chatbot/map are unchanged by this feature.
+Role 1 owns review, production merge/deployment and the final combined rehearsal. The production environment needs explicit PURCHASE_CONSOLE_LIVE=true as well as its own API key/presenter configuration; a configured DEV is not production readiness. Recovery remains optional Q&A, the original demo still works, and the chatbot/map are unchanged by this feature.
 
 The provider loop follows Anthropic's [client-tool continuation](https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use) and [Opus 5.5 guidance](https://platform.claude.com/docs/en/models/opus-5-5/overview): automatic tool choice, one tool per response, original provider blocks retained only for continuation, and no forced-tool or disabled-thinking setting.
+
+## Live-execution switch acceptance — Pegasus
+
+PURCHASE_CONSOLE_LIVE defaults off. API keys alone cannot enable this workflow. Admission, worker claim, every model admission, and each tool execution recheck configuration. Disabling stops subsequent tool execution even when a model response is already in flight; it cannot recall the in-flight provider request or reverse a committed payment. Historical identical submissions still retrieve their stored run without scheduling new work. Completed receipts and authorized cancellation remain available. Eight new backend regression cases and three rendered-UI cases cover these boundaries; these are deterministic tests, not a new live-provider or production run.

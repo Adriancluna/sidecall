@@ -23,7 +23,7 @@ const active = (status: string) => status === "queued" || status === "running";
 
 export function PurchaseConsole({ meId }: { meId: Id<"users"> }) {
   const state = useQuery(api.purchaseConsole.state, {});
-  const bills = useQuery(api.payments.getMyBills, {});
+  const bills = useQuery(api.payments.getMyBills, state?.configured ? {} : "skip");
   const start = useMutation(api.purchaseConsole.start);
   const [billId, setBillId] = useState<Id<"bills">>();
   const [sourceText, setSourceText] = useState("");
@@ -36,7 +36,7 @@ export function PurchaseConsole({ meId }: { meId: Id<"users"> }) {
   const recordRef = useRef<HTMLDivElement>(null);
   const preview = useQuery(
     api.purchases.preview,
-    billId ? { billId, asOf } : "skip",
+    state?.configured && billId ? { billId, asOf } : "skip",
   );
   const selected = bills?.find((row) => row.bill._id === billId);
   const expiresAt = preview?.evidence?.expected.expiresAt;
@@ -48,8 +48,10 @@ export function PurchaseConsole({ meId }: { meId: Id<"users"> }) {
     );
     return () => window.clearTimeout(timer);
   }, [asOf, expiresAt]);
-  if (state === undefined || bills === undefined) return <Skeleton rows={4} />;
-  if (state === null) return null;
+  // Keep the ordinary bill actions in place while capability loads or is unavailable.
+  // Existing records and Stop controls remain accessible when execution is disabled.
+  if (!state || (!state.configured && state.runs.length === 0)) return null;
+  if (state.configured && bills === undefined) return null;
   const running = state.runs.some(
     ({ run }) => run.requestedBy === meId && active(run.status),
   );
@@ -113,7 +115,7 @@ export function PurchaseConsole({ meId }: { meId: Id<"users"> }) {
           {state.configurationReason}
         </p>
       )}
-      {state.canRun ? (
+      {state.configured && state.canRun ? (
         <details
           ref={formRef}
           className="mt-5 rounded-tile border border-line p-4"
@@ -139,7 +141,7 @@ export function PurchaseConsole({ meId }: { meId: Id<"users"> }) {
                 disabled={busy || running}
                 onChange={(event) => {
                   setBillId(
-                    bills.find((row) => row.bill._id === event.target.value)
+                    bills?.find((row) => row.bill._id === event.target.value)
                       ?.bill._id,
                   );
                   setAsOf(Date.now());
@@ -147,7 +149,7 @@ export function PurchaseConsole({ meId }: { meId: Id<"users"> }) {
                 }}
               >
                 <option value="">Choose a saved bill</option>
-                {bills.map((row) => (
+                {bills?.map((row) => (
                   <option
                     key={row.bill._id}
                     value={row.bill._id}
@@ -267,13 +269,13 @@ export function PurchaseConsole({ meId }: { meId: Id<"users"> }) {
             </button>
           </form>
         </details>
-      ) : (
+      ) : state.configured ? (
         <p className="mt-4 max-w-prose text-sm text-ash">
           Set a purchasing approval below, then sign in as the AP clerk to
           process its invoice. You can review and stop your company’s active
           runs here.
         </p>
-      )}
+      ) : null}
       {message && (
         <p role="status" className="mt-3 text-sm">
           {message}

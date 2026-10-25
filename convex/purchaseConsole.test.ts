@@ -18,6 +18,7 @@ async function setup() {
   vi.stubEnv("DEMO_MODE", "true"); vi.stubEnv("PRESENTER_KEY", presenterKey);
   vi.stubEnv("ANTHROPIC_API_KEY", providerKey); vi.stubEnv("AI_LIVE", "false");
   vi.stubEnv("NOTIFY_LIVE", "false");
+  vi.stubEnv("PURCHASE_CONSOLE_LIVE", "true");
   vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("Unexpected provider call in a deterministic test"); }));
   const t = convexTest(schema, modules); rateLimiterTest.register(t);
   await t.mutation(internal.seed.run, {});
@@ -61,6 +62,73 @@ test("console start is session/AP/company scoped and requires configured paid-ca
   await expect(s.start()).rejects.toThrow(/ANTHROPIC_API_KEY/);
   expect((await s.paymentState()).payments).toHaveLength(0);
   expect(await s.t.run(ctx => ctx.db.query("purchaseRuns").take(10))).toHaveLength(0);
+});
+
+test.each([undefined, "false", "TRUE"])("live console is opt-in even with provider/presenter keys (flag %s)", async flag => {
+  const s = await setup();
+  vi.stubEnv("PURCHASE_CONSOLE_LIVE", flag);
+  expect(await s.jamie.query(api.purchaseConsole.state, {})).toMatchObject({ configured: false, runs: [] });
+  await expect(s.start()).rejects.toThrow(/switched off/);
+  expect(await s.t.run(ctx => ctx.db.query("purchaseRuns").take(10))).toHaveLength(0);
+  expect((await s.paymentState()).payments).toHaveLength(0);
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+test("switching off a queued run stops the worker before any model call", async () => {
+  const s = await setup(), id = await s.start();
+  vi.stubEnv("PURCHASE_CONSOLE_LIVE", "false");
+  await vi.advanceTimersByTimeAsync(1); await s.t.finishInProgressScheduledFunctions();
+  expect(await s.run(id)).toMatchObject({ status: "refused", modelCalls: 0 });
+  expect(fetch).not.toHaveBeenCalled();
+  expect((await s.paymentState()).payments).toHaveLength(0);
+});
+
+test("switching off between model calls prevents the next call", async () => {
+  const s = await setup(), id = await s.ready();
+  expect(await s.t.mutation(internal.purchaseConsole.beforeModel, { id })).toBe(true);
+  vi.stubEnv("PURCHASE_CONSOLE_LIVE", "false");
+  expect(await s.t.mutation(internal.purchaseConsole.beforeModel, { id })).toBe(false);
+  expect(await s.run(id)).toMatchObject({ status: "refused", modelCalls: 1 });
+  expect((await s.paymentState()).payments).toHaveLength(0);
+});
+
+test("switching off during a provider request blocks its returned payment tool", async () => {
+  const s = await setup(), before = await s.ledger();
+  const fetchMock = vi.fn().mockResolvedValueOnce(modelResponse("read_selected_bill", {})).mockImplementationOnce(async () => {
+    vi.stubEnv("PURCHASE_CONSOLE_LIVE", "false");
+    return modelResponse("request_payment", s.requestInput);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const id = await s.start();
+  await vi.advanceTimersByTimeAsync(1); await s.t.finishInProgressScheduledFunctions();
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(await s.run(id)).toMatchObject({ status: "refused", modelCalls: 2 });
+  expect(await s.ledger()).toEqual(before);
+  expect((await s.paymentState()).payments).toHaveLength(0);
+});
+
+test("disabled execution preserves completed receipts and historical retries without new spending", async () => {
+  const s = await setup(), id = await s.ready();
+  await s.request(id);
+  const paid = await s.run(id), ledger = await s.ledger();
+  vi.stubEnv("PURCHASE_CONSOLE_LIVE", "false");
+  expect(await s.start()).toBe(id);
+  expect(await s.request(id)).toMatchObject({ done: true });
+  await s.rosa.mutation(api.purchaseConsole.cancel, { id });
+  expect(await s.run(id)).toEqual(paid);
+  expect(await s.ledger()).toEqual(ledger);
+  const visible = (await s.rosa.query(api.purchaseConsole.state, {}))!;
+  expect(visible.configured).toBe(false);
+  expect(visible.runs[0].run.status).toBe("paid");
+  expect(visible.runs[0].receipt).not.toBeNull();
+});
+
+test("the controller can stop an existing run while live execution is disabled", async () => {
+  const s = await setup(), id = await s.start();
+  vi.stubEnv("PURCHASE_CONSOLE_LIVE", "false");
+  expect((await s.rosa.query(api.purchaseConsole.state, {}))?.runs[0].run._id).toBe(id);
+  await s.rosa.mutation(api.purchaseConsole.cancel, { id });
+  expect(await s.run(id)).toMatchObject({ status: "cancelled" });
 });
 
 test("concurrent duplicate submissions bind one source hash, bill, requester and original approval without spending", async () => {

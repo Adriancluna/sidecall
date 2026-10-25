@@ -1,6 +1,6 @@
 # Sidecall MVP checkpoints
 
-Updated 2026-10-24, 21:41 PT by Pegasus. User authorized step-by-step execution after the planning session. This is the implementation acceptance plan, not a claim that proposed features have shipped.
+Updated 2026-10-24 by Pegasus. User authorized step-by-step execution after the planning session. This is the implementation acceptance plan, not a claim that proposed features have shipped.
 
 ## Agreed product promise
 
@@ -37,12 +37,10 @@ Verify untrusted report refusal; repeated incident correlation without repeated 
 
 Role 1 reviews/releases the selected batch and verifies frontend/backend/configuration together. Rehearse payment incident, credential incident and unrelated approved purchasing as distinct scenes twice on the intended final setup. Update guide, short briefing, real/simulated matrix and track declarations to match the released version. Convex/Hyphenate have clear fit; Armadin benefits from response proof; Visa's business-purchasing interpretation still needs sponsor confirmation. Recording/DaVinci is last, after acceptance, with a three-minute narrative and evidence available for Q&A.
 
-## Ownership and open dependencies
+## Solo execution and open dependencies
 
-- Pegasus: console fixes, checkpoint evidence and guide reconciliation.
-- Adrian / Role 1: proposed owner for response/backend/receiver integration and production release; pickup has not been confirmed.
-- Omar: proposed adversarial/continuity evidence owner; pickup has not been confirmed.
-- Marco: proposed UI outcome/pitch/recording owner; pickup has not been confirmed.
-- Team: identify an accessible test tenant; confirm sponsor scope and permitted track selections.
+The user has superseded the proposed team assignments: Pegasus works solo in this session, with no further handoffs or delegation. No teammate has an Entra/Okta test tenant. Tenant setup remains a prerequisite for external-provider proof; existing owned-sandbox tests do not substitute for it.
 
-No product code, backend, external account, production deployment or paid model execution was changed during checkpoint 1. — Pegasus
+Checkpoint 2 implementation is complete locally: the default-off PURCHASE_CONSOLE_LIVE switch guards job admission, worker claim, each model admission and tool execution. Unavailable empty consoles render nothing; saved outcomes and Stop remain accessible. Eight additional backend regressions and three rendered-UI cases pass. Full release/deployment acceptance remains pending; no new paid model run is claimed.
+
+Next: reconcile this candidate with current main, then implement the isolated signed-command/receiver protocol with durable receipts and reconciliation. Establish a dedicated test tenant before claiming an external account effect. No external credentials are available or requested in chat.
