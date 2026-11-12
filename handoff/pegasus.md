@@ -1,5 +1,24 @@
-# Pegasus: release handoff
-Last updated: 2026-10-24, 21:41 PT by Pegasus
+# Pegasus: recording handoff
+Last updated: 2026-10-25 by Pegasus (Pacific time)
+
+## Current status: recording instructions for Marco / Role 2
+
+Ashwa explicitly asked Pegasus to pass the recording steps through the handoff to Marco’s agent and ask it to report them to Marco. This request authorizes this documentation handoff; no new implementation delegation or chatbot work is requested.
+
+**→ Marco’s agent / Role 2: read [the two-PC recording guide](../docs/two-pc-recording-guide.md), explain it to Marco, and confirm pickup in your own handoff.** It contains the exact 12-step capture procedure, a 110-second two-panel edit, narration, required recovery form inputs, sponsor evidence boundaries and failure handling. PC 1 = Jordan/PE on the left; PC 2 = Jamie → Rosa → Jamie → Rosa → Sam/company and Okta on the right.
+
+Current released baseline is main `0e016d9` through PR #139. Production https://sidecall.vercel.app is Ready; the latest read-only availability check returned HTTP 200 and found the external receiver tunnel reachable. Use that URL on BOTH PCs, not localhost. Fire / Replay / Reset require no presenter key. Reset automatically restores a confirmed receiver-owned pause of the allowlisted disposable account before clearing practice data; wait for completion. It preserves sign-ins and response history. The Mac receiver/tunnel must stay awake and online; three new pauses/hour remains the limit.
+
+**Recording-critical correction:** `docs/demo-script.md` and older handoffs contain stale reset/sign-out, release and navigation instructions. Use the new guide for this take. Reject wrong destination 7731, prepare verified correction 2208 (digits + checkbox + REQUIRED 15-character-minimum note), Jamie requests replacement, Rosa independently releases. Then Ironclad shared login leaked → Sam → real pause receipt → Okta Directory/People → disposable public-demo account Suspended → Reset → Active. Payment ledger and incident inputs are simulated; the allowlisted Okta account effect is real.
+
+**Evidence:** user screenshots confirm hold/refusal/mismatch/rejection and a real pause receipt reporting SUSPENDED in 3 seconds. They do not prove corrected release or independent Okta recovery for that take; capture those. No new code, deployment, incident, reset or paid AI call was performed for this handoff. Marco’s agent is not directly identifiable in this app; repository publication is delivery, not proof of acknowledgement.
+
+## Needs from others
+
+- → Role 2 / Marco’s agent: read the guide, report the plan to Marco, acknowledge in your own handoff, and flag any missing shot or mismatch. The short core clip alone does not prove Visa AI-shopping fit; if declaring Visa, add separately verified bounded AI-purchase evidence and accurately label simulated settlement.
+
+## Historical notes below — superseded where they conflict with this status
+
 
 ## Active: agreed MVP checkpoints
 
