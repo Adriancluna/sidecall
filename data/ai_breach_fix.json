@@ -1,0 +1,162 @@
+{
+  "generatedAt": "2026-10-24T23:04:46.765Z",
+  "model": "claude-opus-5-5",
+  "entries": {
+    "demo-armadin-004|breach_fix|Cedar Ridge Manufacturing": {
+      "facts": "{\"vendorName\":\"Ironclad Managed IT\",\"assetName\":\"Ironclad shared admin account\",\"assetKind\":\"msp\",\"phoneOnFile\":\"+1 (415) 555-0178\",\"companyName\":\"Cedar Ridge Manufacturing\",\"urgency\":\"urgent\",\"shareType\":\"shared_credential\",\"candidateLink\":false,\"finding\":true,\"whatToCheck\":\"What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong.\",\"heldPayments\":[],\"plannedSteps\":[\"pause_shared_login\",\"revoke_vendor_tokens\"],\"items\":[\"acknowledge\",\"pause_login\",\"rotate_login\",\"check_access\",\"revoke_tokens\",\"check_pending_payments\",\"tell_people\",\"restore_access\",\"close_out\"]}",
+      "summary": "Urgent: please start today. Ironclad Managed IT, which shares the Ironclad shared admin account with Cedar Ridge Manufacturing, has a security incident. First, IT acknowledges the alert so everyone knows who owns the response. Next, IT pauses the Ironclad shared admin account until it is rotated. Then IT rotates that login today, even if nothing looks wrong, and checks recent sign-ins, especially after Oct 24, 08:12 UTC. Your team can then work through the remaining steps in the order shown.",
+      "why": {
+        "acknowledge": "Acknowledging tells the firm and your colleagues who owns the response, so work on this urgent alert does not overlap or stall.",
+        "pause_login": "An attack path ending at this shared login was validated at another portfolio company and is not tested here, so pausing limits use until rotation.",
+        "rotate_login": "Because the login is shared with a vendor that has an incident, a new secret kept only in your vault is needed today.",
+        "check_access": "Reviewing sign-ins from the last 30 days, especially after Oct 24, 08:12 UTC, shows any activity through this login you cannot explain.",
+        "revoke_tokens": "Connected-app grants give Ironclad Managed IT access separate from the shared login, so removing them removes another route into your tenant.",
+        "check_pending_payments": "During a vendor incident, emailed bank-detail changes stay unverified until a call to the number on file confirms them.",
+        "tell_people": "Your cyber policy may set a notice deadline, so insurer and counsel should hear today, and your CEO should be briefed.",
+        "restore_access": "Restoring only after rotation and the vendor's confirmed fix, then watching sign-ins for a week, brings access back carefully.",
+        "close_out": "The firm handles vendor follow-up for all portfolio companies, and its record of the confirmed fix decides when new payments are no longer held."
+      }
+    },
+    "demo-armadin-004|breach_fix|Granite Peak Software": {
+      "facts": "{\"vendorName\":\"Ironclad Managed IT\",\"assetName\":\"Ironclad shared admin account\",\"assetKind\":\"msp\",\"phoneOnFile\":\"+1 (415) 555-0178\",\"companyName\":\"Granite Peak Software\",\"urgency\":\"urgent\",\"shareType\":\"shared_credential\",\"candidateLink\":false,\"finding\":true,\"whatToCheck\":\"What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Rotate that login today, even if nothing looks wrong.\",\"heldPayments\":[],\"plannedSteps\":[\"pause_shared_login\"],\"items\":[\"acknowledge\",\"pause_login\",\"rotate_login\",\"check_access\",\"check_pending_payments\",\"tell_people\",\"restore_access\",\"close_out\"]}",
+      "summary": "Urgent: Granite Peak Software shares a credential with Ironclad Managed IT, which has a security incident, so please start today. First, IT presses Acknowledge so ownership is clear. Then IT pauses the Ironclad shared admin account until it is rotated, and rotates that login today even if nothing looks wrong. After that, IT checks recent sign-ins through the account. A red-team test validated an attack path to this shared asset at another company; that path is reachable here but not tested.",
+      "why": {
+        "acknowledge": "Acknowledging tells the firm and your colleagues who owns the response, so nothing stalls.",
+        "pause_login": "Pausing the shared admin account until it is rotated limits use of a credential tied to the vendor's incident.",
+        "rotate_login": "Rotating today, with MFA and a vaulted secret, replaces a credential that may be exposed through the vendor's incident.",
+        "check_access": "Reviewing sign-ins over the last 30 days, especially after Oct 24, 08:12 UTC, surfaces activity you cannot explain.",
+        "check_pending_payments": "Calling the number on file, +1 (415) 555-0178, confirms Ironclad Managed IT's bank details before the next payment.",
+        "tell_people": "Your insurer and counsel may set deadlines, and leadership should know the firm already sees this incident.",
+        "restore_access": "Restoring only after rotation and the vendor's confirmed fix, then watching sign-ins, keeps the account safe to use again.",
+        "close_out": "The firm closes out with Ironclad Managed IT for all portfolio companies and records when the fix is confirmed."
+      }
+    },
+    "demo-armadin-004|breach_fix|Harborline Foods": {
+      "facts": "{\"vendorName\":\"Ironclad Managed IT\",\"assetName\":\"Ironclad shared admin account\",\"assetKind\":\"msp\",\"phoneOnFile\":\"+1 (415) 555-0178\",\"companyName\":\"Harborline Foods\",\"urgency\":\"urgent\",\"shareType\":\"shared_admin_access\",\"candidateLink\":false,\"finding\":true,\"whatToCheck\":\"What to check: sign-ins to Ironclad shared admin account in the last 30 days, especially after Oct 24, 08:12 UTC. Ask Ironclad Managed IT to rotate the admin account it uses for you, and confirm by calling the number on file.\",\"heldPayments\":[],\"plannedSteps\":[],\"items\":[\"acknowledge\",\"vendor_admin\",\"check_access\",\"check_pending_payments\",\"tell_people\",\"close_out\"]}",
+      "summary": "Urgent: please start today. Ironclad Managed IT, which uses a shared admin account for Harborline Foods, has a security incident, and an attack path ending at that account was validated at another portfolio company but not tested at yours. First, your IT team should acknowledge the alert so everyone knows who owns the response. Next, IT should ask Ironclad Managed IT to rotate the admin account it uses for you and confirm by calling the number on file, +1 (415) 555-0178. Then IT should check recent sign-ins to that account.",
+      "why": {
+        "acknowledge": "Acknowledging tells the firm and your colleagues who owns the response at Harborline Foods.",
+        "vendor_admin": "Ironclad Managed IT uses a shared admin account for you, and a path ending there was validated elsewhere, though not tested here.",
+        "check_access": "Reviewing sign-ins through the shared admin account since Oct 24, 08:12 UTC shows whether anything changed that your team cannot explain.",
+        "check_pending_payments": "Bank details for a vendor with an incident should be confirmed by phone, because emailed change requests stay unverified until that call.",
+        "tell_people": "Your cyber insurance policy may set a notice deadline, and your insurer, counsel and CEO should hear about the alert from you.",
+        "close_out": "Once Ironclad Managed IT confirms its fix, the firm records it, new payments are no longer held, and payments already held need a controller's decision."
+      }
+    },
+    "demo-brightline-001|breach_fix|Bayview Veterinary Partners": {
+      "facts": "{\"vendorName\":\"Brightline Payroll Inc.\",\"assetName\":\"Brightline Payroll\",\"assetKind\":\"payroll\",\"phoneOnFile\":\"+1 (415) 555-0142\",\"companyName\":\"Bayview Veterinary Partners\",\"urgency\":\"advisory\",\"shareType\":\"same_vendor_only\",\"candidateLink\":true,\"finding\":false,\"whatToCheck\":null,\"heldPayments\":[{\"amount\":\"$28,000\",\"accountLast4\":\"2208\",\"bankDetailsChangedRecently\":false},{\"amount\":\"$12,000\",\"accountLast4\":\"4419\",\"bankDetailsChangedRecently\":true}],\"plannedSteps\":[],\"items\":[\"acknowledge\",\"confirm_vendor\",\"verify_payments\",\"bank_change\",\"confirm_separate_login\",\"tell_people\",\"close_out\"]}",
+      "summary": "Advisory: Brightline Payroll Inc., a payroll vendor linked to Bayview Veterinary Partners by a candidate link from public DNS records, has a security incident. Your team should work through this plan this week. First, IT acknowledges the alert so everyone knows who owns the response. Next, IT confirms whether anyone at your company still uses Brightline Payroll. Then a controller verifies the 2 held payments, $40,000 in all, by calling Brightline Payroll Inc. at the number on file, +1 (415) 555-0142.",
+      "why": {
+        "acknowledge": "Acknowledging shows the firm and your colleagues who owns the response, so nothing waits on an unclear owner.",
+        "confirm_vendor": "The link to Brightline Payroll is a candidate from public DNS records, so your team should check it before doing the access steps.",
+        "verify_payments": "Two payments totaling $40,000 are held until verified, and calling the number on file checks them without relying on any recent email.",
+        "bank_change": "The account ending 4419 was added recently, so it stays unverified until Brightline Payroll Inc. confirms it on the number on file.",
+        "confirm_separate_login": "Your company uses the same vendor, so your own login, MFA and recent sign-ins are worth checking after its incident.",
+        "tell_people": "Your cyber insurance policy may set a notice deadline, and counsel and your CEO should hear about the alert from your team directly.",
+        "close_out": "Once the firm records Brightline Payroll Inc.'s fix, new payments are no longer held, but the two held payments still need a controller's decision."
+      }
+    },
+    "demo-brightline-001|breach_fix|Cedar Ridge Manufacturing": {
+      "facts": "{\"vendorName\":\"Brightline Payroll Inc.\",\"assetName\":\"Brightline Payroll\",\"assetKind\":\"payroll\",\"phoneOnFile\":\"+1 (415) 555-0142\",\"companyName\":\"Cedar Ridge Manufacturing\",\"urgency\":\"urgent\",\"shareType\":\"shared_credential\",\"candidateLink\":false,\"finding\":false,\"whatToCheck\":null,\"heldPayments\":[{\"amount\":\"$92,000\",\"accountLast4\":\"2208\",\"bankDetailsChangedRecently\":false}],\"plannedSteps\":[\"pause_shared_login\",\"revoke_vendor_tokens\"],\"items\":[\"acknowledge\",\"pause_login\",\"rotate_login\",\"check_access\",\"verify_payments\",\"revoke_tokens\",\"tell_people\",\"restore_access\",\"close_out\"]}",
+      "summary": "Urgent: your team should start today. Brightline Payroll Inc., the vendor behind the Brightline Payroll login that Cedar Ridge Manufacturing shares, has a security incident. First, IT acknowledges the alert so everyone knows who owns the response. Next, IT pauses Brightline Payroll, after checking with payroll, because pausing it can stop a pay run. Then IT rotates the Brightline Payroll password or key today, even if nothing looks wrong.",
+      "why": {
+        "acknowledge": "Acknowledging tells the firm and your colleagues who owns the response, so work on this urgent alert does not stall or overlap.",
+        "pause_login": "This login is shared with a vendor that has a security incident, so pausing it keeps it unused until a new secret is in place.",
+        "rotate_login": "A shared login can only be relied on again once it has a new password or key that only your team holds.",
+        "check_access": "Payroll access can be used to add payees or change direct deposits, so recent activity shows whether anything needs explaining.",
+        "verify_payments": "A $92,000 payment to Brightline Payroll Inc. is held until verified, and a call to the number on file, +1 (415) 555-0142, confirms it.",
+        "revoke_tokens": "Connected-app grants can give Brightline Payroll Inc. access to your tenant separate from the shared login, so they need removing too.",
+        "tell_people": "Your cyber insurance policy may set a notice deadline, and your CEO should hear about this alert from your team.",
+        "restore_access": "Payroll needs to run, so access comes back once the login is rotated and the vendor confirms its fix, with sign-ins watched closely.",
+        "close_out": "The firm confirms the fix for all portfolio companies at once, and payments already held still need a controller's decision afterwards."
+      }
+    },
+    "demo-brightline-001|breach_fix|Summit Home Health": {
+      "facts": "{\"vendorName\":\"Brightline Payroll Inc.\",\"assetName\":\"Brightline Payroll\",\"assetKind\":\"payroll\",\"phoneOnFile\":\"+1 (415) 555-0142\",\"companyName\":\"Summit Home Health\",\"urgency\":\"urgent\",\"shareType\":\"same_vendor_only\",\"candidateLink\":false,\"finding\":false,\"whatToCheck\":null,\"heldPayments\":[{\"amount\":\"$480,000\",\"accountLast4\":\"7731\",\"bankDetailsChangedRecently\":true}],\"plannedSteps\":[],\"items\":[\"acknowledge\",\"verify_payments\",\"bank_change\",\"confirm_separate_login\",\"tell_people\",\"close_out\"]}",
+      "summary": "Urgent: please start today. Brightline Payroll Inc., a payroll vendor your team uses, has a security incident, and one $480,000 payment to it is held until verified. First, IT acknowledges the alert so everyone knows who owns the response. Next, a controller calls Brightline Payroll Inc. at the number on file, +1 (415) 555-0142, never a number from a recent email. A controller other than the requester then releases or rejects the payment. The controller also treats the recently added account ending 7731 as unverified.",
+      "why": {
+        "acknowledge": "Acknowledging shows the firm and your colleagues who owns the response, so the urgent steps that follow do not wait on anyone.",
+        "verify_payments": "A $480,000 payment is held until verified, and calling the number on file confirms the request through a channel you already know.",
+        "bank_change": "The account ending 7731 was added recently, so it stays unverified until Brightline Payroll Inc. confirms it on the number on file.",
+        "confirm_separate_login": "A login and MFA that nobody outside your company holds keeps your Brightline Payroll account separate from other customers of the same vendor.",
+        "tell_people": "Your policy may set a notice deadline, and your CEO should be briefed because the firm already sees this incident.",
+        "close_out": "Once the firm records the confirmed fix, new payments are no longer held, but the held $480,000 payment still needs a controller's decision."
+      }
+    },
+    "demo-ironclad-cred-002|breach_fix|Cedar Ridge Manufacturing": {
+      "facts": "{\"vendorName\":\"Ironclad Managed IT\",\"assetName\":\"Ironclad shared admin account\",\"assetKind\":\"msp\",\"phoneOnFile\":\"+1 (415) 555-0178\",\"companyName\":\"Cedar Ridge Manufacturing\",\"urgency\":\"urgent\",\"shareType\":\"shared_credential\",\"candidateLink\":false,\"finding\":false,\"whatToCheck\":null,\"heldPayments\":[],\"plannedSteps\":[\"pause_shared_login\",\"revoke_vendor_tokens\"],\"items\":[\"acknowledge\",\"pause_login\",\"rotate_login\",\"check_access\",\"revoke_tokens\",\"check_pending_payments\",\"tell_people\",\"restore_access\",\"close_out\"]}",
+      "summary": "Urgent: please start today. Ironclad Managed IT, whose shared admin account your team also uses, has a security incident. First, IT should acknowledge the alert so the firm and your colleagues know who owns the response. Next, IT should pause the Ironclad shared admin account in your identity provider, or sign out every session, until it is rotated. Then IT should rotate the account today, even if nothing looks wrong, turn on MFA, and keep the new secret only in your own vault.",
+      "why": {
+        "acknowledge": "Acknowledging shows the firm and your colleagues who owns this urgent response, so no step is missed or duplicated.",
+        "pause_login": "The account is shared with a vendor that has a security incident, so pausing it limits use until a new secret is in place.",
+        "rotate_login": "A new secret kept only in your own vault, with MFA, means you no longer rely on the one shared with Ironclad Managed IT.",
+        "check_access": "Reviewing sign-ins and admin changes since the incident was reported shows whether the shared account was used in ways you cannot explain.",
+        "revoke_tokens": "Connected-app grants give Ironclad Managed IT access separate from the shared account, so removing them closes that second route.",
+        "check_pending_payments": "Calling the number on file before paying confirms bank details through a channel you already trust, not one from a recent email.",
+        "tell_people": "Your cyber insurance policy may set a notification deadline, and your CEO should know because the firm already sees this incident.",
+        "restore_access": "Restoring only after rotation and the vendor's confirmed fix, then watching sign-ins for a week, avoids reopening access too early.",
+        "close_out": "The firm confirms the fix with Ironclad Managed IT for all portfolio companies, after which new payments to the vendor are no longer held."
+      }
+    },
+    "demo-ironclad-cred-002|breach_fix|Granite Peak Software": {
+      "facts": "{\"vendorName\":\"Ironclad Managed IT\",\"assetName\":\"Ironclad shared admin account\",\"assetKind\":\"msp\",\"phoneOnFile\":\"+1 (415) 555-0178\",\"companyName\":\"Granite Peak Software\",\"urgency\":\"urgent\",\"shareType\":\"shared_credential\",\"candidateLink\":false,\"finding\":false,\"whatToCheck\":null,\"heldPayments\":[],\"plannedSteps\":[\"pause_shared_login\"],\"items\":[\"acknowledge\",\"pause_login\",\"rotate_login\",\"check_access\",\"check_pending_payments\",\"tell_people\",\"restore_access\",\"close_out\"]}",
+      "summary": "Urgent: please have your team start today. Ironclad Managed IT, which shares the Ironclad shared admin account with Granite Peak Software, has a security incident. First, IT acknowledges the alert so the firm and your colleagues know who owns the response. Next, IT pauses the Ironclad shared admin account until it is rotated. Then IT rotates it today, even if nothing looks wrong, turns on MFA if it isn't on, and keeps the new secret only in your own vault.",
+      "why": {
+        "acknowledge": "Acknowledging shows the firm and your colleagues who owns Granite Peak Software's response, so nothing on this urgent alert is duplicated or missed.",
+        "pause_login": "This admin account is shared with a vendor that has an incident, so pausing it keeps the current secret from being used until rotation.",
+        "rotate_login": "The current secret is shared with a vendor that has an incident, so a new secret kept only in your vault puts control back with you.",
+        "check_access": "Reviewing activity through this account since the incident was reported shows whether any change was made that you cannot explain.",
+        "check_pending_payments": "Confirming bank details by calling the number on file, +1 (415) 555-0178, means your next payment does not rely on details sent by email.",
+        "tell_people": "Your cyber insurance policy may set a notice deadline, and counsel and your CEO should hear about this alert from your team directly.",
+        "restore_access": "The pause is temporary, so access comes back once the account is rotated and the vendor confirms its fix, with sign-ins watched afterward.",
+        "close_out": "The firm records when Ironclad Managed IT confirms its fix for all portfolio companies, and after that new payments to the vendor are no longer held."
+      }
+    },
+    "demo-ironclad-cred-002|breach_fix|Harborline Foods": {
+      "facts": "{\"vendorName\":\"Ironclad Managed IT\",\"assetName\":\"Ironclad shared admin account\",\"assetKind\":\"msp\",\"phoneOnFile\":\"+1 (415) 555-0178\",\"companyName\":\"Harborline Foods\",\"urgency\":\"urgent\",\"shareType\":\"shared_admin_access\",\"candidateLink\":false,\"finding\":false,\"whatToCheck\":null,\"heldPayments\":[],\"plannedSteps\":[],\"items\":[\"acknowledge\",\"vendor_admin\",\"check_access\",\"check_pending_payments\",\"tell_people\",\"close_out\"]}",
+      "summary": "Urgent: please have your team start today. Ironclad Managed IT, which has admin access to Harborline Foods through the Ironclad shared admin account, has a security incident. First, IT should press Acknowledge so everyone knows who owns the response. Next, IT should ask Ironclad Managed IT to rotate the admin account it uses for you and confirm by calling the number on file, +1 (415) 555-0178, not a number or link from a recent email. Then IT should review recent sign-ins and admin changes made through that account.",
+      "why": {
+        "acknowledge": "Acknowledging shows the firm and your colleagues who owns the Harborline Foods response, so no step is duplicated or missed.",
+        "vendor_admin": "Ironclad Managed IT has a security incident and uses a shared admin account for your company, so that account should be rotated.",
+        "check_access": "Reviewing activity through the shared admin account shows whether anything changed since the incident that your team cannot explain.",
+        "check_pending_payments": "Calling the number on file before paying Ironclad Managed IT means any bank-detail change requested by email is checked first.",
+        "tell_people": "Your policy may set a notice deadline, so your insurer, counsel and CEO should hear about the alert from you today.",
+        "close_out": "The firm records when Ironclad Managed IT confirms its fix, after which new payments are no longer held; already held payments need a controller's decision."
+      }
+    },
+    "demo-ironclad-msp-003|breach_fix|Alder Freight Systems": {
+      "facts": "{\"vendorName\":\"Ironclad Managed IT\",\"assetName\":\"Ironclad IT Services\",\"assetKind\":\"msp\",\"phoneOnFile\":\"+1 (415) 555-0178\",\"companyName\":\"Alder Freight Systems\",\"urgency\":\"advisory\",\"shareType\":\"same_vendor_only\",\"candidateLink\":false,\"finding\":false,\"whatToCheck\":null,\"heldPayments\":[{\"amount\":\"$24,000\",\"accountLast4\":\"5510\",\"bankDetailsChangedRecently\":false}],\"plannedSteps\":[],\"items\":[\"acknowledge\",\"verify_payments\",\"confirm_separate_login\",\"tell_people\",\"close_out\"]}",
+      "summary": "Advisory: Alder Freight Systems shares a vendor, Ironclad Managed IT, that has reported a security incident. Please work through this plan this week in the order shown. First, IT presses Acknowledge so ownership is clear. Then your controller verifies the held payment of $24,000 to Ironclad Managed IT, calling the vendor at the number on file before a second controller releases or rejects it. Next, IT confirms your Ironclad Managed IT account has its own login and MFA. The remaining steps follow.",
+      "why": {
+        "acknowledge": "Acknowledging tells the firm and your colleagues who owns the response, so nothing falls between people.",
+        "verify_payments": "One payment of $24,000 to Ironclad Managed IT is held until verified, so confirm it directly with the vendor before release.",
+        "confirm_separate_login": "A login and MFA nobody outside your company holds limits who can reach Ironclad IT Services during the vendor's incident.",
+        "tell_people": "Your insurer and counsel may set deadlines, and leadership should know the firm already sees this incident.",
+        "close_out": "The firm confirms the vendor's fix for all portfolio companies, after which new payments are no longer held."
+      }
+    },
+    "demo-ironclad-msp-003|breach_fix|Harborline Foods": {
+      "facts": "{\"vendorName\":\"Ironclad Managed IT\",\"assetName\":\"Ironclad IT Services\",\"assetKind\":\"msp\",\"phoneOnFile\":\"+1 (415) 555-0178\",\"companyName\":\"Harborline Foods\",\"urgency\":\"urgent\",\"shareType\":\"same_vendor_only\",\"candidateLink\":false,\"finding\":false,\"whatToCheck\":null,\"heldPayments\":[{\"amount\":\"$55,000\",\"accountLast4\":\"5510\",\"bankDetailsChangedRecently\":false},{\"amount\":\"$37,000\",\"accountLast4\":\"9902\",\"bankDetailsChangedRecently\":true}],\"plannedSteps\":[],\"items\":[\"acknowledge\",\"verify_payments\",\"bank_change\",\"confirm_separate_login\",\"tell_people\",\"close_out\"]}",
+      "summary": "Urgent: please start today. Ironclad Managed IT, a vendor your team shares with other Northpass Capital portfolio companies, has a security incident. First, IT acknowledges the alert so everyone knows who owns the response. Next, a controller verifies the 2 held payments to Ironclad Managed IT, $92,000 in all, by calling the vendor at the number on file, +1 (415) 555-0178. A controller also treats the recently added account ending 9902 as unverified. That payment is rejected unless the vendor confirms the account on the number on file.",
+      "why": {
+        "acknowledge": "Acknowledging shows the firm and your colleagues who owns the response at Harborline Foods, so no step is duplicated or missed.",
+        "verify_payments": "$92,000 in payments to Ironclad Managed IT are held until verified, and a call to the number on file checks the requests are genuine.",
+        "bank_change": "The $37,000 payment goes to an account ending 9902 that was added recently, so it needs the vendor's confirmation before release.",
+        "confirm_separate_login": "Your company uses the same vendor, so a login and MFA held only inside your company keeps your Ironclad IT Services access separate.",
+        "tell_people": "Your cyber insurance policy may set a notice deadline, and counsel and your CEO should hear about the alert from you early.",
+        "close_out": "The firm handles vendor follow-up for all portfolio companies, and payments already held still need a controller's decision after the fix."
+      }
+    },
+    "demo-ironclad-msp-003|breach_fix|Summit Home Health": {
+      "facts": "{\"vendorName\":\"Ironclad Managed IT\",\"assetName\":\"Ironclad IT Services\",\"assetKind\":\"msp\",\"phoneOnFile\":\"+1 (415) 555-0178\",\"companyName\":\"Summit Home Health\",\"urgency\":\"advisory\",\"shareType\":\"same_vendor_only\",\"candidateLink\":false,\"finding\":false,\"whatToCheck\":null,\"heldPayments\":[],\"plannedSteps\":[],\"items\":[\"acknowledge\",\"confirm_separate_login\",\"check_pending_payments\",\"tell_people\",\"close_out\"]}",
+      "summary": "Advisory: Ironclad Managed IT, a vendor Summit Home Health uses, has a security incident. Please have your team work through this plan this week. First, your IT lead should press Acknowledge so everyone knows who owns the response. Next, IT should confirm your Ironclad Managed IT account has its own login and MFA, and review sign-ins to Ironclad IT Services since the incident was reported. Then your AP clerk should confirm Ironclad Managed IT's bank details by calling the number on file, +1 (415) 555-0178, before the next payment.",
+      "why": {
+        "acknowledge": "Acknowledging tells the firm and your colleagues who at Summit Home Health owns the response, so nothing falls between people.",
+        "confirm_separate_login": "A login and MFA that only your company holds keeps your Ironclad IT Services access separate, and the sign-in review shows any unexpected activity.",
+        "check_pending_payments": "Calling the number on file confirms Ironclad Managed IT's bank details through a channel that does not depend on any recent email.",
+        "tell_people": "Your cyber insurance policy may set a notice deadline, and counsel and your CEO should hear about the alert from your team directly.",
+        "close_out": "The firm handles vendor follow-up for all portfolio companies, and once the fix is confirmed, new payments to the vendor are no longer held."
+      }
+    }
+  }
+}
